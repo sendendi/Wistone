@@ -80,7 +80,7 @@
     #define PACKET_TYPE_DATA        0x00
     #define PACKET_TYPE_COMMAND     0x01
     #define PACKET_TYPE_ACK         0x02
-    #define PACKET_TYPE_RESERVE     0x03
+    #define PACKET_TYPE_RESERVE     0x03 //YL 18.5 use PACKET_TYPE_RESERVE to represent beacon (PACKET_TYPE_BEACON)
 
 
 
@@ -111,11 +111,11 @@
         } flags;
         
         BYTE        *DestAddress;           // destination address
-        #if defined(IEEE_802_15_4)
+        // YL 26.8 #if defined(IEEE_802_15_4)
 			BOOL		altDestAddr;        // use the alternative network address as destination in the packet
             BOOL		altSrcAddr;         // use the alternative network address as source in the packet
             WORD_VAL    DestPANID;          // PAN identifier of the destination
-        #endif
+        // YL 26.8 #endif
 
     } MAC_TRANS_PARAM;
     
@@ -151,10 +151,10 @@
         BYTE        PayloadLen;                         // Payload size
         BYTE        RSSIValue;                          // RSSI value for the received packet
         BYTE        LQIValue;                           // LQI value for the received packet
-        #if defined(IEEE_802_15_4)
+        // YL 26.8 #if defined(IEEE_802_15_4)
             BOOL        altSourceAddress;               // Source address is the alternative network address
             WORD_VAL    SourcePANID;                    // PAN ID of the sender
-        #endif
+        // YL 26.8 #endif
     } MAC_RECEIVED_PACKET;
         
     /***************************************************************************
@@ -176,7 +176,7 @@
             } bits;   
         } actionFlags;
         
-        BYTE *PAddress;                                 // Permenet transceiver address
+        BYTE *PAddress;                                 // Permanent transceiver address
         
     } MACINIT_PARAM;
     

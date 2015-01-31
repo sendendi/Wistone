@@ -50,7 +50,7 @@
 
 /************************ HEADERS **********************************/
 #include "ConfigApp.h"
-#include "WirelessProtocols/SymbolTime.h"
+#include "SymbolTime.h"
 #include "Transceivers/Transceivers.h"
 #include "WirelessProtocols/MiWi/ConfigMiWi.h"
 
@@ -113,8 +113,8 @@ void DumpConnection(BYTE index);
 #define FAMILY_SIBLING      0x03
 
 
-#define ROLE_FFD_END_DEVICE 0x00
-#define ROLE_COORDINATOR 0x01
+#define ROLE_FFD_END_DEVICE  0x00
+#define ROLE_COORDINATOR 	 0x01
 #define ROLE_PAN_COORDINATOR 0x02
 
 #define DATA_REQUEST_ASSOCIATION_RESPONSE 0x00
@@ -130,15 +130,15 @@ void DumpConnection(BYTE index);
 /* as a user you are able to use Report types 0x10 - 0xFF */
 
 #define MIWI_STACK_REPORT_TYPE 0x00
-    #define OPEN_SOCKET_REQUEST 0x10
-    #define OPEN_SOCKET_RESPONSE 0x11
-    #define EUI_ADDRESS_SEARCH_REQUEST 0x20
-    #define EUI_ADDRESS_SEARCH_RESPONSE 0x21
-    #define ACK_REPORT_TYPE 0x30
-    
-    #define CHANNEL_HOPPING_REQUEST     0x40
-    #define RESYNCHRONIZATION_REQUEST   0x41
-    #define RESYNCHRONIZATION_RESPONSE  0x42
+#define OPEN_SOCKET_REQUEST 0x10
+#define OPEN_SOCKET_RESPONSE 0x11
+#define EUI_ADDRESS_SEARCH_REQUEST 0x20
+#define EUI_ADDRESS_SEARCH_RESPONSE 0x21
+#define ACK_REPORT_TYPE 0x30
+
+#define CHANNEL_HOPPING_REQUEST     0x40
+#define RESYNCHRONIZATION_REQUEST   0x41
+#define RESYNCHRONIZATION_RESPONSE  0x42
     
 
 /************************ DATA TYPE *******************************/
@@ -194,7 +194,7 @@ typedef struct
 {
     MIWI_TICK   TickStart;      // start time of the indirect message. Used for checking 
                                 // indirect message time out
-    #if defined(IEEE_802_15_4)                                
+    #if defined(IEEE_802_15_4)    	/*YL INDIRECT_MESSAGE isn't used*/                            
         WORD_VAL    DestPANID;      // the PAN identifier for the destination node
     #endif
     BYTE        DestAddress[MY_ADDRESS_LENGTH];             // unicast destination long address
@@ -230,6 +230,7 @@ extern BYTE myParent;
 extern BYTE tempLongAddress[MY_ADDRESS_LENGTH];
 extern WORD_VAL tempShortAddress;
 extern OPEN_SOCKET openSocketInfo;
+extern BYTE myLongAddress[]; //YL 2.5 for TxRx_Init()
 
 /************************ MACROS **********************************/
 #define MAC_FlushTx() {TxData = 0;}
@@ -239,10 +240,10 @@ extern OPEN_SOCKET openSocketInfo;
 #define MSK_ALT_SRC_ADDR        0x04
 #define MSK_ALT_DST_ADDR        0x08
 
-#define PACKET_TYPE_BEACON      0x03
+#define PACKET_TYPE_BEACON      0x03 //YL 18.5 PACKET_TYPE_BEACON is referred to as PACKET_TYPE_RESERVE
 
 #define MICRO_SECOND_PER_COUNTER_TICK   (1000000ul / ( COUNTER_CRYSTAL_FREQ / 8 ))
-    
+
 #endif
 
     

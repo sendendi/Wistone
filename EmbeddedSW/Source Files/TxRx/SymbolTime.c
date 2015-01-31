@@ -53,8 +53,8 @@
 #include "Compiler.h"
 #include "GenericTypeDefs.h"
 //#include "WirelessProtocols/Console.h"
-/************************ DEFINITIONS ******************************/
 
+/************************ DEFINITIONS ******************************/
 
 /************************ FUNCTION PROTOTYPES **********************/
 

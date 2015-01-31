@@ -58,10 +58,9 @@
     // band for Microchip MRF49XA. One and only one of the frequency
     // band must be defined 
     /*********************************************************************/
-    //#define BAND_915
-    
+    //#define BAND_915  
     //#define BAND_868
-    #define BAND_434
+    #define BAND_434 //MC #define BAND_915
     
     
     /*********************************************************************/
@@ -71,11 +70,10 @@
     // one of the data rate must be defined
     /*********************************************************************/
     //#define DATA_RATE_1200
-    
     //#define DATA_RATE_9600
     //#define DATA_RATE_19200
     //#define DATA_RATE_38400
-    #define DATA_RATE_57600
+    #define DATA_RATE_57600 //MC #define DATA_RATE_9600
     //#define DATA_RATE_115200
     
     
@@ -115,16 +113,16 @@
     // ENABLE_CCA enables MRF49XA to perform Clear Channel Assessement
     // before transmitting data in MiMAC layer. 
     /*********************************************************************/            
-    #define ENABLE_CCA
-    
+	#define ENABLE_CCA
+
     
     /*********************************************************************/
     // ENABLE_ACK enables MRF49XA to automatically send back an 
     // acknowledgement packet in MiMAC layer after receiving a packet, 
     // when such acknowledgement is requested by the packet sender.
     /*********************************************************************/
-    #define ENABLE_ACK
-    
+	#define ENABLE_ACK
+	
     
     /*********************************************************************/
     // ENABLE_RETRANSMISSION enables MRF49XA to retransmit the packet
@@ -132,7 +130,7 @@
     // acknowledgement packet is not received by the sender in predefined
     // time period.
     /*********************************************************************/
-    #define ENABLE_RETRANSMISSION
+	#define ENABLE_RETRANSMISSION
 
 
     /*********************************************************************/
@@ -141,8 +139,9 @@
     // CRC to infer the destination address. Infer destination address applies
     // to only transceivers that support MiMAC frame format and the CRC engine
     // that supports this feature.
+	// YL 13.4(BM) - should be commented
     /*********************************************************************/
-    #define INFER_DEST_ADDRESS
+	//#define INFER_DEST_ADDRESS //YL 27.7 - do we use CRC16?
     
     
     /*********************************************************************/
@@ -150,8 +149,9 @@
     // in the MAC layer, if the destination does not care where the message
     // comes from. This feature is highly application dependent. This feature
     // is only available for transceivers that support MiMAC frame format.
+	// YL 13.4(BM) - should be commented
     /*********************************************************************/
-    #define SOURCE_ADDRESS_ABSENT
+    //#define SOURCE_ADDRESS_ABSENT
 
 
     /*********************************************************************/
@@ -168,7 +168,7 @@
     // if a proper acknowledgement packet is not received in predefined 
     // time period, if ENABLE_RETRANSMISSION is defined.
     /*********************************************************************/
-    #define RETRANSMISSION_TIMES    5
+	#define RETRANSMISSION_TIMES    5 //MC #define RETRANSMISSION_TIMES    3
     
     
     /*********************************************************************/
@@ -217,13 +217,13 @@
 
 	#endif
 
-
+	//MC - only #define BANK_SIZE               2
     /*********************************************************************/
     // ACK_INFO_SIZE defines the number of acknowledgement information
     // structure can be stored to avoid duplicate packet to the protocol
     // layer.
     /*********************************************************************/
-    #define ACK_INFO_SIZE           25
+    #define ACK_INFO_SIZE           25 //MC #define ACK_INFO_SIZE           5
 
 
     /***********************************************************************/

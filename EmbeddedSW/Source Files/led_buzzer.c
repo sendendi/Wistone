@@ -81,7 +81,8 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 	static unsigned int 	timer4_tick_counter = 0;
 	static int 				power_switch_msec_counter = 0;
 	static unsigned int     adc_stage = SAMPLE_STAGE;
-	static unsigned long	led_cycle_time = 1600;
+	//BACKUP... static unsigned int		led_cycle_time = 1000;
+	static unsigned long		led_cycle_time = 200; //YL
 	
 	//===============
 	// ADS1282 SYNC
@@ -118,51 +119,49 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 	//   charge done				1		0		3
 	//	 charge suspend				1		1		4
 	// implement PWM (Tccle) according to vbat level: keep on-time very short to save battery power
+		
 	led_cycle_time--;
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 8) {
+	if (led_cycle_time == 200) {
 		if ((PWR_CHRG_STAT1 & PWR_CHRG_STAT2) & (~PWR_CHRG_USBPG)) {
 			LED_TRIS_2 = 0;
-			LED_PORT_2 = 1;					// turn LED on 
+			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 7) {
+	if (led_cycle_time == 175) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 6) {
+	if (led_cycle_time == 150) {
 		if ((PWR_CHRG_STAT1) & (~PWR_CHRG_USBPG)) {
 			LED_TRIS_2 = 0;
-			LED_PORT_2 = 1;					// turn LED on 
+			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 5) {
+	if (led_cycle_time == 125) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 4) {
+	if (led_cycle_time == 100) {
 		if (((PWR_CHRG_STAT1) | ((~PWR_CHRG_STAT1) & PWR_CHRG_STAT2)) & (~PWR_CHRG_USBPG)) {
 			LED_TRIS_2 = 0;
-			LED_PORT_2 = 1;					// turn LED on 
+			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 3) {
+	if (led_cycle_time == 75) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 2) {
+	if (led_cycle_time == 50) {
 		LED_TRIS_2 = 0;
-		LED_PORT_2 = 1;					// turn LED on 
+		LED_PORT_2 = 1;				// turn LED on 
 	}
-	if (led_cycle_time == (ADS1282_FREQ / 16) * 1) {
+	if (led_cycle_time == 25) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
-		// period between LED turning on times: 2~20 seconds depends on battery level
-		if (g_vbat_level > VBAT_STAT_MAX)
-			led_cycle_time = 20 * ADS1282_FREQ;	// 20 Sec
-		if (g_vbat_level > VBAT_STAT_MIN)
-			led_cycle_time = (unsigned long)((((long)g_vbat_level - (long)VBAT_STAT_MIN) * (long)20) / (long)(VBAT_STAT_MAX - VBAT_STAT_MIN)) * ADS1282_FREQ + (2 * ADS1282_FREQ);
-		else
-			led_cycle_time =  2 * ADS1282_FREQ + 1;	// 2 Sec
+		// period between LED turning on times: 1~10 seconds depends on battery level
+		//led_cycle_time = ((g_vbat_level - VBAT_STAT_MIN) / VBAT_STAT_UNIT) * 400 + 100;
+		//led_cycle_time = (((g_vbat_level - VBAT_STAT_MIN) * 10) / (VBAT_STAT_MAX - VBAT_STAT_MIN)) * 400 + 100;
+		led_cycle_time = (((g_vbat_level - VBAT_STAT_MIN) * 100) / (VBAT_STAT_MAX - VBAT_STAT_MIN)) * 20 + 75; //BM
 	}
 	
 	//===============

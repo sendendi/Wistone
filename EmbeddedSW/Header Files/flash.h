@@ -1,7 +1,7 @@
 #ifndef __FLASH_H__	
 #define __FLASH_H__
 
-#include "GenericTypeDefs.h"	
+#include "GenericTypeDefs.h"
 
 /***** DEFINE: ****************************************************************/
 #define MAX_FLASH_ADDR 	2147483647u			//max address in 2GB flash (2^31 - 1) 	

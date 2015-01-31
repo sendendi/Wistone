@@ -5,15 +5,15 @@
 #include "GenericTypeDefs.h"
 
 /***** DEFINE: ****************************************************************/
-#define MAX_LONG 2147483647u 	// = 2^31 - 1, to allow 32 bit integers (long), 
-								// e.g - for accessing EEPROM's memory space; u was added to avoid warning
-#define MAX_BYTE 255			// = 2^8 - 1 
+#define MAX_SIGNED_LONG 2147483647	// = (2^31 - 1), to allow 32 bit integers (long), [0 : (2^31 - 1)] //YL 5.8 was: 2147483647u to avoid warning
+#define MAX_SIGNED_INT	32767		// = (2^15 - 1), to allow 16 bit integers, [0 : (2^15 - 1)]	//YL 5.8 added for parse_int_num
+#define MAX_BYTE		255			// = (2^8 - 1), to allow 8 bit unsigned char, [0 : (2^8 - 1)] //YL 5.8 added for parse_byte_num
  
 #define N_COMMANDS (sizeof(g_cmd_names)/sizeof(char*))
 #define N_SUB_COMMANDS (sizeof(g_sub_cmd_names)/sizeof(char*))
 #define N_DEVICES (sizeof(g_dev_names)/sizeof(char*))
 #define N_MODES (sizeof(g_mode_names)/sizeof(char*))			
-#define N_DESTINATIONS (sizeof(g_dest_names)/sizeof(char*))	
+#define N_COMMUNICATIONS (sizeof(g_comm_names)/sizeof(char*))	//YL 5.8 was: N_DESTINATIONS
 #define N_SAMPLERS (sizeof(g_samp_names)/sizeof(char*))	
 
 typedef enum {
@@ -70,7 +70,6 @@ typedef enum {
 	SUB_CMD_RSECTOR		
 } SubCmdTypes;
 
-// device types for r/w command
 typedef enum {
 	DEV_LED = 0,
 	DEV_BUZZER,
@@ -92,10 +91,10 @@ typedef enum {
 } ModeTypes;
 
 typedef enum { 	
-	DEST_USB = 0,	
-	DEST_WIRELESS,
-	DEST_NONE	
-} DestTypes;
+	COMM_USB = 0,	
+	COMM_WIRELESS,
+	COMM_NONE	
+} CommTypes;	//YL 5.8 was: DestTypes, DEST_USB, ...
 
 typedef enum {
 	SAMP_BOTH_1282_8451,
@@ -106,7 +105,7 @@ typedef enum {
 void 	tokenize(char *msg);
 long 	parse_long_num(char *str); 	
 int 	parse_int_num(char *str);
-BYTE 	parse_byte_num(char *str);  		 							
+int 	parse_byte_num(char *str);	// YL 5.8 was: BYTE 	parse_byte_num(char *str);  		 							
 int 	parse_name(char *name, char **namelist, int listlen);
 int 	parse_command(char *name);
 int 	parse_sub_command(char *name);	
@@ -114,6 +113,7 @@ int 	parse_device(char *name);
 int 	parse_mode(char *name);  		
 int 	parse_destination(char *name);
 int		parse_single_dual_mode(char *name);
+int 	handle_plug_msg(void);	// YL 4.8 added
 #if defined WISDOM_STONE
 int 	handle_msg(char *msg);			
 int 	handle_write(void);

@@ -35,17 +35,17 @@ the code enables using 128 KByte EEPROM of Microchip 24FC1025-I/SM (as mentioned
 
 *******************************************************************************/
 #include "wistone_main.h"
-#ifdef WISDOM_STONE
+//#ifdef WISDOM_STONE //YL 23.4 commented and moved to let the plug use the eeprom too 
 
 /***** INCLUDE FILES: *********************************************************/
+#include <string.h>			//YL 6.8 to use strcpy
 #include "ports.h"
 #include "command.h"		//Application
 #include "error.h"			//Application
 #include "parser.h"			//Application	
 #include "system.h"			//Application	//YL for boot global vars
-#include "misc_c.h"			//Common		//YL 17.9
-#include "eeprom.h"			//Devices
-#include "i2c.h"			//Protocols
+#include "eeprom.h"			//Devices 	 
+#include "i2c.h"			//Protocols	
 #include "TimeDelay.h"		//TxRx - Common
 
 /***** GLOBAL VARIABLES: ******************************************************/	
@@ -68,20 +68,20 @@ int eeprom_write_byte(long addr, BYTE dat)
 	block_addr = addr & 0x00010000;					//to get 17-th bit 
 	block_addr = block_addr << 3;					//pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  //pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  // YL 26.2 
 	device_addr = device_addr & block_addr;					
-#endif // #ifdef EEPROM_128K
-	if (addr > EEPROM_MEMORY_SIZE || addr <= LAST_BOOT_ADDRESS) {	//to avoid accessing illegal addrs
+#endif //EEPROM_128K
+	if (addr > EEPROM_MEMORY_SIZE || addr <= LAST_BOOT_ADDRESS){	//to avoid accessing illegal addrs
 		err(ERR_EEPROM_WRITE_BYTE);
 		return -1;
 	}
 
-	if (addr == SN_ADDRESS && g_sn_write == FALSE) { //YL 11.11 added g_sn_write
+	if (addr == SN_ADDRESS && g_sn_write == FALSE){ //YL 11.11 added g_sn_write
 		err(ERR_EEPROM_WRITE_BYTE);
 		return -1;
 	}				
 	data_to_write[0] = (addr >> 8) & 0x000000FF; 	//high address //YL 28.9	
 	data_to_write[1] = addr & 0x000000FF; 			//low address
 	data_to_write[2] = dat; 						//data byte
-	if (device_write_i2c_ert(device_addr, 3, data_to_write, I2C_WRITE)){ 										
+	if (device_write_i2c_ert(device_addr, 3, (BYTE*)data_to_write, I2C_WRITE)){ // YL 14.4 added casting to avoid signedness warning										
 		err(ERR_EEPROM_WRITE_BYTE);					//2 error cases: EEPROM didn't ack, or failing to write after 5 trials
 		return -1;
 	}
@@ -105,13 +105,13 @@ int eeprom_read_byte(long addr)
 	block_addr = addr & 0x00010000;					//to get 17-th bit
 	block_addr = block_addr << 3;					//pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  
 	device_addr = device_addr & block_addr;	
-#endif // #ifdef EEPROM_128K
+#endif //EEPROM_128K
 	if (addr > EEPROM_MEMORY_SIZE)					//to avoid accessing illegal addrs
 		return err(ERR_EEPROM_READ_BYTE);
 	data_to_write[0] = (addr >> 8) & 0x000000FF;	//high address //YL 28.9	
 	data_to_write[1] = addr & 0x000000FF; 			//low address
 	// first, write the address we would like to start read from
-	if (device_write_i2c_ert(device_addr, 2, data_to_write, I2C_READ)){
+	if (device_write_i2c_ert(device_addr, 2, (BYTE*)data_to_write, I2C_READ)){ // YL 14.4 added casting to avoid signedness warning
 		err(ERR_EEPROM_WRITE_BYTE);					//EEPROM acks accepting the address by 0
 		return -1;
 	}
@@ -124,6 +124,8 @@ int eeprom_read_byte(long addr)
 	return res;
 }
 
+#ifdef WISDOM_STONE //YL 23.4 moved to let the plug use the eeprom too
+
 /*******************************************************************************
 // eeprom_format()
 // write entire EEPROM memory with EEPROM_DEFAULT_VALUE,
@@ -134,11 +136,14 @@ int eeprom_format(void)
 {
 	int i = 0, j = 0;
 	BYTE device_addr = EEPROM_DEVICE_ADDRESS;
-	device_addr = (device_addr << 1) + 0;			//including 0 lsd to specify writing
+	device_addr = (device_addr << 1) + 0;			//including '0' lsd to specify writing
 	int high_addr, low_addr;						//of first address word in each eeprom page
 	BYTE dat = EEPROM_DEFAULT_VALUE;				//data to write
 	
-	while (i < NUM_OF_EEPROM_PAGES){ 
+	// YL 22.8 ... to avoid erasing data like EUI_0
+	// was: while (i < NUM_OF_EEPROM_PAGES){
+	while (i < NUM_OF_EEPROM_PAGES - 1){
+	// ... YL 22.8
 		start_i2c_ert(0);
 		high_addr = ((i * EEPROM_PAGE_SIZE) >> 8) & 0x00FF; //YL 27.9 was: (i * EEPROM_PAGE_SIZE) & 0xFF00;
 		low_addr = (i * EEPROM_PAGE_SIZE) & 0x00FF;
@@ -177,15 +182,15 @@ int eeprom_write_n_bytes(long addr, char* dat)	//YL 17.9
 	block_addr = addr & 0x00010000;					//to get 17-th bit 
 	block_addr = block_addr << 3;					//pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  //pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  // YL 26.2 
 	device_addr = device_addr & block_addr;					
-#endif // #ifdef EEPROM_128K
+#endif //EEPROM_128K
 	data_to_write[0] = (addr >> 8) & 0x000000FF; 	//high address //YL 28.9
 	data_to_write[1] = addr & 0x000000FF; 			//low address
 	for (i = 2; i < (EEPROM_PAGE_SIZE + 2); i++)
 		data_to_write[i] = '\0';					//after 2 first address bytes - data_to_write contains initially an empty 64-bytes sequence (to make sure the entry is completely erased)
 	if (dat[0] != '\0') 
-		strcpy_ws(&data_to_write[2], dat);			//if dat string isn't empty then it is appended after 2 first address bytes (if dat string is empty, then it is meant to erase 64-bytes boot table entry) 				
+		strcpy(&data_to_write[2], dat);			//if dat string isn't empty then it is appended after 2 first address bytes (if dat string is empty, then it is meant to erase 64-bytes boot table entry) 				
 	len = EEPROM_PAGE_SIZE + 2;						//len includes 2 first address bytes, and is the same - whether the string is empty or not	
-	if (device_write_i2c_ert(device_addr, len, data_to_write, I2C_WRITE))								
+	if (device_write_i2c_ert(device_addr, len, (BYTE*)data_to_write, I2C_WRITE))	// YL 14.4 added casting to avoid signedness warning						
 		return err(ERR_EEPROM_WRITE_N_BYTES);			
 	DelayMs(20); 									//need at least 20ms delay between writes
 	
@@ -214,17 +219,17 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 	block_addr = addr & 0x00010000;					//to get 17-th bit
 	block_addr = block_addr << 3;					//pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  
 	device_addr = device_addr & block_addr;	
-#endif // #ifdef EEPROM_128K
+#endif //EEPROM_128K
 	data_to_write[0] = (addr >> 8) & 0x000000FF; 	//high address
 	data_to_write[1] = addr & 0x000000FF; 			//low address	
 	i = len / EEPROM_PAGE_SIZE;						//every time only EEPROM_PAGE_SIZE characters are displayed (or less)
 	j = len % EEPROM_PAGE_SIZE;
 	while (i) {	 									//display all blocks of EEPROM_PAGE_SIZE (64 bytes)
 		// first, write the address we would like to start read from 
-		if (device_write_i2c_ert(device_addr, 2, data_to_write, I2C_READ))	//there is no restriction on length, but the buffer that is used for reading is statically allocated, so before we read a new block - 2 addresses (device_addr and data_to_write) need to be sent first
+		if (device_write_i2c_ert(device_addr, 2, (BYTE*)data_to_write, I2C_READ))	// YL 14.4 added casting to avoid signedness warning //there is no restriction on length, but the buffer that is used for reading is statically allocated, so before we read a new block - 2 addresses (device_addr and data_to_write) need to be sent first
 			return err(ERR_EEPROM_READ_N_BYTES);						
 		// then, read the data string
-		if (device_read_i2c_ert(device_addr, EEPROM_PAGE_SIZE, data_to_read, I2C_READ)) 	
+		if (device_read_i2c_ert(device_addr, EEPROM_PAGE_SIZE, (BYTE*)data_to_read, I2C_READ)) 	// YL 14.4 added casting to avoid signedness warning
 			return err(ERR_EEPROM_READ_N_BYTES);
 		k = 0;
 		while (k < EEPROM_PAGE_SIZE) {						//display all non-blank character sequences in current eeprom page, use "; " to separate the sequences //YL 10.10
@@ -232,7 +237,7 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 				k++;
 			if (k < EEPROM_PAGE_SIZE) {
 				m_write(&data_to_read[k]); 				
-				k += strlen_ws(&data_to_read[k]); 	
+				k += strlen(&data_to_read[k]); 	
 				m_write("; ");	
 			}
 		}
@@ -243,15 +248,15 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 		block_addr = addr & 0x00010000;						//to get 17-th bit
 		block_addr = block_addr << 3;						//pick upper/lower block in 128K EEPROM address space by assigning block_addr bit to 3-rd from right bit in device_addr  
 		device_addr = device_addr & block_addr;	
-#endif // #ifdef EEPROM_128K
+#endif //EEPROM_128K
 		i--;
 	} 
 	if (j) {												//display the remainig bytes (less than EEPROM_PAGE_SIZE)
 		// first, write the address we would like to start read from
-		if (device_write_i2c_ert(device_addr, 2, data_to_write, I2C_READ))
+		if (device_write_i2c_ert(device_addr, 2, (BYTE*)data_to_write, I2C_READ)) // YL 14.4 added casting to avoid signedness warning
 			return err(ERR_EEPROM_READ_N_BYTES);				
 		// then, read the data string
-		if (device_read_i2c_ert(device_addr, j, data_to_read, I2C_READ))	
+		if (device_read_i2c_ert(device_addr, j, (BYTE*)data_to_read, I2C_READ))	 // YL 14.4 added casting to avoid signedness warning
 			return err(ERR_EEPROM_READ_N_BYTES);		
 		data_to_read[j] = '\0';								//append '\0' to displayed string 
 		k = 0;
@@ -260,7 +265,7 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 				k++;
 			if (k < j) {
 				m_write(&data_to_read[k]);				
-				k += strlen_ws(&data_to_read[k]); 
+				k += strlen(&data_to_read[k]); 
 				m_write("; ");								
 			}
 		}
@@ -296,11 +301,10 @@ int eeprom_boot_get(BYTE entry)	//YL 17.9
 	long address = 0;
 	
 	address = BASE_BOOT_ADDRESS + entry * EEPROM_PAGE_SIZE;					//convert boot table entry number (0,... 9) to address within the EEPROM
-	if (eeprom_read_n_bytes(address, g_curr_boot_cmd, MAX_BOOT_CMD_LEN))		//read the command + '\0' + invalid following characters up to MAX_BOOT_CMD_LEN bytes
+	if (eeprom_read_n_bytes(address, g_curr_boot_cmd, MAX_BOOT_CMD_LEN))	//read the command + '\0' + invalid following characters up to MAX_BOOT_CMD_LEN bytes
 		return err(ERR_EEPROM_BOOT_GET);
 	return 0;
 }
-
 
 
 /*******************************************************************************
@@ -327,12 +331,12 @@ char* get_string(void)		//YL 19.9
 		
 	while ((g_in_msg[i] == ' ') || (g_in_msg[i] == '\t')) 		//skip the spaces until the third string which is a number
 		i++;
-	i += strlen_ws(g_tokens[2]); 	//number
+	i += strlen(g_tokens[2]); 	//number
 	
 	if (*(g_in_msg + i)) {		 	//just in case the remaining string is not empty
 		while ((g_in_msg[i] == ' ') || (g_in_msg[i] == '\t')) 	//skip the spaces until the first non-white character of the remaining g_in_msg 
 			i++;
-		j = strlen_ws(g_in_msg + i);
+		j = strlen(g_in_msg + i);
 		if (j > EEPROM_PAGE_SIZE - 3) {							//in case the remainig g_in_msg is longer than 61 bytes
 			m_write("note: only first 61 bytes are written");	//warning
 			write_eol();
@@ -341,7 +345,7 @@ char* get_string(void)		//YL 19.9
 		else {
 			g_in_msg[i + j] = '\0';								//append '\0'					
 		}
-		strcpy_ws(g_eeprom_buffer, &g_in_msg[i]);		
+		strcpy(g_eeprom_buffer, &g_in_msg[i]);		
 	}
 	
 	return g_eeprom_buffer;
@@ -412,7 +416,7 @@ int handle_eeprom(int sub_cmd)
 		break;
 				
 		default:
-			return cmd_error(ERR_INVALID_SUB_CMD);
+			return cmd_error(ERR_UNKNOWN_SUB_CMD);
 		break;
 	}
 	if (res < 0)
@@ -421,4 +425,6 @@ int handle_eeprom(int sub_cmd)
 	cmd_ok();
 	return 0;
 }
-#endif // #ifdef WISDOM_STONE
+
+#endif //WISDOM_STONE
+

@@ -51,19 +51,22 @@
 ********************************************************************/
 
 #include "SystemProfile.h"
-#include "Accelerometer.h"
+#include "accelerometer.h" 
 
 #if defined(MRF49XA)
     #include "Transceivers/MCHP_MAC.h"
     #include "Transceivers/MRF49XA/MRF49XA.h"
-    #include "TxRx/SymbolTime.h"
-//    #include "WirelessProtocols/Console.h"
+    #include "SymbolTime.h" 
     #include "TimeDelay.h"
-    //#include "Devices/NVM.h"	//YL 7.8
     #include "Transceivers/Security.h"
     #include "Transceivers/crc.h"
     #include "WirelessProtocols/MCHP_API.h"
-
+	
+	#if defined DEBUG_PRINT
+		#include "command.h"
+		#include "misc_c.h"
+	#endif
+	
     //==============================================================
     // Global variables:
     //==============================================================
@@ -88,7 +91,27 @@
     BYTE                        TxMACSeq;
     BYTE                        MACSeq;
     BYTE                        ReceivedBankIndex;
-    
+	
+	// YL 29.8 ...
+	WORD_VAL myNetworkAddress;
+	
+	typedef enum {	
+	// to update flags byte in MAC_TRANS_PARAM with proper combination
+	// of source and destination short/long addresses;
+	// the bits that are used are:
+	// - secEn (#3) - because we don't use security
+	// - repeat (#4) - because it doesn't seem to be used; consider clearing/setting this bit after it is used
+	// the reason we need this enum is that MRF49 does not send altDestAddr and altSrcAddr.
+		L_DST_L_SRC = 0b00000000,
+		L_DST_S_SRC = 0b00001000,
+		S_DST_L_SRC = 0b00010000,
+		S_DST_S_SRC = 0b00011000
+	} AddressCombination;
+	
+	#define DST_SRC_GET_MASK		(SECURITY_MASK & REPEAT_MASK)		// to get bits #3 and #4 in flags byte	
+	#define DST_SRC_CLR_MASK 		~DST_SRC_GET_MASK					// to clear bits #3 and #4 in flags byte
+	// ... YL 29.8
+	
     #if defined(ENABLE_ACK)
         volatile    BOOL hasAck = FALSE;
         #if defined(ENABLE_RETRANSMISSION)
@@ -304,16 +327,16 @@
         #endif
 		
 		#if defined(ENABLE_ACK) && defined(ENABLE_RETRANSMISSION)
-            BYTE reTry = RETRANSMISSION_TIMES;
+			BYTE reTry = RETRANSMISSION_TIMES;
         #endif
               
 			messageRetryCounter = 0;	// ABYS
-			
+						
         #if defined(ENABLE_ACK) && defined(ENABLE_RETRANSMISSION)
-            while( reTry-- )
+			while( reTry-- )
         #endif
-        {
-			messageRetryCounter++;	// ABYS
+        {		
+			messageRetryCounter++;		// ABYS
             BYTE allowedTxFailure;
             BYTE synCount;
             BYTE DQDOK;
@@ -441,7 +464,7 @@ Start_CCA:
             RFIE = 1;
 			//ACC_IE = oldACCIE;
     
-            #if defined(ENABLE_ACK) 
+            #if defined(ENABLE_ACK)
                 if( (MACTxBuffer[0] & ACK_MASK) > 0 )        // required acknowledgement
                 {
                     TxMACSeq = MACTxBuffer[1];
@@ -514,7 +537,35 @@ TX_END_HERE:
      *****************************************************************************************/ 
     BOOL MiMAC_SetAltAddress(INPUT BYTE *Address, INPUT BYTE *PANID)
     {
-        return FALSE;
+		// YL 29.8 ...
+		// was: return FALSE;
+		myNetworkAddress.v[0] = Address[0];
+        myNetworkAddress.v[1] = Address[1];
+				
+		// note:
+		// > PANID information - the transmitting side:
+		// 		1. MAC header: DestPANID from MAC_TRANS_PARAM:
+		// 			- MRF24 tranceives it, 
+		//			- MRF49 does not (in "IEEE_802_15_4-like" vesion too)
+		// 		2. MiWi header: PANID source and destination id-s from TxBuffer
+		//			- is tranceived in both cases (as MAC payload)
+		//	 in our "IEEE_802_15_4-like" vesion we use constant PANID (= MY_PAN_ID),
+		// 	 therefore our version does not support multiple PANs
+		// > PANID information - the receiving side:
+		//		1. MAC header: SourcePANID in MAC_RECEIVED_PACKET
+		//		2. MiWi header: SourcePANID in RECEIVED_MESSAGE
+		// > "IEEE_802_15_4-like" adjustments of PANID:
+		//		1. MAC:
+		//			MRF49 was adjusted to interpret DestPANID from MAC_TRANS_PARAM
+		//			as MRF24 does
+		//		2. MiWi: 
+		//			whenever TxBuffer is sent - source and destination PANIDs
+		//			are set to constant MY_PAN_ID values;
+		//			[in some cases MiWi assigns 0xFFFF to PANID, 
+		//			but this is only done as a reset, 
+		//			and does not effect the execution path]
+		return TRUE;
+		// ... YL 29.8
     }
     
     /************************************************************************************
@@ -557,7 +608,7 @@ TX_END_HERE:
      *      None
      *
      *****************************************************************************************/       
-    BOOL MiMAC_SetChannel(INPUT BYTE channel, INPUT BYTE offsetFreq)
+    BOOL MiMAC_SetChannel(INPUT BYTE channel, INPUT BYTE offsetFreq) 
     {
         if( channel >= CHANNEL_NUM )    
         {
@@ -649,7 +700,7 @@ TX_END_HERE:
          
         MACInitParams = initValue;
            
-        PHY_CS = 1;           // nSEL inactive
+        PHY_CS = 1;          // nSEL inactive
         nFSEL = 1;           // nFFS inactive
         SPI_SDO = 0;        
         SPI_SCK = 0;        
@@ -694,9 +745,10 @@ TX_END_HERE:
         #endif
     
     
-        //----  configuring the RF link --------------------------------
-        RegisterSet(FIFORSTREG);
-        RegisterSet(FIFORSTREG | 0x0002);                               // enable synchron latch
+        //configuring the RF link:
+        
+		RegisterSet(FIFORSTREG);
+        RegisterSet(FIFORSTREG | 0x0002);                  // enable synchron latch
         RegisterSet(GENCREG);
         RegisterSet(AFCCREG);
         RegisterSet(0xA7D0);                                            
@@ -706,14 +758,14 @@ TX_END_HERE:
         RegisterSet(TXCREG);
         RegisterSet(BBFCREG);
         // antenna tuning on startup
-        RegisterSet(PMCREG | 0x0020);                                   // turn on the transmitter
-        DelayMs(5);                                                    // ant.tuning time (~100us) + Xosc starup time (5ms)
+        RegisterSet(PMCREG | 0x0020);                       // turn on the transmitter
+        DelayMs(5);                                         // ant.tuning time (~100us) + Xosc starup time (5ms)
         // end of antenna tuning
-        RegisterSet(PMCREG | 0x0080);                                   // turn off transmitter, turn on receiver
-        RegisterSet(GENCREG | 0x0040);                                  // enable the FIFO
+        RegisterSet(PMCREG | 0x0080);                       // turn off transmitter, turn on receiver
+        RegisterSet(GENCREG | 0x0040);                      // enable the FIFO
         RegisterSet(FIFORSTREG);
-        RegisterSet(FIFORSTREG | 0x0002);                               // enable synchron latch
-        RegisterSet(0x0000);										    // read status byte (read ITs)
+        RegisterSet(FIFORSTREG | 0x0002);                   // enable synchron latch
+        RegisterSet(0x0000);								// read status byte (read ITs)
         
         
         return TRUE;
@@ -738,7 +790,7 @@ TX_END_HERE:
      *
      * Parameters: 
      *      MAC_TRANS_PARAM transParam -    The struture to configure the transmission way
-     *      BYTE * MACPaylaod -             Pointer to the buffer of MAC payload
+     *      BYTE * MACPayload -             Pointer to the buffer of MAC payload
      *      BYTE MACPayloadLen -            The size of the MAC payload
      *
      * Returns: 
@@ -756,61 +808,177 @@ TX_END_HERE:
     BOOL MiMAC_SendPacket( INPUT MAC_TRANS_PARAM transParam, 
                         INPUT BYTE *MACPayload, 
                         INPUT BYTE MACPayloadLen)
-    {
+    {		
 		BOOL status;
-
 
         BYTE i;
         BYTE TxIndex;
-        WORD crc;
-      
+        WORD crc;	/*YL - note the difference: MRF49 calculates crc, MRF24 probably uses hardware crc*/ 
+ 	  		
         if( MACPayloadLen > TX_BUFFER_SIZE )
-        {
+        {	
             return FALSE;
         }
-
-        #if defined(INFER_DEST_ADDRESS)
-            transParam.flags.bits.destPrsnt = 0;
-        #else
-            transParam.flags.bits.destPrsnt = (transParam.flags.bits.broadcast) ? 0:1;
-        #endif
-        
-        #if !defined(SOURCE_ADDRESS_ABSENT)
-            transParam.flags.bits.sourcePrsnt = 1;
-        #endif
-        
-        if( transParam.flags.bits.packetType == PACKET_TYPE_COMMAND )
+		
+		// YL - MiMAC_SendPacket fills MACTxBuffer with:
+		
+		// YL - 1. MAC Header:
+		        
+		// YL 30.8 ... MRF24 doesn't use destPrsnt and sourcePrsnt flags
+		// was:
+		// #if defined(INFER_DEST_ADDRESS) /*YL - for MRF49 only*/
+            // transParam.flags.bits.destPrsnt = 0; 
+        // #else
+            // transParam.flags.bits.destPrsnt = (transParam.flags.bits.broadcast) ? 0 : 1;
+        // #endif
+        		
+        // #if !defined(SOURCE_ADDRESS_ABSENT) /*YL - for MRF49 only*/
+            // transParam.flags.bits.sourcePrsnt = 1;
+        // #endif
+        		
+        // if( transParam.flags.bits.packetType == PACKET_TYPE_COMMAND )
+        // {
+            // transParam.flags.bits.sourcePrsnt = 1;
+        // }
+		// ... YL 30.8
+		
+		// YL 5.9 ... we need destPrsnt and sourcePrsnt flags for the ISR; MRF24 always inserts dest and source addresses (in broadcast too)
+		transParam.flags.bits.destPrsnt = (transParam.flags.bits.broadcast) ? 0 : 1; // YL in case of broadcast the ISR doesn't compare received destination address to the receiving device address 
+		transParam.flags.bits.sourcePrsnt = 1;
+		// ... YL 5.9
+				
+ 		// YL 29.8 ...
+        if( transParam.flags.bits.broadcast )
         {
-            transParam.flags.bits.sourcePrsnt = 1;
+			transParam.altDestAddr = TRUE;
+			// YL 30.8 ...
+			transParam.flags.bits.ackReq = FALSE; // for i |= 0x20 in MRF24
+			// ... YL 30.8
         }
-      
-        MACTxBuffer[0] = transParam.flags.Val;
+		// ... YL 29.8
+				
+		// YL 29.8 packetType - DATA type isn't used in our MiWi (because we don't use SendIndirectPacket)
+		
+		// YL 29.8 ...
+		if( transParam.flags.bits.packetType == PACKET_TYPE_RESERVE)
+        {			
+            transParam.altSrcAddr = TRUE;	
+		}
+		// ... YL 29.8
+		
+		// YL - 1. MAC Header: - FrameCtrl (1 byte, flags byte from MAC_TRANS_PARAM with destPrsnt, sourcePrsnt, packetType, broadcast; maybe updated in the lines above):
+				
+		// YL 29.8 ...
+		// pick the proper destination-and-source-short/long-addresses combination:
+		AddressCombination addressCombination = 0; 
+		if( transParam.altDestAddr == 0 && transParam.altSrcAddr == 0 )
+		{
+			addressCombination = L_DST_L_SRC; // note: enum is int
+		}
+		else if( transParam.altDestAddr == 0 && transParam.altSrcAddr == 1 ) 
+		{
+			addressCombination = L_DST_S_SRC;
+		}
+		else if( transParam.altDestAddr == 1 && transParam.altSrcAddr == 0 ) 
+		{
+			addressCombination = S_DST_L_SRC;
+		}
+		else 
+		{
+			addressCombination = S_DST_S_SRC;
+		}
+		// clear the bits of the combination:
+		transParam.flags.Val &= DST_SRC_CLR_MASK;		
+		// indicate the proper combination:
+		transParam.flags.Val |= addressCombination;
+		// ... YL 29.8
+				
+        MACTxBuffer[0] = transParam.flags.Val; 	/*YL - note the difference: MRF49 sends the flag, MRF 24 reconstructs it*/
+			
+		// YL - 1. MAC Header: - Sequence Number (1 byte):
+		
         MACTxBuffer[1] = MACSeq++;
         crc = CRC16((BYTE *)MACTxBuffer, 2, 0);
         
         TxIndex = 2;
         
-        if( transParam.flags.bits.destPrsnt )
-        {   
-            for(i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++)
-            {
-                MACTxBuffer[TxIndex++] = transParam.DestAddress[i];
-            }
-        }
-        if( transParam.flags.bits.broadcast == 0 )
-        {
-            crc = CRC16(transParam.DestAddress, MACInitParams.actionFlags.bits.PAddrLength, crc);
-        }
-    
-        if( transParam.flags.bits.sourcePrsnt )
-        {   
-            for(i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++)
-            {
-                MACTxBuffer[TxIndex++] = MACInitParams.PAddress[i];
-            }
-            crc = CRC16((BYTE *)&(MACTxBuffer[TxIndex-MACInitParams.actionFlags.bits.PAddrLength]), MACInitParams.actionFlags.bits.PAddrLength, crc);
-        }
-    
+		// YL - 1. MAC Header: - Destination Address:
+		
+		// YL 30.8 ... MRF24 doesn't use destPrsnt and sourcePrsnt flags
+		// was:
+        // if( transParam.flags.bits.destPrsnt )
+        // { 			
+            // for( i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++ ) 
+            // {
+                // MACTxBuffer[TxIndex++] = transParam.DestAddress[i];				          
+			// }
+        // }
+		// ... YL 30.8
+		
+		// YL 30.8 ...		
+		BYTE* destination = transParam.DestAddress;				// YL use destination address from MAC_TRANS_PARAM by default, unless broadcast; DestAddress contains short or long address (depends on altDestAddr)
+		BYTE broadcastAddress[MY_ADDRESS_LENGTH];
+		if( transParam.flags.bits.broadcast )			
+		{
+			for( i = 0; i < MY_ADDRESS_LENGTH; i++ )	
+			{
+				broadcastAddress[i] = 0xFF;	
+			}
+			destination = broadcastAddress;						// YL use broadcast address
+		}		
+		for( i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++ ) 		// YL note: this works only if short and long address have the same length 
+																				// (in our case - both are 2 bytes long)
+		{
+			// YL 6.9 ... for crc
+			// was: MACTxBuffer[TxIndex++] = *(destination++);
+			MACTxBuffer[TxIndex++] = *(destination + i);
+			// ... YL 6.9
+		}
+		// ... YL 30.8		
+		
+        // YL 6.9 ... we always send some destination address 
+		// was:
+		// if( transParam.flags.bits.broadcast == 0 )
+        // {
+            // crc = CRC16(transParam.DestAddress, MACInitParams.actionFlags.bits.PAddrLength, crc);
+        // }
+		crc = CRC16(destination, MACInitParams.actionFlags.bits.PAddrLength, crc);		// destination is the address that is eventually sent
+		// ... YL 6.9
+
+		// YL - 1. MAC Header: - Source Address:
+		
+		// YL 30.8 ... MRF24 doesn't use destPrsnt and sourcePrsnt flags		
+        // was:
+		// if( transParam.flags.bits.sourcePrsnt )
+        // {				
+            // for( i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++ )																	
+            // {
+                // MACTxBuffer[TxIndex++] = MACInitParams.PAddress[i];		
+            // }
+            // crc = CRC16((BYTE *)&(MACTxBuffer[TxIndex-MACInitParams.actionFlags.bits.PAddrLength]), MACInitParams.actionFlags.bits.PAddrLength, crc);
+        // }
+		// ... YL 30.8
+	
+		// YL 30.8 ...		
+		BYTE* source = MACInitParams.PAddress;					// YL use source long address from MACINIT_PARAM by default, unless altSrcAddr
+		if( transParam.altSrcAddr ) 
+		{	
+			source = (BYTE*)(&myNetworkAddress.v[0]);			// YL use global source short address (set by MiMAC_SetAltAddress)
+		}			
+		for( i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++ )		// YL note: this works only if short and long address have the same length 
+																				// (in our case - both are 2 bytes long)
+		{
+			// YL 6.9 ... for crc
+			// was: MACTxBuffer[TxIndex++] = *(source++);
+			MACTxBuffer[TxIndex++] = *(source + i);
+			// ... YL 6.9
+		}
+		// YL 6.9 ...
+		// was: crc = CRC16((BYTE *)&(MACTxBuffer[TxIndex - MACInitParams.actionFlags.bits.PAddrLength]), MACInitParams.actionFlags.bits.PAddrLength, crc); /*YL we write the address anyway, so there is no need to check if (sourcePrsnt)*/
+		crc = CRC16(source, MACInitParams.actionFlags.bits.PAddrLength, crc); // source is the address that is eventually sent		
+		// ... YL 6.9
+		// ... YL 30.8		
+				
         #if defined(ENABLE_SECURITY)
             if( transParam.flags.bits.secEn )
             {
@@ -863,26 +1031,27 @@ TX_END_HERE:
                         TxIndex += SEC_MIC_LEN;
                     #endif
                     
-                    crc = CRC16((BYTE *)&(MACTxBuffer[headerLen-5]), (MACPayloadLen + SEC_MIC_LEN + 5), crc);
+                    crc = CRC16((BYTE *)&(MACTxBuffer[headerLen - 5]), (MACPayloadLen + SEC_MIC_LEN + 5), crc);
                 }
             }
             else
     
         #endif
     
-        {
-            for(i = 0; i < MACPayloadLen; i++)
-            {
-                MACTxBuffer[TxIndex++] = MACPayload[i];
-            }
-            
-            crc = CRC16(MACPayload, MACPayloadLen, crc);
-        }    
+		// YL - 2. MAC Payload:
+				
+		for(i = 0; i < MACPayloadLen; i++)
+		{
+			MACTxBuffer[TxIndex++] = MACPayload[i];				
+		}
+		
+		crc = CRC16(MACPayload, MACPayloadLen, crc);   
     
-    
-        MACTxBuffer[TxIndex++] = (BYTE)(crc>>8);
+		// YL - 3. CRC:
+			
+        MACTxBuffer[TxIndex++] = (BYTE)(crc >> 8);
         MACTxBuffer[TxIndex++] = (BYTE)crc;
-          
+		         		 
 		//BYTE oldACCIE = ACC_IE;
 		//ACC_IE = 0;
 		status = TxPacket(TxIndex, MACInitParams.actionFlags.bits.CCAEnable);
@@ -892,17 +1061,21 @@ TX_END_HERE:
         return status;
     }
     
+    /***************************************************************************
+     * Function:
+     *      BOOL MiMAC_ReceivedPacket(void)
+	***************************************************************************/
 
     BOOL MiMAC_ReceivedPacket(void)
-    {
-        BYTE i;
+    {		
+		BYTE i;
         MIWI_TICK currentTick;
-        
+		
         if( RF_INT_PIN == 0 )
         {
             RFIF = 1;
         }
-        
+     
         #if defined(ENABLE_ACK) && defined(ENABLE_RETRANSMISSION)
             for(i = 0; i < ACK_INFO_SIZE; i++)
             {
@@ -919,32 +1092,127 @@ TX_END_HERE:
         {
             return FALSE;
         }
-       
-        for(i = 0; i < BANK_SIZE; i++)
+       		
+		// YL - MiMAC_ReceivedPacket fills MACRxPacket (MAC_RECEIVED_PACKET) with data from RxPacket (filled by _INT1Interrupt):
+				
+        for( i = 0; i < BANK_SIZE; i++ ) 
         {
             if( RxPacket[i].flags.bits.Valid )
             {
                 BYTE PayloadIndex;
-
-                MACRxPacket.flags.Val = RxPacket[i].Payload[0];
+				
+				// YL - MAC_RECEIVED_PACKET - flags:
+								
+				// YL 30.8 ...
+				// was: MACRxPacket.flags.Val = RxPacket[i].Payload[0];
+				
+				// initialize flags byte (of MAC_RECEIVED_PACKET) with packetType bits (from flags byte of RX_PACKET):
+				MACRxPacket.flags.Val = (RxPacket[i].Payload[0]) & PACKET_TYPE_MASK;					
+						
+				// check the packet type from flags byte of MAC_RECEIVED_PACKET:
+				if( MACRxPacket.flags.bits.packetType != PACKET_TYPE_DATA
+					&& MACRxPacket.flags.bits.packetType != PACKET_TYPE_COMMAND
+					&& MACRxPacket.flags.bits.packetType != PACKET_TYPE_RESERVE )
+				{
+					MiMAC_DiscardPacket();
+					return FALSE;						
+				}
+						
+				// get the address combination from flags byte of RX_PACKET:
+				AddressCombination addressCombination = (int)(RxPacket[i].Payload[0]);	// note: enum is int
+				addressCombination &= (DST_SRC_GET_MASK);
+				// ... YL 30.8
+								
+				// YL - MAC_RECEIVED_PACKET - PayloadLen:
+				
                 MACRxPacket.PayloadLen = RxPacket[i].PayloadLen;
+								
                 PayloadIndex = 2;
                 
-                if( MACRxPacket.flags.bits.destPrsnt )
-                {
-                    PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;
-                }
-                
-                if( MACRxPacket.flags.bits.sourcePrsnt )
-                {
-                    MACRxPacket.SourceAddress = (BYTE *)&(RxPacket[i].Payload[PayloadIndex]);
-                    PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;
-                }
-                else
-                {
-                    MACRxPacket.SourceAddress = NULL;
-                }
-                
+				// YL 30.8 ...	
+				// was: MRF24 doesn't use destPrsnt and sourcePrsnt
+                // if( MACRxPacket.flags.bits.destPrsnt )
+				// {			
+                    // PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;
+                // }				
+                // if( MACRxPacket.flags.bits.sourcePrsnt )
+                // {	
+                    // MACRxPacket.SourceAddress = (BYTE *)&(RxPacket[i].Payload[PayloadIndex]);
+                    // PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;
+                // }
+                // else
+                // {
+                    // MACRxPacket.SourceAddress = NULL;
+                // }				
+				
+				// YL - MAC_RECEIVED_PACKET - DestinationAddress:			
+				
+				MACRxPacket.altSourceAddress = FALSE;
+				
+				BYTE destinationAddress[MY_ADDRESS_LENGTH]; /*YL make sure DestinationAddress is updated properly + may use it instead*/
+				BYTE j, payloadIndex = PayloadIndex;	
+				for( j = 0, payloadIndex = PayloadIndex; j < MY_ADDRESS_LENGTH; j++, payloadIndex++ )
+				{
+					destinationAddress[j] = RxPacket[i].Payload[payloadIndex];				
+				}				
+				PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;					// YL note: this works only if short and long address have the same length 
+																							// (in our case - both are 2 bytes long)
+				// YL - MAC_RECEIVED_PACKET - SourceAddress:
+							
+				MACRxPacket.SourceAddress = (BYTE *)&(RxPacket[i].Payload[PayloadIndex]);				
+				PayloadIndex += MACInitParams.actionFlags.bits.PAddrLength;					// YL note: this works only if short and long address have the same length 
+																							// (in our case - both are 2 bytes long)				
+				if( MACRxPacket.flags.bits.packetType == PACKET_TYPE_RESERVE )
+				{
+					MACRxPacket.flags.bits.broadcast = 1;
+					MACRxPacket.flags.bits.sourcePrsnt = 1;
+					MACRxPacket.altSourceAddress = TRUE;					
+				}
+				else
+				{
+					switch( addressCombination )
+					{
+						case L_DST_L_SRC:
+							MACRxPacket.flags.bits.sourcePrsnt = 1;						
+							break;
+							
+						case L_DST_S_SRC:
+							MACRxPacket.flags.bits.sourcePrsnt = 1;
+							MACRxPacket.altSourceAddress = TRUE;							
+							break;
+							
+						case S_DST_L_SRC:
+							if( destinationAddress[0] == 0xFF && destinationAddress[1] == 0xFF )
+							{
+								MACRxPacket.flags.bits.broadcast = 1;
+							}
+							MACRxPacket.flags.bits.sourcePrsnt = 1;									
+							break;
+							
+						case S_DST_S_SRC:
+							if( destinationAddress[0] == 0xFF && destinationAddress[1] == 0xFF )
+							{
+								MACRxPacket.flags.bits.broadcast = 1;
+							}
+							MACRxPacket.flags.bits.sourcePrsnt = 1;						
+							MACRxPacket.altSourceAddress = TRUE;								
+							break;
+							
+						default:
+							MiMAC_DiscardPacket();							
+							return FALSE;
+					}
+				}
+				// ... YL 30.8
+				                
+				// YL 30.8 ...
+				// PANID of MAC layer isn't really transmitted,
+				// and here it is assigned it's constant value
+		        #ifndef TARGET_SMALL
+                    MACRxPacket.SourcePANID.Val = MY_PAN_ID;
+                #endif				
+				// ... YL 30.8
+
                 #if defined(ENABLE_SECURITY)
                     if( MACRxPacket.flags.bits.secEn )
                     {
@@ -1046,7 +1314,10 @@ TX_END_HERE:
                 
                 #endif
                 
+				// YL - MAC_RECEIVED_PACKET - Payload:
+								
                 MACRxPacket.Payload = (BYTE *)&(RxPacket[i].Payload[PayloadIndex]);
+				
                 #if !defined(TARGET_SMALL)
                     if( RxPacket[i].flags.bits.RSSI )
                     {
@@ -1073,12 +1344,11 @@ TX_END_HERE:
                 ReceivedBankIndex = i;
                 
                 return TRUE;
-            }
-        }
-    
+            }			
+        }    
         return FALSE;    
     }
-    
+
     /************************************************************************************
      * Function:
      *      void MiMAC_DiscardPacket(void)
@@ -1259,7 +1529,7 @@ TX_END_HERE:
             {
                 case POWER_STATE_DEEP_SLEEP:
                     {   
-                        RegisterSet(FIFORSTREG);                  // turn off FIFO
+                        RegisterSet(FIFORSTREG);                // turn off FIFO
                         RegisterSet(GENCREG);                   // disable FIFO, TX_latch
                         RegisterSet(PMCREG);                    // turn off both receiver and transmitter
                         StatusRead();                           // reset all non latched interrupts
@@ -1307,14 +1577,14 @@ TX_END_HERE:
         void __ISR(_EXTERNAL_1_VECTOR, ipl4) _INT1Interrupt(void)
     #else
         void _ISRFAST _INT1Interrupt(void)
-    #endif
+    #endif // TODO - remove all the unnecessary checks of the original MRF49
     {   
         if( RFIE && RFIF )
         {
 			//RFIE = 0;
             PHY_CS = 0;
             #if defined(__dsPIC30F__) || defined(__dsPIC33F__) || defined(__PIC24F__) || defined(__PIC24FK__) || defined(__PIC24H__) || defined(__PIC32MX__)
-                Nop();          // add Nop here to make sure PIC24 family MCU can respond to the SPI_SDI change
+                Nop();         			// add Nop here to make sure PIC24 family MCU can respond to the SPI_SDI change
             #endif        
                          
             if( SPI_SDI == 1 )
@@ -1328,11 +1598,11 @@ TX_END_HERE:
                 
                 // There is data in RX FIFO
                 PHY_CS = 1;
-                nFSEL = 0;                   // FIFO selected
+                nFSEL = 0;            	// FIFO selected
             
                 PacketLen = SPIGet();
 
-                for(BankIndex = 0; BankIndex < BANK_SIZE; BankIndex++)
+                for( BankIndex = 0; BankIndex < BANK_SIZE; BankIndex++ )
                 {
                     if( RxPacket[BankIndex].flags.bits.Valid == FALSE )
                     {
@@ -1340,7 +1610,7 @@ TX_END_HERE:
                     }
                 }
                 
-                if( PacketLen == 4 )        // may be an acknowledgement
+                if( PacketLen == 4 )  	// may be an acknowledgement
                 {
                     bAck = TRUE;
                 }
@@ -1349,17 +1619,17 @@ TX_END_HERE:
                     bAck = FALSE;
                 }
 
-                if( PacketLen >= RX_PACKET_SIZE || PacketLen == 0 || (BankIndex >= BANK_SIZE && (bAck==FALSE)) )
+                if( PacketLen >= RX_PACKET_SIZE || PacketLen == 0 || (BankIndex >= BANK_SIZE && (bAck == FALSE)) )
                 {
 IGNORE_HERE:       
-                    nFSEL = 1;                                       // bad packet len received
+                    nFSEL = 1;                                      // bad packet len received
                     RFIF = 0;
                     RegisterSet(PMCREG);                            // turn off the transmitter and receiver
-                    RegisterSet(FIFORSTREG);                          // reset FIFO
+                    RegisterSet(FIFORSTREG);                        // reset FIFO
                     RegisterSet(GENCREG);                           // disable FIFO, TX_latch
                     RegisterSet(GENCREG | 0x0040);                  // enable FIFO
                     RegisterSet(PMCREG | 0x0080);                   // turn on receiver
-                    RegisterSet(FIFORSTREG | 0x0002);                 // FIFO synchron latch re-enabled
+                    RegisterSet(FIFORSTREG | 0x0002);               // FIFO synchron latch re-enabled
                     goto RETURN_HERE;
                 }
                 
@@ -1405,9 +1675,9 @@ IGNORE_HERE:
                                     calculated_crc = CRC16(ackPacket, 2, 0);
                                     if( received_crc != calculated_crc)
                                     {
-                                        RxPacketPtr = 0;
+										RxPacketPtr = 0;
                                         RegisterSet(FIFORSTREG | 0x0002);
-                                        goto IGNORE_HERE;
+										goto IGNORE_HERE;
                                     }
                                     if( ackPacket[1] == TxMACSeq )
                                     {
@@ -1434,27 +1704,30 @@ IGNORE_HERE:
                             RxPacket[BankIndex].PayloadLen = PacketLen;
 
                             // checking CRC
-                            received_crc = ((WORD)(RxPacket[BankIndex].Payload[RxPacket[BankIndex].PayloadLen-1])) + (((WORD)(RxPacket[BankIndex].Payload[RxPacket[BankIndex].PayloadLen-2])) << 8);
-                            if( (RxPacket[BankIndex].Payload[0] & BROADCAST_MASK) || (RxPacket[BankIndex].Payload[0] & DSTPRSNT_MASK) )
-                            {
-                                calculated_crc = CRC16((BYTE *)RxPacket[BankIndex].Payload, RxPacket[BankIndex].PayloadLen-2, 0);
-                            }
-                            else
-                            {
-                                calculated_crc = CRC16((BYTE *)RxPacket[BankIndex].Payload, 2, 0);
-                                
-                                // try full address first
-                                calculated_crc = CRC16(MACInitParams.PAddress, MACInitParams.actionFlags.bits.PAddrLength, calculated_crc);
-                                calculated_crc = CRC16((BYTE *)&(RxPacket[BankIndex].Payload[2]), RxPacket[BankIndex].PayloadLen-4, calculated_crc);
-                            }
+                            received_crc = ((WORD)(RxPacket[BankIndex].Payload[RxPacket[BankIndex].PayloadLen - 1])) + (((WORD)(RxPacket[BankIndex].Payload[RxPacket[BankIndex].PayloadLen - 2])) << 8);	
+							// YL 6.9 ... 
+							// was:
+							//if( (RxPacket[BankIndex].Payload[0] & BROADCAST_MASK) || (RxPacket[BankIndex].Payload[0] & DSTPRSNT_MASK) )
+                            //{
+                                //calculated_crc = CRC16((BYTE *)RxPacket[BankIndex].Payload, RxPacket[BankIndex].PayloadLen - 2, 0);								
+                            //}
+                            //else
+                            //{
+                                //calculated_crc = CRC16((BYTE *)RxPacket[BankIndex].Payload, 2, 0);
+								                              
+                                //// try full address first
+                                //calculated_crc = CRC16(MACInitParams.PAddress, MACInitParams.actionFlags.bits.PAddrLength, calculated_crc);								
+                                //calculated_crc = CRC16((BYTE *)&(RxPacket[BankIndex].Payload[2]), RxPacket[BankIndex].PayloadLen - 4, calculated_crc);								
+                            //}															                               
+							calculated_crc = CRC16((BYTE *)RxPacket[BankIndex].Payload, RxPacket[BankIndex].PayloadLen - 2, 0);						
+							// ... YL 6.9
                             
                             if( received_crc != calculated_crc )
-                            {
-                                RxPacketPtr = 0;
+                            {	
+								RxPacketPtr = 0;
                                 RxPacket[BankIndex].PayloadLen = 0;
                                 RegisterSet(FIFORSTREG | 0x0002);            // FIFO synchron latch re-enable 
-
-                                goto IGNORE_HERE;
+								goto IGNORE_HERE;
                             }
                             
                             #if !defined(TARGET_SMALL)
@@ -1463,7 +1736,7 @@ IGNORE_HERE:
                             #endif
                             
                             // send ack / check ack
-                            #if defined(ENABLE_ACK1)
+                            #if defined(ENABLE_ACK1)	// YL ENABLE_ACK1 isn't defined anywhere
                                 if( ( RxPacket[BankIndex].Payload[0] & PACKET_TYPE_MASK ) == PACKET_TYPE_ACK )  // acknowledgement
                                 {
                                     if( RxPacket[BankIndex].Payload[1] == TxMACSeq )
@@ -1483,14 +1756,44 @@ IGNORE_HERE:
                                 if( RxPacket[BankIndex].Payload[0] & DSTPRSNT_MASK )
                                 {
                                     for(i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++)
-                                    {
-                                        if( RxPacket[BankIndex].Payload[2+i] != MACInitParams.PAddress[i] )
-                                        {
-                                            RxPacketPtr = 0;
-                                            RxPacket[BankIndex].PayloadLen = 0;
-                                            RegisterSet(FIFORSTREG | 0x0002);
-                                            goto IGNORE_HERE;
+                                    { 
+										if( RxPacket[BankIndex].Payload[2 + i] != MACInitParams.PAddress[i] )
+										// YL 5.9 ...
+										// was:
+										// {
+                                            // RxPacketPtr = 0;
+                                            // RxPacket[BankIndex].PayloadLen = 0;
+                                            // RegisterSet(FIFORSTREG | 0x0002);
+                                            // goto IGNORE_HERE;
+                                        // }										
+										// note: 
+										// - MACInitParams.PAddress refers to source address
+										// - RxPacket address refers to destination address
+										// MACInitParams.PAddress is always long address.
+										// in MRF49 - RxPacket address is always long address.
+										// in "MRF24-like" version - RxPacket address is either:
+										// - long - in case of DST_L address combination, or
+										// - short - in case of DST_S address combination
+										// mind: broadcast, data/command/reserve packet type, false true by coincidence (may change EUI_1 > 127 to avoid this), careful - this is ISR										                        
+										{					
+											for( i = 0; i < MACInitParams.actionFlags.bits.PAddrLength; i++ ) 	
+																													// ignore the packet only after trying to compare the received address
+																													// to the short address of the reciving device 
+																													// [because MAC header may contain short address in DST_S case]
+																													// note: this works only if short and long address have the same length 
+																												
+											{													
+												if( RxPacket[BankIndex].Payload[2 + i] != myNetworkAddress.v[i] )
+												{
+													RxPacketPtr = 0;
+													RxPacket[BankIndex].PayloadLen = 0;
+													RegisterSet(FIFORSTREG | 0x0002);
+													goto IGNORE_HERE;
+												}												
+											}
+											break;	// to exit the external loop if the inner comparisson ended successfully 
                                         }
+										// ... YL 5.9
                                     }
                                 }
     
@@ -1499,20 +1802,20 @@ IGNORE_HERE:
                                     {
                                         RegisterSet(FIFORSTREG | 0x0002);
                                         
-                                        for(i = 0; i < 4; i++)
+                                        for( i = 0; i < 4; i++ )
                                         {
                                             ackPacket[i] = MACTxBuffer[i];
                                         }
                                         MACTxBuffer[0] = PACKET_TYPE_ACK | BROADCAST_MASK;   // frame control, ack type + broadcast
-                                        MACTxBuffer[1] = RxPacket[BankIndex].Payload[1];     // sequenece number
-                                        calculated_crc = CRC16((BYTE *)MACTxBuffer, 2, 0);
-                                        MACTxBuffer[2] = calculated_crc>>8;
+                                        MACTxBuffer[1] = RxPacket[BankIndex].Payload[1];     // sequence number
+                                        calculated_crc = CRC16((BYTE *)MACTxBuffer, 2, 0);	 /*YL in ack case - send back calculated crc*/
+                                        MACTxBuffer[2] = calculated_crc >> 8;
                                         MACTxBuffer[3] = calculated_crc;
                                         DelayMs(2);;
 										TxPacket(4, FALSE);
                                         
                                         RegisterSet(FIFORSTREG);
-                                        for(i = 0; i < 4; i++)
+                                        for( i = 0; i < 4; i++ )
                                         {
                                             MACTxBuffer[i] = ackPacket[i];
                                         }
@@ -1520,11 +1823,11 @@ IGNORE_HERE:
                                 #endif
                                     
                                 #if defined(ENABLE_ACK) && defined(ENABLE_RETRANSMISSION)
-                                    for(i = 0; i < ACK_INFO_SIZE; i++)
+                                    for( i = 0; i < ACK_INFO_SIZE; i++ )
                                     {
-                                        if( AckInfo[i].Valid && (AckInfo[i].Seq == RxPacket[BankIndex].Payload[1]) &&
+										if( AckInfo[i].Valid && (AckInfo[i].Seq == RxPacket[BankIndex].Payload[1]) &&
                                             AckInfo[i].CRC == received_crc )
-                                        {
+                                        {										
                                             AckInfo[i].startTick = MiWi_TickGet();
                                             break;    
                                         }
@@ -1543,7 +1846,7 @@ IGNORE_HERE:
                                             AckInfo[ackInfoIndex].startTick = MiWi_TickGet();
                                         }
 
-                                        RxPacket[BankIndex].PayloadLen -= 2;            // remove CRC
+                                        RxPacket[BankIndex].PayloadLen -= 2;        // remove CRC
                                         RxPacket[BankIndex].flags.bits.Valid = TRUE;
                                     }
                                 #else

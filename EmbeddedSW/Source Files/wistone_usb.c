@@ -118,7 +118,7 @@ USB_BUFFERS usbBuffer;
 void InitializeSystem(void)
 {
 
-//    AD1PCFGL = 0xFFFF; // BM - this register is initialized in analog_init()
+    AD1PCFGL = 0xFFFF;
    
 
 //	The USB specifications require that USB peripheral devices must never source
@@ -187,7 +187,7 @@ void InitializeSystem(void)
 USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
 {   
 
-    if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) {
+    if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl == 1)) {
 		return USB_NOT_CONFIGURED;
 	}
 
@@ -242,25 +242,25 @@ USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
 
 USB_STATUS USB_ProcessIn(){
 
-	BYTE numBytesRead =  getsUSBUSART(usbBuffer.rxBuffer,64);
+	BYTE numBytesRead =  getsUSBUSART(usbBuffer.rxBuffer, 64);
 		
-	if(numBytesRead <= 0){
+	if (numBytesRead <= 0){
 		return USB_NOT_RECEIVED_DATA;
 	}
 
 	static BYTE commandPos = 0;
 
 	WORD i = 0;
-	for(i = 0; i < numBytesRead; i++){
-		g_curr_msg[commandPos+i] = usbBuffer.rxBuffer[i];
+	for (i = 0; i < numBytesRead; i++){
+		g_curr_msg[commandPos + i] = usbBuffer.rxBuffer[i];
 
-		if(usbBuffer.rxBuffer[i] == '\r'){
+		if (usbBuffer.rxBuffer[i] == '\r'){
 			g_curr_msg[commandPos + i] = '\0';
-			if(strcmp(g_curr_msg, "app stop") == 0){
-				USB_WriteData("\r\nWISTONE> ", 11);
+			if (strcmp(g_curr_msg, "app stop") == 0){			//YL 4.8 TODO is this comparison used? if yes -  fix it! (03app stop)
+				USB_WriteData((BYTE*)"\r\nWISTONE> ", 11); 		// YL 14.4 added casting to avoid signedness warning
 			}			
- 			USB_WriteData(g_curr_msg, commandPos + i);
-			USB_WriteData("\r\nWISTONE> ", 11);
+ 			USB_WriteData((BYTE*)g_curr_msg, commandPos + i); 	// YL 14.4 added casting to avoid signedness warning
+			USB_WriteData((BYTE*)"\r\nWISTONE> ", 11);  		// YL 14.4 added casting to avoid signedness warning
 			commandPos = 0;
 			return USB_RECEIVED_DATA;
 		}
@@ -314,7 +314,7 @@ USB_STATUS USB_ProcessOut(){
  *
  * Input:           
  *					str - The data to write through usb.
- *					len - Thhe length of the data to be written.
+ *					len - The length of the data to be written.
  *
  * Output:          None.					
  *
@@ -332,16 +332,16 @@ void USB_WriteData(BYTE *str, WORD len){
 	WORD i = 0;
 	WORD bufferPos = 0;
 
-	for(i=0 ;i < len; i++){
+	for (i = 0 ;i < len; i++){
 		bufferPos = i%40;
-		if((bufferPos == 0) && (i>0)){
+		if ((bufferPos == 0) && (i > 0)){
 			USB_WriteSingleBuffer(40);
 		}
 		usbBuffer.txBuffer[bufferPos] = str[i];
 	}
 
-	// write the reminder of the data.
-	USB_WriteSingleBuffer((bufferPos+1));
+	// write the remainder of the data.
+	USB_WriteSingleBuffer((bufferPos + 1));
 
 	
 }
@@ -374,13 +374,13 @@ void USB_WriteSingleBuffer(WORD len){
 	usbBuffer.numBytesToWrite = len; // magic number, to change it over here
 
 	t1 = MiWi_TickGet();
-	while(1){
+	while (1){
 		status = ProcessIO(USB_PROCESS_OUT);
-		if(status == USB_NO_ERROR){
+		if (status == USB_NO_ERROR){
 			break;
 		}
 		t2 = MiWi_TickGet();
-		if(MiWi_TickGetDiff(t2, t1) > 5*ONE_SECOND){
+		if (MiWi_TickGetDiff(t2, t1) > 5 * ONE_SECOND){
 			break;
 		}
 	}

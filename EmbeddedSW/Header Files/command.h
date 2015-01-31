@@ -20,10 +20,12 @@ void 	cmd_ok(void);
 int 	cmd_error(int errid);
 void 	write_eol(void);
 void 	b_write(BYTE* block_buffer, int len);	
-void 	m_write(char *str);
+void 	m_write(char *str);	
+void 	m_write_debug(char *str); //YL 20.4 added m_write_debug
 void 	PrintChar(BYTE toPrint);
 void 	PrintDec(BYTE toPrint);
 void 	ConsolePut(BYTE c);
 void 	blink_led();
+void	blink_buzz(); //YL 7.5
 
 #endif //#ifndef __COMMAND_H__

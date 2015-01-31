@@ -497,7 +497,6 @@
                             MACRxPacket.SourcePANID.v[1] = RxBuffer[BankIndex].Payload[4];
                         #endif
                         MACRxPacket.SourceAddress = &(RxBuffer[BankIndex].Payload[7]);
-                        
                         MACRxPacket.PayloadLen = RxBuffer[BankIndex].PayloadLen - 19;
                         MACRxPacket.Payload = &(RxBuffer[BankIndex].Payload[15]);   
                     }
@@ -783,12 +782,12 @@
     
         if( transParam.flags.bits.broadcast )
         {
-            transParam.altDestAddr = TRUE;
+            transParam.altDestAddr = TRUE;	/*altDestAddr*/
         }
         
         if( transParam.flags.bits.secEn )
         {
-            transParam.altSrcAddr = FALSE;
+            transParam.altSrcAddr = FALSE; 	/*altSrcAddr*/
         }
         
     
@@ -883,7 +882,7 @@
             #if !defined(TARGET_SMALL)
                 IntraPAN = FALSE;
             #endif
-            transParam.altSrcAddr = TRUE;
+            transParam.altSrcAddr = TRUE;	/*altSrcAddr*/
             transParam.flags.bits.ackReq = FALSE;
         }
     
@@ -945,7 +944,7 @@
             }
             else
             {
-                if( transParam.altDestAddr )
+                if( transParam.altDestAddr )	/*YL if (altDestAddr) - use short address, else - use the long address*/
                 {
                     PHYSetLongRAMAddr(loc++, transParam.DestAddress[0]);
                     PHYSetLongRAMAddr(loc++, transParam.DestAddress[1]);
@@ -970,7 +969,7 @@
         #endif
         
         // source address
-        if( transParam.altSrcAddr )
+        if( transParam.altSrcAddr )				/*YL if (altDestAddr) - use short address, else - use the long address*/
         {
             PHYSetLongRAMAddr(loc++, myNetworkAddress.v[0]);
             PHYSetLongRAMAddr(loc++, myNetworkAddress.v[1]);
@@ -1490,6 +1489,16 @@
         MAC_PANID.v[0] = PANID[0];
         MAC_PANID.v[1] = PANID[1];
         
+		// YL MRF24 memory organization:
+		// - short address memory space with control, status and device addressing info
+		// - long address memory space - temporary buffers for data transmission, reception and security keys
+		
+		// MRF49 memory organization: 17 command registers
+		
+		// there is no code that reads the contents of the following writings;
+		// on the other hand - it might be done by hardware;
+		// is it critical for the tranceiver to know it's short address and PANID to enable using short address for routing? use NVM?
+		
         PHYSetShortRAMAddr(WRITE_SADRL,myNetworkAddress.v[0]);
         PHYSetShortRAMAddr(WRITE_SADRH,myNetworkAddress.v[1]);
         PHYSetShortRAMAddr(WRITE_PANIDL,MAC_PANID.v[0]);
@@ -1609,7 +1618,7 @@
                 MRF24J40_IFREG flags;        
     
                 //read the interrupt status register to see what caused the interrupt        
-                flags.Val=PHYGetShortRAMAddr(READ_ISRSTS);
+                flags.Val = PHYGetShortRAMAddr(READ_ISRSTS);
 
                 if(flags.bits.RF_TXIF)
                 {
@@ -1751,15 +1760,15 @@
                         //get the size of the packet
                         //2 more bytes for RSSI and LQI reading 
                         RxBuffer[RxBank].PayloadLen = PHYGetLongRAMAddr(0x300) + 2;
-                        if(RxBuffer[RxBank].PayloadLen<RX_PACKET_SIZE)
+                        if(RxBuffer[RxBank].PayloadLen < RX_PACKET_SIZE)
                         {   
                             //indicate that data is now stored in the buffer
                             MRF24J40Status.bits.RX_BUFFERED = 1;
                             
                             //copy all of the data from the FIFO into the TxBuffer, plus RSSI and LQI
-                            for(i=1;i<=RxBuffer[RxBank].PayloadLen+2;i++)
+                            for(i = 1; i <= RxBuffer[RxBank].PayloadLen + 2; i++)
                             {
-                                RxBuffer[RxBank].Payload[i-1] = PHYGetLongRAMAddr(0x300+i);
+                                RxBuffer[RxBank].Payload[i - 1] = PHYGetLongRAMAddr(0x300 + i);
                             }
                             PHYSetShortRAMAddr(WRITE_RXFLUSH, 0x01);
                         }

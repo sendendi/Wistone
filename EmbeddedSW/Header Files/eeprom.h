@@ -23,7 +23,8 @@
 #define EEPROM_DEFAULT_VALUE	0x00
 #define MAX_SN 					100 					// maximum number of Wistones instances
 #define SN_ADDRESS 				EEPROM_MEMORY_SIZE - 1	// last address in EEPROM address space
-#define ALARM_ADDRESS			EEPROM_MEMORY_SIZE - 2	
+#define ALARM_ADDRESS			EEPROM_MEMORY_SIZE - 2	// to indicate that the alarm was set
+#define EUI_0_ADDRESS			EEPROM_MEMORY_SIZE - 3	// YL 6.4 the first byte of 8-byte globally unique hardware identifier (for MiWi); in 32K EEPROM the EUI address is: 32765
 //boot table:
 #define MAX_BOOT_CMD_LEN		EEPROM_PAGE_SIZE		
 #define MAX_BOOT_ENTRY_NUM		9

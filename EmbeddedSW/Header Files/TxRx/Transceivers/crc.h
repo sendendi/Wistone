@@ -53,7 +53,7 @@
     #if defined(SOFTWARE_CRC)
         #include "GenericTypeDefs.h"
             
-        //#define CRC_LOOKUP_TABLE
+        #define CRC_LOOKUP_TABLE //YL 13.4(BM) - use CRC LUT
         WORD CRC16(BYTE *ptr, signed char count, WORD initCRC);
         
     #endif

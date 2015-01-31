@@ -17,70 +17,14 @@ wistone_c.c - standard C functions' implementations
 ********************************************************************************
 	General:
 	========
-This file contains several standard C functions' implementations adjusted to
-WISDOM_STONE project purposes. These functions reflect the functions that appear
-in the following standard C libraries:
-- string.h
-- ...
+This file contains several utility functions like byte to string converter.
  
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
-#include <string.h>
 #include "error.h"			//Application
 #include "misc_c.h"			//Common
 
-/*******************************************************************************
-// strlen_ws()
-// calculates string length excluding terminal '\0'
-*******************************************************************************/
-unsigned int strlen_ws(const char * str) 
-{
-	unsigned int i = 0;
-	
-	if (!str)
-		return NULL;
-		
-	while (str[i] != '\0')
-		i++;
-	
-	return i;
-}
-
-/*******************************************************************************
-// strcpy_ws()
-// copies the contents of given string to destination string
-*******************************************************************************/
-char* strcpy_ws(char* str_to, const char* str_from)
-{
-    int i;
-		
-	if (!str_to || !str_from)
-		return NULL;
-	
-	for(i = 0; str_from[i] != '\0'; ++i)
-		str_to[i] = str_from[i];
-	str_to[i] = str_from[i];	//append '\0'
-
-	return str_to;
-}
-
-/*******************************************************************************
-// strcmp_ws()
-// compares 2 strings and returns TRUE if the strings are identical
-*******************************************************************************/
-BOOL strcmp_ws(const char* str1, const char* str2) //YL 19.9
-{
-	while ((*str1) && (*str2)) {
-		if (*str1 != *str2)
-			return FALSE;
-		str1++;	
-		str2++;
-	}
-	if (strlen_ws(str1) || strlen(str2))
-		return FALSE;
-	return TRUE;
-}
 
 /*******************************************************************************
 // long_to_byte()
@@ -129,12 +73,12 @@ char *long_to_str(long num)
 }
 
 /*******************************************************************************
-// uint_to_str()
-// convert unsigned int number(16 bits) to string 
+// int_to_str()
+// convert signed int number(16 bits) to string 
 *******************************************************************************/
-char* uint_to_str(unsigned int num)  //YL 22.8
+char* int_to_str(int num)  //YL 22.8
 {
-	return long_to_str((long)(0x0000FFFF & num));
+	return long_to_str(0x0000FFFF & num);
 }
 
 /*******************************************************************************
@@ -161,17 +105,7 @@ char* byte_to_str(BYTE num)
 	while ((num != 0) && (p >= buf)) {
 		p--;
 		*p = '0' + num % 10;
-		//debug...
-		// m_write("p: ");
-		// m_write(p);
-		// write_eol();
-		//...debug
 		num /= 10;
 	}
-	//debug...
-	// m_write("byte_num_to_str: ");
-	// m_write(p);
-	// write_eol();
-	//...debug
 	return p;
 }

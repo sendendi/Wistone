@@ -24,6 +24,7 @@ it supports I2C configuration for: RTC-8564JE
 #ifdef WISDOM_STONE
 
 /***** INCLUDE FILES: *********************************************************/
+#include <string.h>			//YL 6.8 to use strlen
 #include "command.h"		//Application
 #include "error.h"			//Application
 #include "parser.h"			//Application	
@@ -248,7 +249,7 @@ char* weekday_to_str(BYTE weekday)	//YL 21.8
 *******************************************************************************/
 static void f_write(char* str)  //YL 28.8
 {
-	int len = strlen_ws(str);
+	int len = strlen(str);
 	if (len == 1) {
 		m_write("0");
 		m_write(str);
@@ -480,9 +481,27 @@ int handle_rtc(int sub_cmd)
 		if (rtc_get_time_date(&tad) < 0)	
 			return cmd_error(0);
 		// then set the time sent in <hour> <minute> <seconds> format
-		tad.time.hour 	= parse_byte_num(g_tokens[2]);
-		tad.time.minute = parse_byte_num(g_tokens[3]);
-		tad.time.second = parse_byte_num(g_tokens[4]);
+		
+		// YL 5.8 changed parse_byte_num...
+		//tad.time.hour 	= parse_byte_num(g_tokens[2]);
+		//tad.time.minute = parse_byte_num(g_tokens[3]);
+		//tad.time.second = parse_byte_num(g_tokens[4]);
+		res = parse_byte_num(g_tokens[2]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_NUM);
+		tad.time.hour = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[3]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_NUM);
+		tad.time.minute = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[4]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_NUM);
+		tad.time.second = 0xFF & res;		
+		//...YL 5.8
+		
 		if ((tad.time.hour > 23) || (tad.time.minute > 59) || (tad.time.second > 59)) 
 			return cmd_error(ERR_INVALID_STIME);
 		res = rtc_set_time_date(&tad); 
@@ -495,10 +514,35 @@ int handle_rtc(int sub_cmd)
 		if (rtc_get_time_date(&tad) < 0) 
 			return cmd_error(0);
 		// then set the date sent in <day> <month> <year> <weekday> format
-		tad.date.day 	= parse_byte_num(g_tokens[2]);
-		tad.date.month 	= parse_byte_num(g_tokens[3]);
-		tad.date.year	= parse_byte_num(g_tokens[4]); 
-		tad.weekday 	= parse_byte_num(g_tokens[5]) - 1; //RTC weekdays start with 0 for SUN (= 1 by input)
+		
+		//YL 5.8 changed parse_byte_num...
+		//tad.date.day 	= parse_byte_num(g_tokens[2]);
+		//tad.date.month 	= parse_byte_num(g_tokens[3]);
+		//tad.date.year	= parse_byte_num(g_tokens[4]); 
+		//tad.weekday 	= parse_byte_num(g_tokens[5]) - 1; //RTC weekdays start with 0 for SUN (= 1 by input)
+		
+		res = parse_byte_num(g_tokens[2]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_NUM);
+		tad.date.day = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[3]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_NUM);
+		tad.date.month = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[4]);
+		if (res == (-1)) 
+			return cmd_error(ERR_INVALID_NUM);
+		tad.date.year = 0xFF & res;
+		
+		 // RTC weekdays start with 0 for SUN (= 1 by input)
+		res = parse_byte_num(g_tokens[5]);
+		if ((res == (-1)) || (res == 0)) 
+			return cmd_error(ERR_INVALID_NUM);
+		tad.weekday = 0xFF & (res - 1);		
+		//...YL 5.8
+		
 		if ((check_date(tad.date.day, tad.date.month, tad.date.year) == FALSE) || (tad.weekday > 6))
 			return cmd_error(ERR_INVALID_SDATE);
 		res = rtc_set_time_date(&tad); 
@@ -508,10 +552,12 @@ int handle_rtc(int sub_cmd)
 		if (g_ntokens < 3)
 			return cmd_error(ERR_INVALID_SWAKEUP);
 		// rtc swakeup <delay> 
-		BYTE delay = parse_byte_num(g_tokens[2]);		
-		if (delay <= 0)
+		//YL 5.8 changed parse_byte_num...
+		res = parse_byte_num(g_tokens[2]);
+		if (res == (-1))
 			return cmd_error(ERR_INVALID_SWAKEUP);
-		
+		BYTE delay = 0xFF & res; 	
+		//...YL 5.8
 		res = rtc_set_wakeup(delay);
 		if (res == 0) {
 			g_wakeup_is_set = TRUE;							//YL 15.10 "rtc swakeup" cmd determines the next wakeup time
@@ -523,11 +569,34 @@ int handle_rtc(int sub_cmd)
 	case SUB_CMD_SALARM:
 		if (g_ntokens < 6)
 			return cmd_error(ERR_INVALID_SALARM);
-		// rtc salarm <hour> <minute> <day> <weekday> 
-		alm.hour 	= parse_byte_num(g_tokens[2]);
-		alm.minute 	= parse_byte_num(g_tokens[3]);
-		alm.day 	= parse_byte_num(g_tokens[4]);
-		alm.weekday	= parse_byte_num(g_tokens[5]);		
+		// rtc salarm <hour> <minute> <day> <weekday>
+		//YL 5.8 changed parse_byte_num...
+		//alm.hour 	= parse_byte_num(g_tokens[2]);
+		//alm.minute 	= parse_byte_num(g_tokens[3]);
+		//alm.day 	= parse_byte_num(g_tokens[4]);
+		//alm.weekday	= parse_byte_num(g_tokens[5]);
+		
+		res = parse_byte_num(g_tokens[2]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_SALARM);
+		alm.hour = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[3]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_SALARM);
+		alm.minute = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[4]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_SALARM);
+		alm.day = 0xFF & res;
+		
+		res = parse_byte_num(g_tokens[5]);
+		if (res == (-1))
+			return cmd_error(ERR_INVALID_SALARM);
+		alm.weekday = 0xFF & res;
+		//...YL 5.8
+		
 		if ((alm.hour != IRRELEVANT && alm.hour > 23) || (alm.minute != IRRELEVANT && alm.minute > 59) 
 			|| (alm.day != IRRELEVANT && (alm.day < 1 || alm.day > 31)) || (alm.weekday != IRRELEVANT && alm.weekday > 6))
 			return cmd_error(ERR_INVALID_SALARM);			
@@ -546,7 +615,7 @@ int handle_rtc(int sub_cmd)
 	break;
 		
 	default:
-		err(ERR_INVALID_SUB_CMD);
+		err(ERR_UNKNOWN_SUB_CMD);
 		cmd_error(0);
 	break;
 	}

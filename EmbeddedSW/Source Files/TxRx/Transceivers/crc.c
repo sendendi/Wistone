@@ -61,8 +61,8 @@
     *  to generate CRC code, as long as it fits the particular application 
     *  needs.
     ***********************************************************************/
-    #if defined(CRC_LOOKUP_TABLE)
-        const rom unsigned int CRC16Table[256] = 
+    #if defined(CRC_LOOKUP_TABLE) //YL 17.4 the TABLE type was: const rom unsigned int, but C30 supports ROM keyword(not "rom")
+        const ROM unsigned int CRC16Table[256] = 
         {
             0x0000,  0x1021,  0x2042,  0x3063,  0x4084,  0x50a5,  0x60c6,  0x70e7,
             0x8108,  0x9129,  0xa14a,  0xb16b,  0xc18c,  0xd1ad,  0xe1ce,  0xf1ef,

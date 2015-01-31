@@ -59,7 +59,7 @@
 #if defined(PROTOCOL_P2P)
 /************************ HEADERS **********************************/
 #include "WirelessProtocols/P2P/ConfigP2P.h"
-#include "TxRx/SymbolTime.h"
+#include "SymbolTime.h" //YL 12.4 was: "WirelessProtocols/SymbolTime.h"
 #include "Transceivers/Transceivers.h"
 #include "Transceivers/MCHP_MAC.h"
 
@@ -195,6 +195,7 @@ extern volatile P2P_STATUS P2PStatus;
     extern WORD_VAL myPANID;
 #endif
 extern WORD_VAL CounterVal;
+extern BYTE myLongAddress[]; //YL 2.5 for TxRx_Init() - EUI
 
 /************************ FUNCTION PROTOTYPES **********************/
 void    DumpConnection(INPUT BYTE index);

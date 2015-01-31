@@ -28,7 +28,7 @@ Accelerometer is used only in HW mode
 EEPROM, RTC and Temperature sensor may be used in SW or HW mode
 *******************************************************************************/
 #include "wistone_main.h"
-#ifdef WISDOM_STONE
+//#ifdef WISDOM_STONE //YL 23.4 commented to let the plug use the eeprom too
 
 /***** INCLUDE FILES: *********************************************************/
 #include "ports.h"
@@ -348,13 +348,13 @@ int in_byte_i2c_ert(int is_last)
 //	- pointer to the array of bytes
 //  - write_before_read - 1 if the writing is done as a part of byte reading, 0 if only writing takes place //YL 22.8
 // this function generates a start bit, then address + data bytes
-// and then stop bit. if failed, it retries for 5 times.
+// and then stop bit. if failed, it retries for I2C_MAX_RETRY times.
 *******************************************************************************/
 int device_write_i2c_ert(BYTE address, int n, BYTE *data, BYTE write_before_read) //YL 22.8 write_before_read 
 {
 	int i, j;
 	
-	for (i = 0; i < 5; i++) { 
+	for (i = 0; i < I2C_MAX_RETRY; i++) { 
 		start_i2c_ert(0);
 		if (out_byte_i2c_ert((address << 1) + 0)) 	// send address + write (after address shift write bit (R/W = 0) is added)
 			goto device_write_err_ert;
@@ -367,7 +367,7 @@ int device_write_i2c_ert(BYTE address, int n, BYTE *data, BYTE write_before_read
 		return 0;
 device_write_err_ert:
 		stop_i2c_ert();
-	}
+	}	
 	err(ERR_DEVICE_WRITE_I2C);
 	return -1;	
 }
@@ -382,13 +382,13 @@ device_write_err_ert:
 //	- pointer to array of bytes for the result
 //  - write_before_read - 1 if the writing is done as a part of byte reading, 0 if only writing takes place //YL 22.8
 // this function generates a start bit, then address + read the data bytes
-// and then stop bit. if failed, it retries for 5 times.
+// and then stop bit. if failed, it retries for I2C_MAX_RETRY times.
 *******************************************************************************/
 int device_read_i2c_ert(BYTE address, int n, BYTE *data, BYTE write_before_read) //YL 22.8 write_before_read added
 {
 	int i, j;
 	
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < I2C_MAX_RETRY; i++) {
 		start_i2c_ert(write_before_read);	//YL 25.8
 		if (out_byte_i2c_ert((address << 1) + 1)) 	// send address + read (after address shift read bit (R/W = 1) is added)
 			goto device_read_err_ert;
@@ -494,5 +494,5 @@ void reset_i2c(void)
 	stop_i2c_ert();
 }
 
-#endif // ifndef HARDWARE_I2C_ERT
-#endif // #ifdef WISDOM_STONE
+#endif //HARDWARE_I2C_ERT
+//#endif //WISDOM_STONE //YL 23.4 commented to let the plug use the eeprom too

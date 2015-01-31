@@ -34,11 +34,11 @@ that is activated on each wistone_main.c loop iterartion.
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
+#include <string.h>				//YL 6.8 to use strlen\cmp\cpy
 #include "command.h"			//Application
 #include "error.h"				//Application
 #include "parser.h"				//Application
 #include "HardwareProfile.h" 	//Common
-#include "misc_c.h"				//Common
 #include "p24FJ256GB110.h"		//Common
 #include "lcd.h"				//Devices
 #include "TimeDelay.h"			//TxRx - Common
@@ -143,7 +143,7 @@ void print_string(BYTE x, BYTE y, char* string)
 	BYTE i;
 	BYTE len;
 
-	len = strlen_ws(string);
+	len = strlen(string);
 	// make sure coordination is inside active screen
 	if (x > 15) 
 		x = 15;
@@ -231,7 +231,7 @@ int handle_lcd(int sub_cmd)	//YL 10.5 added for clear screen
 			break;
 
 		default:
-			err(ERR_INVALID_SUB_CMD);
+			err(ERR_UNKNOWN_SUB_CMD);
 			cmd_error(0);
 			break;
 	}

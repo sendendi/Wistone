@@ -50,36 +50,39 @@
 //------------------------------------------------------------------------
 // Definition of Protocol Stack. ONLY ONE PROTOCOL STACK CAN BE CHOSEN
 //------------------------------------------------------------------------
+
     /*********************************************************************/
     // PROTOCOL_P2P enables the application to use MiWi P2P stack. This
     // definition cannot be defined with PROTOCOL_MIWI.
     /*********************************************************************/
-    #define PROTOCOL_P2P
+    //#define PROTOCOL_P2P //YL 2.5 uncomment #include P2P.h in TxRx.c
 
     /*********************************************************************/
     // PROTOCOL_MIWI enables the application to use MiWi mesh networking
     // stack. This definition cannot be defined with PROTOCOL_P2P.
     /*********************************************************************/
-    //#define PROTOCOL_MIWI
-
+    #define PROTOCOL_MIWI //YL 2.5 uncomment #include MiWi.h in TxRx.c and #define NWK_ROLE_COORDINATOR
 
     /*********************************************************************/
     // PROTOCOL_MIWI_PRO enables the application to use MiWi PRO stack. 
     // This definition cannot be defined with PROTOCOL_P2P or PROTOCOL_MIWI.
     /*********************************************************************/
     //#define PROTOCOL_MIWI_PRO
-
+		
         /*********************************************************************/
         // NWK_ROLE_COORDINATOR is not valid if PROTOCOL_P2P is defined. It
         // specified that the node has the capability to be coordinator or PAN 
         // coordinator. This definition cannot be defined with 
-        // NWK_ROLE_END_DEVICE.
+        // NWK_ROLE_END_DEVICE. 
+		// YL 1.4(BM)  - only the plug is NWK_ROLE_COORDINATOR
+		// YL 25.4(BM) - both the plug and the stone should be NWK_ROLE_COORDINATOR;
+		//				 the plug has a lowest EUI address (EUI_0 = 1), and therefore
+		//				 would become the network's coordinator eventually
+		//				 9.8 update: only the plug calls MiApp_StartConnection,
+		//				 and therefore only the plug may become NWK_ROLE_COORDINATOR
         /*********************************************************************/
-       // #define NWK_ROLE_COORDINATOR  //ABYS was changed
-
-
-
-
+		//#define NWK_ROLE_COORDINATOR // YL 3.9 note: there is no #define NWK_ROLE_END_DEVICE, but it seems that nothing we use depends on it
+		
 //------------------------------------------------------------------------
 // Definition of RF Transceiver. ONLY ONE TRANSCEIVER CAN BE CHOSEN
 //------------------------------------------------------------------------
@@ -91,7 +94,6 @@
     /*********************************************************************/
     //#define MRF24J40
     
-    
     /*********************************************************************/
     // Definition of MRF49XA enables the application to use Microchip
     // MRF49XA subGHz proprietary RF transceiver. Only one RF transceiver
@@ -99,13 +101,11 @@
     /*********************************************************************/
     #define MRF49XA
     
-    
     /*********************************************************************/
     // Definition of MRF89XA enables the application to use Microchip
     // MRF89XA subGHz proprietary RF transceiver
     /*********************************************************************/
     //#define MRF89XA
-
 
 /*********************************************************************/
 // ENABLE_NETWORK_FREEZER enables the network freezer feature, which
@@ -115,22 +115,32 @@
 // EEPROM or programming space, if enhanced flash is used in MCU.
 // Network freezer feature needs definition of NVM kind to be 
 // used, which is specified in HardwareProfile.h
+// YL 1.4(BM) - should stay commented
 /*********************************************************************/
-//#define ENABLE_NETWORK_FREEZER
-
+//#define ENABLE_NETWORK_FREEZER 
 
 /*********************************************************************/
 // MY_ADDRESS_LENGTH defines the size of wireless node permanent 
 // address in byte. This definition is not valid for IEEE 802.15.4
 // compliant RF transceivers.
+// YL 21.7(BM) - changed from 4 to 2 (since the minimal size is sufficient)
 /*********************************************************************/
-#define MY_ADDRESS_LENGTH       4 
+#define MY_ADDRESS_LENGTH       2 
 
 /*********************************************************************/
-// EUI_x defines the xth byte of permanent address for the wireless
-// node
+// EUI_x defines the xth byte of permanent address for the wireless node 
+// YL 13.4(BM) 	- only EUI_0 byte in myLongAddress will be unique for each stone:
+//					- EUI_0 byte is read from EEPROM
+//					- EUI_1 byte has the default MACRO value
+// 				- the network has 8 components in total:
+//					// YL 18.8:
+//					- 7 stones, EUI_0 = 1,...,7 respectively
+//					- the plug, EUI_0 = 8 (or any max EUI_0 if the network is smaller)
+//					[ was:
+//					- the plug, EUI_0 = 1
+//					- 7 stones, EUI_0 = 2,...,8 respectively ]
 /*********************************************************************/
-#define EUI_7 0x11
+#define EUI_7 0x11 
 #define EUI_6 0x22
 #define EUI_5 0x33
 #define EUI_4 0x44
@@ -153,9 +163,9 @@
 
 /*********************************************************************/
 // MY_PAN_ID defines the PAN identifier. Use 0xFFFF if prefer a 
-// random PAN ID.
+// random PAN ID. //YL 1.4(BM) - no need to change
 /*********************************************************************/
-#define MY_PAN_ID                       0x1234
+#define MY_PAN_ID	0x1234 
 
 /*********************************************************************/
 // ADDITIONAL_NODE_ID_SIZE defines the size of additional payload
@@ -169,9 +179,13 @@
 /*********************************************************************/
 // P2P_CONNECTION_SIZE defines the maximum P2P connections that this 
 // device allowes at the same time. 
+// YL 23.7(BM) - CONNECTION_SIZE changed from 2 to 10 after a comparison to MiWi Demo ConfigApp.h;
+// TODO - check how memory consumption changes after increasing the CONNECTION_SIZE 
 /*********************************************************************/
-#define CONNECTION_SIZE             2
-
+// YL 18.8 ...
+// was: #define CONNECTION_SIZE             10
+#define CONNECTION_SIZE             5
+// ... YL 18.8
 
 /*********************************************************************/
 // TARGET_SMALL will remove the support of inter PAN communication
@@ -187,7 +201,6 @@
 /*********************************************************************/
 //#define ENABLE_PA_LNA
 
-
 /*********************************************************************/
 // ENABLE_HAND_SHAKE enables the protocol stack to hand-shake before 
 // communicating with each other. Without a handshake process, RF
@@ -196,48 +209,46 @@
 /*********************************************************************/
 #define ENABLE_HAND_SHAKE
 
-
 /*********************************************************************/
 // ENABLE_SLEEP will enable the device to go to sleep and wake up 
 // from the sleep
 /*********************************************************************/
 //#define ENABLE_SLEEP
 
-
 /*********************************************************************/
 // ENABLE_ED_SCAN will enable the device to do an energy detection scan
 // to find out the channel with least noise and operate on that channel
 /*********************************************************************/
-#define ENABLE_ED_SCAN
-
+#define ENABLE_ED_SCAN 				//YL 18.5 if uncommented then it's for START_CONN_ENERGY_SCN when MiApp_StartConnection
+									//IEEE: before starting PAN - ED or ACTIVE channel scan should be performed - 
+									//done when calling MiApp_NoiseDetection
 
 /*********************************************************************/
 // ENABLE_ACTIVE_SCAN will enable the device to do an active scan to 
 // to detect current existing connection. 
 /*********************************************************************/
-#define ENABLE_ACTIVE_SCAN
-
+#define ENABLE_ACTIVE_SCAN	 	
 
 /*********************************************************************/
 // ENABLE_SECURITY will enable the device to encrypt and decrypt
-// information transferred
+// information transferred //YL 1.4(BM) - should stay commented
 /*********************************************************************/
-//#define ENABLE_SECURITY
+//#define ENABLE_SECURITY 
 
 /*********************************************************************/
 // ENABLE_INDIRECT_MESSAGE will enable the device to store the packets
 // for the sleeping devices temporily until they wake up and ask for
-// the messages
+// the messages //YL 13.4(BM) - consider using it in case of short disruption
 /*********************************************************************/
-//#define ENABLE_INDIRECT_MESSAGE
-
+//#define ENABLE_INDIRECT_MESSAGE 
 
 /*********************************************************************/
 // ENABLE_BROADCAST will enable the device to broadcast messages for
 // the sleeping devices until they wake up and ask for the messages
+// YL 13.4(BM) - should be commented
+// YL 25.4(BM) - uncommented after comparison to MiWi Demo ConfigApp.h
 /*********************************************************************/
 #define ENABLE_BROADCAST
-
 
 /*********************************************************************/
 // RFD_WAKEUP_INTERVAL defines the wake up interval for RFDs in second.
@@ -246,7 +257,6 @@
 // up, thus this definition is not used.
 /*********************************************************************/
 #define RFD_WAKEUP_INTERVAL     8
-
 
 /*********************************************************************/
 // ENABLE_FREQUENCY_AGILITY will enable the device to change operating
@@ -286,6 +296,14 @@
     #undef MY_ADDRESS_LENGTH
     #define MY_ADDRESS_LENGTH 8
 #endif
+
+//YL 23.7 NOTE:	- MRF49XA is NOT "IEEE 802.15.4 compliant" RF transceiver (unlike MRF24J40).
+//				- "IEEE 802.15.4 compliant" tranceivers
+//					- may use either:
+//						1. permanent (long, EUI) address or 
+//						2. alternative (short, ad-hoc, assigned to a node by it's parent) address;
+//					- in addition - using PAN_ID enable inter-network communication.
+//				- other tranceivers may only use permanent address, and only intra-network communication is possible.
 
 #if defined(ENABLE_NETWORK_FREEZER)
     #define ENABLE_NVM

@@ -23,11 +23,11 @@ handle read and write, write msgs to terminal, etc.
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
+#include <string.h>						//YL 6.8 to use strlen\cmp\cpy
 #include "error.h"						//Application
 #include "parser.h"						//Application
 #include "system.h"						//Application
 #include "wistone_main.h"				//Application
-#include "misc_c.h"						//Common
 #include "eeprom.h"						//Devices	//YL 18.9 for boot cmds	
 #include "led_buzzer.h"					//Devices
 #include "rtc.h"						//Devices	//YL 18.9 for RTC wakeup source	
@@ -47,7 +47,7 @@ handle read and write, write msgs to terminal, etc.
 char		*g_tokens[MAX_TOKENS];				// array holding pointers to the tokens (each ended by '\0') 
 int			g_ntokens; 							// number of tokens in current message
 char		g_in_msg[MAX_CMD_LEN]; 				// global string holding the recieved message, copied from g_curr_msg
-DestTypes 	g_usb_or_wireless_print;			// indicate where to send the response to. updated according to where we received the message from
+CommTypes 	g_usb_or_wireless_print;			// indicate where to send the response to. updated according to where we received the message from
 BYTE 		g_character_array[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'}; // used for USB send HEX numbers //YL 8.12
 BYTE 		g_is_cmd_received;
 BOOL		g_boot_seq_pause = FALSE;			// indicates wait before read next boot command
@@ -70,30 +70,32 @@ BOOL		g_boot_seq_pause = FALSE;			// indicates wait before read next boot comman
 int exec_message_command(void)
 {
 	static BYTE boot_cmd_addr = 0;
-	
+		
 #ifdef USBCOM 					
 	USB_STATUS status = USB_ReceiveData(); 			// periodic USB tasks and check for incoming data
-	if (status == USB_RECEIVED_DATA) {				// indicates there is message in the USB
-		g_usb_or_wireless_print = DEST_USB;
+	if (status == USB_RECEIVED_DATA) {				// indicates there is a message in the USB
+		g_usb_or_wireless_print = COMM_USB;
 		// After getting the message, handle the message
-		strcpy(g_in_msg, g_curr_msg);				// YL 11.11 strcpy instead of strcpy_ws
+		strcpy(g_in_msg, g_curr_msg);				
 		handle_msg(g_in_msg);
 	}
 #endif  // #ifdef USBCOM 
-	// Command could be received through the Wireless, while we were waiting for ack (For
-	// Example, we got "app stop" while sending blocks and expecting acks, therefore,
-	// the "g_is_cmd_received flag indicates that during this period, a message was received.
-	if (g_is_cmd_received == 1){
+	// Command could be received through the Wireless, while we were waiting for ack 
+	// (for example, we got "app stop" while sending blocks and expecting acks), therefore
+	// "g_is_cmd_received" flag indicates that during this period a message was received.
+	if (g_is_cmd_received == 1) {
 		handle_msg(g_in_msg);
 		g_is_cmd_received = 0;
-	}
-	if (MiApp_MessageAvailable()){					// check for commands from TXRX
-		g_usb_or_wireless_print = DEST_WIRELESS;
+	}	
+	if (MiApp_MessageAvailable()) {					// check for commands from TXRX
+		g_usb_or_wireless_print = COMM_WIRELESS;
 		TXRX_ERRORS status = TxRx_PeriodTasks();	// TXRX periodic tasks and check for incoming data
 		// After getting the message, handle the message
-		if (status != TXRX_NO_ERROR){
-			TxRx_printError(status);
-			Reset();
+		if (status != TXRX_NO_ERROR) {
+			TxRx_PrintError(status);
+			// YL 16.8 ...
+			// Reset(); meanwhile reconnect doesn't work
+			// ... YL 16.8
 		}	
 		handle_msg(g_in_msg);
 	}
@@ -116,7 +118,7 @@ int exec_message_command(void)
 	return 0;
 } 
 
-#endif // #if defined WISDOM_STONE
+#endif //WISDOM_STONE
 
 /*******************************************************************************
 // cmd_ok()
@@ -194,7 +196,7 @@ void b_write(BYTE * block_buffer, int len) {
 		rs232_putc(block_buffer[i]);
 #elif defined USBCOM
 	USB_WriteData(block_buffer,len); //YS ~10.10 no need for 4 byte conversion	
-#endif // #ifdef RS232COM
+#endif //RS232COM
 }
 
 /*******************************************************************************
@@ -205,10 +207,10 @@ void b_write(BYTE * block_buffer, int len) {
 *******************************************************************************/
 void m_write(char *str)	//AY 7.8
 {
-	WORD strLength = strlen_ws(str); //YL 11.11 strlen instead of strlen_ws
+	WORD strLength = strlen(str); 
 
 #if defined WISDOM_STONE	
-	if ((g_usb_or_wireless_print == DEST_USB) && (g_usb_connected==TRUE)){ //YS 17.8
+	if ((g_usb_or_wireless_print == COMM_USB) && (g_usb_connected == TRUE)) { //YS 17.8
 	#if defined RS232COM
 		char *p = str;
 		while ((*p) != '\0') {
@@ -216,12 +218,12 @@ void m_write(char *str)	//AY 7.8
 			p++;
 		}
 	#elif defined USBCOM
-		USB_WriteData(str, strLength);
-	#endif // #ifdef RS232COM
+		USB_WriteData((BYTE*)str, strLength); // YL 14.4 added casting to avoid signedness warning
+	#endif //RS232COM
 	}	
-	else if (g_usb_or_wireless_print == DEST_WIRELESS){
-		DelayMs(20);
-		m_TxRx_write(str);
+	else if (g_usb_or_wireless_print == COMM_WIRELESS) {
+		DelayMs(20);	
+		m_TxRx_write((BYTE*)str);  	// YL 14.4 added casting to avoid signedness warning
 		DelayMs(20);
 	}
 
@@ -233,9 +235,30 @@ void m_write(char *str)	//AY 7.8
 		p++;
 	}
 	#elif defined USBCOM
-	USB_WriteData(str,strLength);
-	#endif // #ifdef RS232COM
-#endif // #if defined WISDOM_STONE
+	USB_WriteData((BYTE*)str, strLength); // YL 14.4 added casting to avoid signedness warning
+	#endif //RS232COM
+#endif //WISDOM_STONE
+}
+
+/******************************************************************************
+// void m_write_debug(char *str) 
+// save g_usb_or_wireless_print and assign USB to it, use m_write to print the str 
+******************************************************************************/	
+void m_write_debug(char *str) {	//YL 20.4 added m_write_debug
+	
+	CommTypes dest_backup = g_usb_or_wireless_print;
+	g_usb_or_wireless_print = COMM_USB;		
+	// YL 25.8 ...
+	if (strcmp(str, "0") == 0) {
+		m_write("O");
+	}
+	else {
+		m_write(str);
+	}
+	// ... YL 25.8
+	USB_ReceiveData(); //YL 2.5 to make sure the printing works in init stage too
+	write_eol();
+	g_usb_or_wireless_print = dest_backup;
 }
 
 /*******************************************************************************
@@ -246,6 +269,17 @@ void blink_led() {
 	DelayMs(2000); 
 	set_led(0, LED_2);
 	DelayMs(2000);
+}
+
+/*******************************************************************************
+// blink_buzz() - for debug
+*******************************************************************************/
+void blink_buzz(void) { //YL 7.5
+	#if defined (WISDOM_STONE)
+		play_buzzer(1);	
+	#elif defined (COMMUNICATION_PLUG)
+		blink_led();
+	#endif
 }
 
 /*****************************************************************************/
@@ -259,9 +293,9 @@ void blink_led() {
 		if (g_usb_connected == TRUE){ //YS 17.8
 		    BYTE PRINT_VAR;
 		    PRINT_VAR = toPrint;
-		    toPrint = (toPrint>>4)&0x0F;
+		    toPrint = (toPrint >> 4) & 0x0F;
 		    USB_WriteData(&g_character_array[toPrint], 1);
-		    toPrint = (PRINT_VAR)&0x0F;
+		    toPrint = (PRINT_VAR) & 0x0F;
 			
 		    USB_WriteData(&g_character_array[toPrint], 1);
 		}

@@ -54,7 +54,7 @@
     #if defined(MRF49XA)
         #include "GenericTypeDefs.h"
         #include "Compiler.h"
-        #include "TxRx/SymbolTime.h"
+        #include "SymbolTime.h"  
         #include "Transceivers/MCHP_MAC.h"
         #include "Transceivers/MRF49XA/ConfigMRF49XA.h"
         #include "Transceivers/Security.h"
@@ -161,8 +161,8 @@
                 #define         TXCREG                  (0x9800 | (((WORD)RF_DEV/15 - 1)<<4) | TX_POWER)
                 #define         FREQ_START              1444
                 #define         FREQ_STEP               256
-                #define         CHANNEL_NUM             3 
-                #define         FULL_CHANNEL_MAP        0x00000007
+                #define         CHANNEL_NUM             3  			//YL 25.5(BM) - changed back to original 3 
+                #define         FULL_CHANNEL_MAP        0x00000007  //YL 25.5(BM) - changed back to original 0x00000007 
                 
            #elif defined(DATA_RATE_115200)
            
@@ -342,7 +342,7 @@
     
         #define         RXCREG                  (0x9400 | LNA_GAIN | RSSI_THRESHOLD)
         #define         GENCREG                 (0x8000|FREQ_BAND|XTAL_LD_CAP)
-        #define         PMCREG                  0x8209	// ABYS: 0x8201 => 0x8259 Enabling always the OSC and SYNTHEIZER
+        #define         PMCREG                  0x8209	// ABYS: 0x8201 => 0x8259 Enabling always the OSC and SYNTHEIZER //MC #define PMCREG 0x8201
         #define         FIFORSTREG              0xCA81
         #define         AFCCREG                 0xC4B7
         #define         BBFCREG                 0xC2AC
@@ -360,11 +360,11 @@
         #endif
     
         #if defined(ENABLE_SECURITY)
-            #define TX_PACKET_SIZE (TX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+BLOCK_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+10)
+            #define TX_PACKET_SIZE (TX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+BLOCK_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+10)	
             #define RX_PACKET_SIZE (RX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+BLOCK_SIZE+10)
         #else
-            #define TX_PACKET_SIZE  (TX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+5)
-            #define RX_PACKET_SIZE  (RX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+5)
+            #define TX_PACKET_SIZE  (TX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+5)	// YL 60 + 11 + 2 + 2 + 5 = 80
+            #define RX_PACKET_SIZE  (RX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+5) // YL 60 + 11 + 2 + 2 + 5 = 80
         #endif
     
     

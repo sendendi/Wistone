@@ -1,13 +1,19 @@
 Wisdom Stone API
 ================
 
+//YL 22.7 - added destination <destination> to all cmds
+
 Low level commands:
 ~~~~~~~~~~~~~~~~~~~
--	WRITE command:	w <device> <address> <data>\n
+-	WRITE command:	<destination> w <device> <address> <data>\n
+	<destination> - the network address of the stone the command is sent to; 
+					e.g 3 w ... - to send WRITE command to stone #3
 	each write command will be answered by one of the two strings:
 	- "ok\n" – the command was successfully executed
 	- "error\n" – error was found
--	READ command:	r <device> <address>\n
+-	READ command:	<destination> r <device> <address>\n
+	<destination> - the network address of the stone the command is sent to;
+			e.g 3 r ... - to send READ command to stone #3
 	each read command will be answered by one of the two strings:
 	- "<data>\n" – the command was successfully executed, <data> is the read value.
 	- "error\n" – error was found
@@ -29,6 +35,7 @@ Low level commands:
 -	"eeprom" – the on board EEPROM 
 	- <address> - the address within the 256K memory space, in decimal (e.g 16372); 
 	- <data> - the 8bit data for the memory address, in DEC (e.g. 235)
+	- NOTE - the address of "w eeprom" command should be bigger than 1000 (to protect BOOT table) 
 	- READ / WRITE, default: none.	
 -	"rtc" - Real Time Clock
 	- <address> - the register address in the RTC memory space; 
@@ -63,44 +70,48 @@ Low level commands:
 higher level commands:
 ~~~~~~~~~~~~~~~~~~~~~~
 
-FLASH commands: flash <sub command> <optional parameters>
+FLASH commands: <destination> flash <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~
--	flash format
+	<destination> - the network address of the stone the command is sent to;
+					e.g 3 flash ... - to send FLASH command to stone #3
+-	<destination> flash format
 	– format FLASH - reset the FLASH memory
 	- No parameters
 	- Go over all address space of FLASH and write zeros
--	flash gcd
+-	<destination> flash gcd
 	- get the value of Card Detect
--	flash minit
+-	<destination> flash minit
 	- Initialize the FLASH media
--	flash wsector <sector address> <string>
+-	<destination> flash wsector <sector address> <string>
 	- write the string into start of specific sector address
--	flash rsector <sector address>
+-	<destination> flash rsector <sector address>
 	- read the sector at the specific address, and write the 512 bytes to the terminal
--	flash gcap //YL 27.3 added gcap
+-	<destination> flash gcap //YL 27.3 added gcap
 	- no parameters
 	- get the value of FLASH capacity in sectors
 	- NOTE: if the card was pulled out after system turn on, flash minit should be executed before
 		sending flash any further commands 
 	
-EEPROM commands: eeprom <sub command> <optional parameters>
+EEPROM commands: <destination> eeprom <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~
--	eeprom format 
+	<destination> - the network address of the stone the command is sent to;
+					e.g 3 eeprom ... - to send EEPROM command to stone #3
+-	<destination> eeprom format 
 	– format EEPROM - reset the non-volatile memory
 	- No parameters
 	- Go over all fields in eeprom and reset them to the default values: 0xFF, unsigned int
--	eeprom write <address> <data>	
+-	<destination> eeprom write <address> <data>	
 	- write data string to specified address in EEPROM
 	- <address> - the address within the 32KB memory space in decimal (e.g 16320)
 				- NOTE: 1) the address should be at least 1 KB (to prevent BOOT table override)
 						2) the address should be a multiple of 64 (i.e - the writing should start at the beginning of some EEPROM page (64B), otherwise the writing might be erroneous) //YL 11.10
 	- <data> - data string, max - 60 characters length (any further characters are ignored), no need to use ""
--	eeprom read	<address> <number of bytes>	
+-	<destination> eeprom read	<address> <number of bytes>	
 	- read specified number of data bytes from specified address in EEPROM 
 	- <address> - the address within the 256K memory space, in decimal (e.g 16320)
 				- NOTE: the address should be a multiple of 64 (i.e - the reading should start at the beginning of some EEPROM page (64B), otherwise the reading might be erroneous) //YL 11.10
 	- <number of bytes> - the number of bytes to read, in decimal, no length restriction; only non-blank sequences are displayed, separated with ; (this mark is not read from the eeprom, and is just used as a delimiter)
--	eeprom sboot <entry number> [<command>]	
+-	<destination> eeprom sboot <entry number> [<command>]	
 	- set default command to be executed after the RTC wakes the system up
 	- <entry number> - number of entry in boot table - 0,.., 9
 				- NOTE: the entry should not be neccessarily blank, and if it is not - then the command it contains would be replaced with the new one
@@ -111,58 +122,61 @@ EEPROM commands: eeprom <sub command> <optional parameters>
 						e.g if 5 first table entries contain commands, and only the first 2 are needed - 
 						enter: eeprom sboot 2 
 						this command breaks the sequence of non-blank table entries,
-						i.e - when the system wakes up - it would execute only #0 and #1 boot commands,
-						and ignore the remaining commands (#3 and #4)  
-						in other words - the system executes only the commands that come before the lowest blank table entry.
+						i.e - when the system wakes up - it would execute only #0 and #1 boot commands, and ignore the remaining commands (#3 and #4)  
+						(in other words - the system executes only the commands that come before the lowest blank table entry).
 						e.g to ignore all boot commands the next time the system wakes up - enter: eeprom sboot 0
--	eeprom gboot <entry number> 
+-	<destination> eeprom gboot <entry number> 
 	- get pre-set default command string from boot table
 	- <entry number> - number of some entry in boot table - 0,.., 9 
 		
-System commands: sys <sub command> <optional parameters>
+System commands: <destination> sys <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~
--	sys gver 
+	<destination> - the network address of the stone the command is sent to;
+			e.g 3 sys ... - to send System command to stone #3
+-	<destination> sys gver 
 	– Get version - returns SW version ID & PSU serial number
 	- no parameters
--	sys sid <data>
+-	<destination> sys sid <data>
 	- set specific ID of the Wistone into the last byte of the EEPROM
 	- <data> - the Wistone ID, 0 <= data <= MAX_SN
--	sys gpower
+-	<destination> sys gpower
 	- no parameters
 	- Gets the current power status from the HW power manager and DC/DC components
 	- return <BATSTAT> <STAT1> <STAT2> <ACPG> <USBPG> <DCDCOK1> <DCDCOK2> <DCDCOK3>
 	- <BATSTAT> - n.nn - battery voltage
 	- <STAT1> <STAT2> <ACPG> <USBPG> <DCDCOK1> <DCDCOK2> <DCDCOK3> - 0 or 1 for each field
--	sys spower <5v enable> <12v enable> <-12v enable>
+-	<destination> sys spower <5v enable> <12v enable> <-12v enable>
 	- <5v enable>   - 0 - disable, or 1 - enable 5v   power source
 	- <12v enable>  - 0 - disable, or 1 - enable 12v  power source
 	- <-12v enable> - 0 - disable, or 1 - enable -12v power source
 	- set on/off the specific DC-DCs on the power board: 0 - off, 1 - on
 	- e.g if only 5v and -12v need to be on - use: "sys spower 1 0 1"
--	sys gerr 
+-	<destination> sys gerr 
 	– Get error - returns description of last error detected by Wiston application
 	- no parameters
 
-Real Time Clock commands: rtc <sub command> <optional parameters>
+Real Time Clock commands: <destination> rtc <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~~~~~~~~~~
--	rtc stime <hour> <minute> <second>
+	<destination> - the network address of the stone the command is sent to;
+			e.g 3 rtc ... - to unicast Real Time Clock command to stone #3
+-	<destination> rtc stime <hour> <minute> <second>
 	- set the time registers within the Real Time Clock
 	- <hour> - 0-24
 	- <minute> - 0-59
 	- <second> - 0-59	
--	rtc sdate <day> <month> <year> <weekday> 
+-	<destination> rtc sdate <day> <month> <year> <weekday> 
 	- set the date registers within the Real Time Clock
 	- <day> - 1-31
 	- <month> - 1-12
 	- <year> - 00-99  
 	- <weekday> - 1-7 
--	rtc gtime
+-	<destination> rtc gtime
 	- no parameters
 	- returns time from RTC registers: <hour> <minute> <second>
 	- <hour> - 0-24
 	- <minute> - 0-59
 	- <second> - 0-59	
--	rtc gdate
+-	<destination> rtc gdate
 	- no parameters
 	- return date from RTC registers: <day> <month> <year> <weekday>
 	- get the date registers within the Real Time Clock
@@ -170,21 +184,21 @@ Real Time Clock commands: rtc <sub command> <optional parameters>
 	- <month> - 1-12
 	- <year> - 00-99		
 	- <weekday> - SUN, MON,...	
--	rtc swakeup <delay> 		
+-	<destination> rtc swakeup <delay> 		
 	- set the RTC alarm to wake the system up once (for periodic wakeup - use salarm)
 	- <delay> - the delay until the system is on to execute pre-set command, in minutes
 	- NOTE: 1) as soon as the RTC wakes the system up - the system starts executing a batch of pre-set boot commands; 
 			   therefore - when the alarm is set and before the system is shut-down,
 			   it is important to insert into EEPROM's boot table at least one "app start" command
-			   (which is actually the reason for the wakeup) and that the last table's command would be app shutdown (for power-saving)
+			   (it is actually the reason for the wakeup) and to set "app shutdown" as the last command in the table (for power-saving)
 			   in addition, the parameters of "app start" should be used to determine 
 			   how long the system works before it shuts down:
 			   e.g if one of boot commands is: "app start ts 10000 4000 usb" - 
-			   it means that the system would be on at least 10000/5 = 2000 seconds,
-			   since the transmitting rate is 5 blocks per second.
+			   it means that, since the transmitting rate is 5 blocks per second,
+			   the system would be on at least 10000/5 = 2000 seconds.
 			2) specified delay summed up with current Wistone time should not exceed 24 hour period,
 			   e.g if "rtc stime" returns 23:30, the maximum delay possible to guarantee normal operation is 29 minutes;
--	rtc salarm <hour> <minute> <day> <weekday> 
+-	<destination> rtc salarm <hour> <minute> <day> <weekday> 
 	- set the alarm registers within the RTC to periodically wake the system up (for single wakeup - use swakeup)
 	- if some of the parameters are irrelevant - enter 'x' to indicate that:
 		-	e.g if only hour needs to be set - enter: <hour> x x x
@@ -194,23 +208,28 @@ Real Time Clock commands: rtc <sub command> <optional parameters>
 	- NOTE:	1) as soon as the RTC wakes the system up - the system starts executing a batch of pre-set boot commands; 
 			   therefore - when the alarm is set and before the system is shut-down,
 			   it is important to insert into EEPROM's boot table at least one "app start" command
-			   (which is actually the reason for the wakeup) and that the last table's command would be "app shutdown" (for power-saving)
+			   (it is actually the reason for the wakeup) and to set "app shutdown" as the last command in the table (for power-saving)
 	- <hour> - 0-24
 	- <minute> - 0-59
 	- <day> - 1-31 
 	- <weekday> - 1-7  
  
-temperature sensor commands: temp <sub command> <optional parameters>
+temperature sensor commands: <destination> temp <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
--	temp gtemp
+-	<destination> temp gtemp
 	- no parameters
 	- return temperature in Celcius from Temperature Sensor: <temp>
+	- <destination> - 	the network address of the stone the command is sent to;
+						e.g 3 temp ... - to send temperature sensor command to stone #3
 	- <temp> - nn.n (e.g. 24.6)
 
-acceletometer sensor commands: accmtr <sub command> <optional parameters>
+acceletometer sensor commands: <destination> accmtr <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--	accmtr config <option> <data> 
+-	<destination> accmtr config <option> <data> 
 	- configure the accelerometer data-rate/scaling/mode registers
+	- <destination> - 	the network address of the stone the command is sent to;
+						e.g 3 accmtr ... - to unicast accelerometer sensor command to stone #3
+						e.g 0 accmtr ... - to broadcast accelerometer sensor command to all the stones in the network
 	- <option> - an option to choose:	1 - data rate
 										2 - scaling
 										3 - mode			
@@ -221,26 +240,31 @@ acceletometer sensor commands: accmtr <sub command> <optional parameters>
 													3 - high resolution mode
 													4 - low power mode
 						
-LCD commands: lcd <sub command> <optional parameters>
+LCD commands: <destination> lcd <sub command> <optional parameters>
 ~~~~~~~~~~~~
--	lcd clrscr
+-	<destination> lcd clrscr
 	- no parameters
 	- clears the LCD screen
+	- <destination> - 	the network address of the stone the command is sent to;
+						e.g 3 lcd ... - to send LCD command to stone #3
 
-Application commands: app <sub command> <optional parameters>
+Application commands: <destination> app <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~~~~~~
-- 	app start <mode> <num of blocks> [<start sector address> and/or <destination>] [<combination mode>] //YL 7.11 added combination mode parameter
-		- SS: 	app start ss  <num of blocks> <start sector address> <combination mode> 
-		- TS: 	app start ts  <num of blocks> <start sector address> <destination>
-		- OST:	app start ost <num of blocks> <destination> <combination mode>
+	<destination> - 	the network address of the stone the command is sent to;
+						e.g 3 app ... - to unicast Application command to stone #3
+						e.g 0 app ... - to broadcast Application command to all the stones in the network
+- 	<destination> app start <mode> <num of blocks> [<start sector address> and/or <communication>] [<combination mode>] //YL 7.11 added combination mode parameter
+		- SS: 	<destination> app start ss  <num of blocks> <start sector address> <combination mode> 
+		- TS: 	<destination> app start ts  <num of blocks> <start sector address> <communication>
+		- OST:	<destination - if supported> app start ost <num of blocks> <communication> <combination mode>
 	- start sampling/storing/transmiting according to selected mode for num_of_blocks x 0.5KB samples 
 	- <mode> = ss - Sample and Store mode for num_of_blocks x 0.5KB samples  
 	- <mode> = ts - Transmit Samples mode for num_of_blocks x 0.5KB samples
 	- <mode> = ost - Online Sample and Transmit mode for num_of_blocks x 0.5KB samples
 	- <num of blocks> - num of 0.5KB blocks to read from flash and to transmit, or to store in flash.
 	- <start sector address> - flash sector address to start with. relevant in SS and TS modes. 
-	- <destination> - usb or wireless - where to send the data. relevant in TS and OST modes.
-	- <combination mode> -
+	- <communication> - usb or wireless - where to send the data. relevant in TS and OST modes.
+	- <combination mode>
 		- "dual" - combine samples from ADS1282 and MMA8451Q. relevant in SS and OST modes only
 		- "single" - generate samples from MMA8451Q only
 	- when done, returns: "start <mode> done" 
@@ -252,21 +276,22 @@ Application commands: app <sub command> <optional parameters>
 			  might be displayed twice (it happens if the range of the sectors requested in TS mode
 			  includes SS <start sector address>); 
 			  if so - then the first header belongs to TS and the second one - to SS
-- 	app stop
+- 	<destination> app stop
 	- no parameters
-	- stop the current active mode (Sampling/storing/transmiting), even if not completed the needed num_of_blocks x 0.5KB samples
+	- stop the current active mode (sampling/storing/transmiting), even if the needed (num_of_blocks x 0.5KB) samples weren't completed
 	- when done, returns: "stopped"
-- 	app sleep
+- 	<destination> app sleep
 	- no parameters
 	- switch wistone to sleep mode
 	- return "good night"
-- 	app shutdown
+- 	<destination> app shutdown
 	- no parameters
 	- turn main power off ("kill itself"...)
 	- return "shutting down"
+	
 Communication Plug Commands: plug <sub_cmd> ...
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -	plug reconnect	YS 5.1.13
-	-no parameters
-	-tries to reconnect the plug's wireless connection.
-	-should not be used alone, main use is the GUI's network failure recovery protocol
+	- no parameters
+	- tries to reconnect the plug's wireless connection.
+	- should not be used alone, main use is the GUI's network failure recovery protocol

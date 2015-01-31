@@ -378,7 +378,7 @@ int  handle_ads1282(int sub_cmd) {
 			break;
 
 		default:
-			err(ERR_INVALID_SUB_CMD);
+			err(ERR_UNKNOWN_SUB_CMD);
 			cmd_error(0);
 			break;
 	}

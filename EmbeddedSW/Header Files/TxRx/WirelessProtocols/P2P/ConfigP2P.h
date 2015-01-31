@@ -54,7 +54,7 @@
 
     #if defined(PROTOCOL_P2P)
 
-        #include "TxRx/SymbolTime.h"
+        #include "SymbolTime.h" //YL 12.4 was: "WirelessProtocols/SymbolTime.h"
     
         /*********************************************************************/
         // ENABLE_DUMP will enable the stack to be able to print out the 

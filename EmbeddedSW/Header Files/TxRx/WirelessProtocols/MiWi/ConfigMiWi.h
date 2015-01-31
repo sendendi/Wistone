@@ -44,7 +44,6 @@
 *  3.1   5/28/2010    yfy           MiWi DE 3.1
 *  4.1   6/3/2011     yfy           MAL v2011-06
 ********************************************************************/
-
 #ifndef __CONFIGURE_MIWI_H
 
     #define __CONFIGURE_MIWI_H
@@ -52,7 +51,7 @@
     #include "ConfigApp.h"
     
     #if defined(PROTOCOL_MIWI)
-        #include "WirelessProtocols/SymbolTime.h"
+        #include "SymbolTime.h" 
     
         /*********************************************************************/
         // ENABLE_DUMP will enable the stack to be able to print out the 
@@ -75,8 +74,9 @@
         // CONNECTION_RETRY_TIMES is the maximum time that the wireless node
         // can try to establish a connection. Once the retry times are exhausted
         // control will be return to application layer to decide what to do next
-        /*********************************************************************/
-        #define CONNECTION_RETRY_TIMES          3
+		// YL 25.4(BM) changed from 3, as AY changed to 20 in ConfigP2P.h        
+		/*********************************************************************/
+        #define CONNECTION_RETRY_TIMES           20 
     
     
         /*********************************************************************/
@@ -103,6 +103,7 @@
         /*********************************************************************/
         // ENABLE_MIWI_ACKNOWLEDGEMENT enables the MiWi stack to acknowledge
         // the data packet from the application layer.
+		// YL 25.4(BM) - should be commented
         /*********************************************************************/
         //#define ENABLE_MIWI_ACKNOWLEDGEMENT
 
@@ -119,6 +120,7 @@
         /*********************************************************************/
         // ENABLE_BROADCAST_TO_SLEEP_DEVICE enables messages broadcast to a 
         // sleeping device.
+		// YL 25.4(BM) - all the definitions that refer to sleeping are irrelevant to wistone; TODO - should be commented
         /*********************************************************************/
         #define ENABLE_BROADCAST_TO_SLEEP_DEVICE
         
@@ -169,6 +171,7 @@
         /*********************************************************************/
         // ACTIVE_SCAN_RESULT_SIZE defines the maximum number of active scan
         // results that can be received and recorded within one active scan.
+		// YL 16.5 changed back to original 4
         /*********************************************************************/
         #define ACTIVE_SCAN_RESULT_SIZE 4
             
@@ -199,8 +202,9 @@
         // RESYNC_TIMES defines the maximum number of times to try resynchronization
         // in all available channels before hand over the control to the application
         // layer
+		// YL 25.4(BM) changed from 0x03 to 0x06
         /*********************************************************************/
-        #define RESYNC_TIMES                0x03
+        #define RESYNC_TIMES                0x06 
 
         
         /*********************************************************************/

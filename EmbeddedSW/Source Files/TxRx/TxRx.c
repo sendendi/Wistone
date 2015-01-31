@@ -4,31 +4,33 @@
 // 1. Function that are common to the stone and to the plug
 // 2. Function that are unique to the stone
 // 3. Functions that are unique to the PLUG
-// The functions in this file are orderd as follow: In the begginig that are the common
-// function and so on..
+
 ******************************************************************************/
 
-/************************ HEADERS **********************************/
+/************************ INCLUDE **********************************/
+
 #include "wistone_main.h"
-#include "WirelessProtocols/P2P/P2P.h"
-//#include "WirelessProtocols/SymbolTime.h"
+//#include "WirelessProtocols/P2P/P2P.h"
+#include "WirelessProtocols/MiWi/MiWi.h" // YL 2.5 for TxRx_Init() - EUI
 #include "Transceivers/Transceivers.h"
 #include "WirelessProtocols/MCHP_API.h"
-//#include "WirelessProtocols/NVM.h"
 #include "TxRx.h"
 #include "Accelerometer.h"
 #include "HardwareProfileTxRx.h"
 #include "ConfigApp.h"
-#include "misc_c.h"			//YL 10.8
-#include "command.h"		//YL 12.8
+#include "misc_c.h"			// YL 10.8
+#include "command.h"		// YL 12.8
+#include "eeprom.h" 		// YL 2.5 for TxRx_Init() - EUI
+#include "parser.h"			// YL 4.8 for parse_nwk_addr
+#include "TimeDelay.h"		// YL 17.8 
 
-/************************** MACROS *********************************/
+/************************ DEFINE ************************************/
 
 static char *TxRx_err_messages[] = {
-	"TxRx -  No Error",
-    "TxRx - No connection found",           // The requested device is not present
-	"TxRx - Can not join to a network",
-	"TxRx - Can Not Intialize device",         // Cannot initialize device
+	"TxRx - No Error",
+    // YL 19.8 isn't used: "TxRx - No connection found",           // The requested device is not present
+	// YL 19.8 isn't used: "TxRx - Can not join to a network",
+	// YL 19.8 isn't used: "TxRx - Can not intialize device",      // Cannot initialize device
 	"TxRx - Did not receive packet",
 	"TxRx - Got only partial packet",
 	"TxRx - Unable to send a packet",
@@ -39,6 +41,8 @@ static char *TxRx_err_messages[] = {
 	"TxRx - Received unknown packet",
 	"TxRx - Received invalid packet",
 	"TxRx - Received invalid packet trailer",
+	"TxRx - NWK Unknown Destination",			// YL 4.8 invalid network address of the destination
+	"TxRx - NWK Not Me",						// YL 23.7 
 	""
 };
 
@@ -47,135 +51,169 @@ static BYTE TxRx_Trailer[TXRX_TRAILER_SIZE] = {
 	0x25, 0x83, 0x33, 0x57
 };
 
-// There are 3 command types - the regular one, which consists of command and their response. 
-//The second type is data block, which consists of block in size of 512. And the third and last
-// is ack packet.
+// There are 3 command types:
+// - The regular one, which consists of command and their response. 
+// - The second type is data block, which consists of block in size of 512B.
+// - The ack packet.
 
-typedef enum{
+typedef enum {
 	TXRX_TYPE_COMMAND 	= 0,
 	TXRX_TYPE_DATA 	 	= 1,
 	TXRX_TYPE_ACK		= 2
-}BLOCK_TYPE;
+} BLOCK_TYPE;
 
-
-// Next is the struct of transmission block. It consists block header, buffer and trailer, and current position
-// in the block.
+// Next is the struct of transmission block. 
+// It consists of block header, buffer, trailer and current position in the block.
 // The header consists of block type, ackSeq and block length (without header and trailer).
 typedef struct {
 
-	struct{
+	struct {
 		BYTE blockType;
 		BYTE ackSeq;
+		// YL 14.8 ...
+		BYTE sourceNwkAddress[MY_ADDRESS_LENGTH]; 			// for: MY_ADDRESS_LENGTH = 2:
+															//		sourceNwkAddress[0] is EUI_0 from the EEPROM
+															//		sourceNwkAddress[1] is EUI_1 (constant)
+		// YL 17.8 ...													
+		BYTE destinationNwkAddress[MY_ADDRESS_LENGTH];		// for: MY_ADDRESS_LENGTH = 2:
+															//		destinationNwkAddress[0] is a parameter EUI_0 
+															//		destinationNwkAddress[1] is a parameter EUI_1 
+		// ... YL 17.8
+		// ... YL 14.8
 		WORD blockLen;
-	}blockHeader;
+	} blockHeader;
 	
-	BYTE blockBuffer[MAX_BLOCK_SIZE+10];
+	BYTE blockBuffer[MAX_BLOCK_SIZE + 10]; /*YL because PAYLOAD_START = 11?*/
 	BYTE blockTrailer[TXRX_TRAILER_SIZE];
-
 	WORD blockPos;
-	
-	
-}TX_BLOCK_BUFFER;
+} TX_BLOCK_BUFFER;
 
-
-// Next is the struct of receiving block. It consists block header, buffer and trailer, and some
-// other information of the block for handling it(The last is not part of the block itself).
+// Next is the struct of receiving block.
+// It consists of block header, buffer, trailer and some other information 
+// of the block for handling it (the last one is not a part of the block itself).
 // The header consists of block type, ackSeq and block length (without header and trailer).
 typedef struct {
 
-	struct{
-		BYTE blockType;		
+	struct {
+		BYTE blockType;	
 		WORD blockLen;
-	}blockHeader;
+	} blockHeader;
 
-	BYTE blockBuffer[MAX_BLOCK_SIZE+10];
+	BYTE blockBuffer[MAX_BLOCK_SIZE + 10];
 	BYTE blockTrailer[TXRX_TRAILER_SIZE];
 
-	struct{
+	struct {
 		WORD blockPos;
 		BOOL isHeader;	
 		BOOL isTrailer;
-	}handlingParam;
+	} handlingParam;
+} RX_BLOCK_BUFFER;
 
-
-}RX_BLOCK_BUFFER;
-
-
-// Next struct consists information of the acknolegmaents. There are acknolegment sequences for transmiting data,
-// and acknowlogment for receiving data. The ..LastSeq descrives the sequence of the last successful transminit/receiving,
-// and the ..ExpectedSeq describes the ack that we are expect to get.
-typedef struct{
-
+// Next struct consists of acknowledgments information. 
+// There are acknowledgment sequences for transmitting data and for receiving data.
+// The ..LastSeq describes the sequence of the last successful transmitting/receiving,
+// and the ..ExpectedSeq describes the ack that we expect to get.
+// YL ...
+// - stone acks receiving cmd/data from the plug;
+// - plug acks receiving data from the stone; 
+// acknowledgement has 6 bits - [0:2^6-1]
+// the header has 3 bytes:
+// 1. blockInf - aaaa,aatt: 6 bits of acknowledgment, 2 bits of block type (ack/cmd/data)
+// 2. blockLen - upper byte (MAX_BLOCK_SIZE = 512)
+// 3. blockLen - lower byte
+// ... YL 
+typedef struct {
 	BYTE txLastSeq;
 	BYTE txExpectedSeq;
 	BYTE rxLastSeq;
 	BYTE rxExpectedSeq;
-
-}BLOCK_ACK_INFO;
-
-
+} BLOCK_ACK_INFO;
 
 /************************ VARIABLES ********************************/
+
 TX_BLOCK_BUFFER txBlock;
 RX_BLOCK_BUFFER rxBlock;
-BLOCK_ACK_INFO  blockAckInfo;
+// YL 19.8 ...
+// was: BLOCK_ACK_INFO  blockAckInfo;
+#if defined WISDOM_STONE
+	BLOCK_ACK_INFO  blockAckInfo;
+#elif defined COMMUNICATION_PLUG
+	BLOCK_ACK_INFO  blockAckInfo[MAX_NWK_SIZE];  			// the indices in the array match EUI[0] of the stone: 
+															// e.g - ack info of the stone with EUI[0] = 2 is in blockAckInfo[2]
+#endif // WISDOM_STONE
 
-// Next global variables are only for receiving commands during transsmission of blocks.
+// ... YL 19.8
+
+// Next global variables are only for receiving commands during transmission of blocks.
 // Notice that when we use acks, and the stone is waiting for an ack, it can receive
 // in this time a command (for instance "app stop", therefore we should seperate between
 // these by the next 2 variables:
  
-#if defined (WISDOM_STONE)
-	//extern BYTE g_is_cmd_received;	// indicates that command was received during a transsmision. 
+#if defined WISDOM_STONE
+	//extern BYTE g_is_cmd_received;			// indicates that command was received during a transmission. 
 #endif
 
-#if defined (COMMUNICATION_PLUG)
-// indicates for the plug that "app stop" was s-e-n-t to the stone, and therefore the next block that will be received, will not be printed..
-	extern BYTE isAppStop;	
+#if defined COMMUNICATION_PLUG
+	// indicates for the plug that "app stop" was sent to the stone, and therefore the next block that will be received, will not be printed.
+	// YL 4.8 ... moved isAppStop here (from main)
+	// was: extern BYTE isAppStop;
+	BOOL isAppStop;							// YL indicates that the plug received "app stop" command, 
+											// and therefore it should stop receiving data blocks from the stone
+	// YL 22.8 ...
+	BOOL isStopped[MAX_NWK_SIZE];			// the indices in the array match EUI[0] of the stone: 
+											// e.g - ack info of the stone with EUI[0] = 2 is in blockAckInfo[2]
+	
+	// ... YL 22.8
+	// ... YL 4.8
+#endif // COMMUNICATION_PLUG
+
+// YL 2.9 ... added #ifdef
+// was:
+// BYTE blockTryTxCounter = 0;
+// extern BYTE messageRetryCounter;
+#if defined ENABLE_RETRANSMISSION
+	BYTE blockTryTxCounter = 0;
+	extern BYTE messageRetryCounter;
 #endif
+// ... YL 2.9
 
-BYTE blockTryTxCounter = 0;
+// YL 4.8 ... 
+BYTE finalDestinationNwkAddress[MY_ADDRESS_LENGTH] ; 	// currently max possible MAX_NWK_SIZE is 8 components in the network, so 1 byte is enough for the network address of the destination
+BOOL isBroadcast;										// indicates that we received broadcast command
+// ... YL 4.8
 
-extern BYTE messageRetryCounter;
+// YL 19.8 ...  
+#if defined COMMUNICATION_PLUG && defined ENABLE_ACK 	// for indices of blockAckInfo array
+	BYTE txToEUI0;			// EUI_0 of the destination when the plug is the transmitter (= finalDestinationNwkAddress[0])
+	BYTE rxFromEUI0;		// EUI_0 of the source when the plug is the receiver (= finalDestinationNwkAddress[0])
+#endif // COMMUNICATION_PLUG, ENABLE_ACK
+// ... YL 19.8
 
-/********************************************************************/
-// Function Declarations:
-/********************************************************************/
+/***************** FUNCTION DECLARATIONS ****************************/
 
-// Overall functions
+// Overall functions:
 TXRX_ERRORS TxRx_WistoneHandler();
 TXRX_ERRORS TxRx_PlugHandler();
 
-// Tx Function - To change the name of th function to more understnable...
+// Tx Functions:
 TXRX_ERRORS TxRx_TransmitBuffer();
 TXRX_ERRORS TxRx_SendPacket(BYTE *data, WORD dataLen, BLOCK_TYPE bType);
 
-#if defined (WISDOM_STONE)
+#if defined WISDOM_STONE
 	TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length);	
 	TXRX_ERRORS m_TxRx_write(BYTE *str);
-
-#elif defined (COMMUNICATION_PLUG)
+#elif defined COMMUNICATION_PLUG
 	TXRX_ERRORS TxRx_SendCommand(BYTE* command);
-#endif
-
+#endif //WISDOM_STONE
 
 TXRX_ERRORS TxRx_SendAck();
-
 BYTE TxRx_noOverflowADD(BYTE toAdd, BYTE addingTo);
 
-
-// Rx Function
+// Rx Functions:
 TXRX_ERRORS TxRx_ReceiveHeaderPacket();
 void TxRx_ReceiveBuffer();
 TXRX_ERRORS TxRx_ReceiveMessage();
 TXRX_ERRORS TxRx_ReceivePacket();
-
-
-#if defined (COMMUNICATION_PLUG)
-	TXRX_ERRORS TxRx_Connect();
-#endif
-
-
 
 /******************************************************************************
 * Function:
@@ -199,10 +237,7 @@ TXRX_ERRORS TxRx_ReceivePacket();
 *	   None
 *
 ******************************************************************************/
-
-
-void MRFInit(){
-
+void MRFInit() {
 
 #if defined(MRF24J40) || defined(MRF49XA)
     PHY_CS_TRIS = 0;
@@ -211,48 +246,47 @@ void MRFInit(){
     //PHY_RESETn = 1;
 #else
 	#error "Invalid MRF"
-#endif
+#endif //MRF24J40
 	
 	RF_INT_TRIS = 1;
 	
 	SDI_TRIS = 1;
 	SDO_TRIS = 0;
 	SCK_TRIS = 0;
-	SPI_SDO = 0;        
-	SPI_SCK = 0;             
+	SPI_SDO  = 0;        
+	SPI_SCK  = 0;             
 	
 #if defined(MRF49XA)
     nFSEL_TRIS = 0;
-    FINT_TRIS = 1;	    
-    nFSEL = 1; 
+    FINT_TRIS  = 1;	    
+    nFSEL      = 1; 
    
 #elif defined(MRF24J40)
     PHY_WAKE_TRIS = 0;
     PHY_WAKE = 1;	
-#endif
+#endif //MRF49XA
 	
 #if defined(HARDWARE_SPI)
      SPI2CON1 = 0b0000000100111010;
      SPI2STAT = 0x8000;	
 #else
 	#error "Not defined Hardware SPI"
-#endif
+#endif //HARDWARE_SPI
 	
 	INTCON2bits.INT1EP = 1;
 	
 #if defined(ENABLE_NVM)
     EE_nCS_TRIS = 0;
     EE_nCS = 1;
-#endif
+#endif //ENABLE_NVM
 	
 	RFIF = 0;
-	if( RF_INT_PIN == 0 )
-	{
+	if (RF_INT_PIN == 0) {
 	    RFIF = 1;
-	}
-        
-}
+	}       
+    RFIE = 1; //YL 11.5(BM) - added to be like in the RFD example
 
+}
 
 /******************************************************************************
 * Function:
@@ -270,214 +304,224 @@ void MRFInit(){
 *      </code>
 *
 * Parameters:
-*	   BOOL justResetNetwork- to indicate if we only want to reset the networking stack, and not data counters (for network faults)
+*	   BOOL justResetNetwork - to indicate if we only want to reset the networking stack, and not data counters (for network faults)
 *
 * Return value: 
 *	   None
 *
-******************************************************************************/
-void TxRx_Init(BOOL justResetNetwork){//YS 17.11
-	long	currentChannel_long;
-	char*	currentChannel_str;
+******************************************************************************/ 
+void TxRx_Init(BOOL justResetNetwork) { // YS 17.11	
 
-	// Initialize the MRF ports.
+	// YL 17.8 ...
+	MIWI_TICK 	t1, t2;	// to limit TxRx_Init time for the plug\stone
+	BYTE		i;
+	// ... YL 17.8
+			
+	// initialize the MRF ports
 	MRFInit();
 	
-
-	/*********************************************************************/
-    // Function MiApp_ProtocolInit intialize the protocol stack.
-    // The return value is a boolean to indicate the status of the
-    //      operation.
-    // The only parameter indicates if Network Freezer should be invoked.
-    //      When Network Freezer feature is invoked, all previous network
-    //      configurations will be restored to the states before the
-    //      reset or power cycle
-    /*********************************************************************/
-    MiApp_ProtocolInit(FALSE);
-
-	if(!justResetNetwork){
-		// Next are init required for the acks.
-		TxRx_Reset_ACK_Sequencers();//YS 22.12
+	// read from EEPROM the byte that is used as the LSByte of the EUI:		
+	myLongAddress[0] = (BYTE)(0xFF & eeprom_read_byte(EUI_0_ADDRESS)); 
+				
+	MiApp_ProtocolInit(FALSE);  
 	
-
-		// Next are the init of the trailer that is conastant and used for syncronization
-		// of the block
-		WORD i = 0;
-	
-		for(i = 0; i < TXRX_TRAILER_SIZE; i++)
-		{
-			txBlock.blockTrailer[i] = TxRx_Trailer[i];
+	// YL 25.5 added AY ... 
+	if (!justResetNetwork) {
+		TxRx_Reset_ACK_Sequencers(); //YS 22.12 init required for the acks	// YL 29.7 AY called TxRx_Reset_ACK_Sequencers in both - plug and stone if(!justResetNetwork), 
+																			// and in addition - at the end of TxRx_Connect, in plug only, and without any condition
+																			// (whereas the stone started the network); do we need this additional call? 
+			
+		// YL 18.8 was: WORD n; replaced with: BYTE i
+		for (i = 0; i < TXRX_TRAILER_SIZE; i++) {
+			txBlock.blockTrailer[i] = TxRx_Trailer[i];	// init of constant trailer that is used for synchronization of the block
 		}
+		
+		// YL 22.8 ...
+		#if defined COMMUNICATION_PLUG
+			for (i = 1; i < MAX_NWK_SIZE; i++) {		// i = 0 isn't used
+				isStopped[i] = FALSE;
+			}
+		#endif
+		// ... YL 22.8
 	}
-	/*******************************************************************/
-    // Function MiApp_ConnectionMode sets the connection mode for the 
-    // protocol stack. Possible connection modes are:
-    //  - ENABLE_ALL_CONN       accept all connection request
-    //  - ENABLE_PREV_CONN      accept only known device to connect
-    //  - ENABL_ACTIVE_SCAN_RSP do not accept connection request, but 
-    //                          allow response to active scan
-    //  - DISABLE_ALL_CONN      disable all connection request, including
-    //                          active scan request
-    /*******************************************************************/
-	MiApp_ConnectionMode(ENABLE_ALL_CONN);
-
-#if defined (COMMUNICATION_PLUG)
-	while(TxRx_Connect()!= TXRX_NO_ERROR);
-	DumpConnection(0xFF);                    
-	print_string(0, 0, "Start Conn Chan#");
-	currentChannel_long = currentChannel & 0x0000FFFF;
-	currentChannel_str = long_to_str(currentChannel_long); //YL 22.8 long_to_str (instead of num_to_str)
-	print_string(0, 1, currentChannel_str);
-
-#elif defined (WISDOM_STONE)
-
-        {
-            /*******************************************************************/
-            // Function MiApp_StartConnection tries to start a new network
-            //
-            // The first parameter is the mode of start connection. There are 
-            // two valid connection modes:
-            //   - START_CONN_DIRECT        start the connection on current 
-            //                              channel
-            //   - START_CONN_ENERGY_SCN    perform an energy scan first, 
-            //                              before starting the connection on 
-            //                              the channel with least noise
-            //   - START_CONN_CS_SCN        perform a carrier sense scan 
-            //                              first, before starting the 
-            //                              connection on the channel with 
-            //                              least carrier sense noise. Not
-            //                              supported for current radios
-            //
-            // The second parameter is the scan duration, which has the same 
-            //     definition in Energy Scan. 10 is roughly 1 second. 9 is a 
-            //     half second and 11 is 2 seconds. Maximum scan duration is 
-            //     14, or roughly 16 seconds.
-            //
-            // The third parameter is the channel map. Bit 0 of the 
-            //     double word parameter represents channel 0. For the 2.4GHz 
-            //     frequency band, all possible channels are channel 11 to 
-            //     channel 26. As the result, the bit map is 0x07FFF800. Stack 
-            //     will filter out all invalid channels, so the application 
-            //     only needs to pay attention to the channels that are not 
-            //     preferred.
-            /*******************************************************************/
-			print_string(0, 0, "Energy Scanning");
-			MiApp_StartConnection(START_CONN_ENERGY_SCN, 8, 0xFFFFFFFF);
-			//TXSleep();
-			DumpConnection(0xFF);                    
- 			print_string(0, 0, "Start Conn Chan#");
-			currentChannel_long = currentChannel & 0x0000FFFF;
-			currentChannel_str = long_to_str(currentChannel_long);  //YL 22.8 long_to_str (instead of num_to_str)
-			print_string(0, 1, currentChannel_str);
-        }
-#else
- 			print_string(0, 0, "define either:");
- 			print_string(0, 1, "STONE or PLUG");
-#endif
-
-	if(justResetNetwork){//YS 17.11
-		while(!ConnectionTable[0].status.bits.isValid);//make sure the other side reconnected
+	// ... YL 25.5
+	
+	MiApp_ConnectionMode(ENABLE_ALL_CONN);				// (ENABLE_PREV_CONN) doesn't work 		                                              
+	
+	// YL 18.8 ... the backup of TxRx_Init is in the end of the file
+	if (myLongAddress[0] == NWK_STARTER_ADDR) {
+		// was: #if defined COMMUNICATION_PLUG	
+		// the plug is the only PAN coordinator.
+		// it is the only one that starts the network, and then accepts others that join it
+		
+		// YL 17.8 ...
+		// was: MiApp_StartConnection(START_CONN_ENERGY_SCN, 10, 0xFFFFFFFF); 	// YL 25.5 to select the most quiet channel: START_CONN_ENERGY_SCN instead of START_CONN_DIRECT
+		t1 = MiWi_TickGet();
+		while (1) {
+			MiApp_StartConnection(START_CONN_ENERGY_SCN, 10, 0xFFFFFFFF); 		// YL 25.5 to select the most quiet channel: START_CONN_ENERGY_SCN instead of START_CONN_DIRECT
+			t2 = MiWi_TickGet();
+			if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_NWK_ESTABLISHMENT) {		
+				break;
+			}
+			BYTE currentNwkSize = 0;
+			for (i = 0; i < CONNECTION_SIZE; i++) {
+				if (ConnectionTable[i].status.bits.isValid &&
+					ConnectionTable[i].status.bits.FinishJoin) {
+					currentNwkSize++;
+				}
+			}
+						
+			if (currentNwkSize == MAX_NWK_SIZE - 1) {
+				break;		// the starter may finish TxRx_Init after the network is full
+			}
+			
+			//<>#if defined DEBUG_PRINT 
+				blink_led();	// the plug keeps sending beacons
+			//<>#endif
+		}
+		// ... YL 17.8
+		// was: #endif //COMMUNICATION_PLUG
 	}
+	else {
+		// YL 17.8 ... backup is below TxRx_Init; replaced j with t1 and t2
+		// was: #if defined WISDOM_STONE
+		// the stone is a regular (non-PAN) coordinator.
+		// it searches for networks and establish connection to one of them
+		
+		BOOL	joinedNetwork = FALSE;
+		BYTE	totalActiveScanResponses;
+		
+		t1 = MiWi_TickGet();		
+		while (!joinedNetwork) { 
+			totalActiveScanResponses = MiApp_SearchConnection(10, 0xFFFFFFFF);
+			i = 0;
+			while ((!joinedNetwork) && (i < totalActiveScanResponses)) {			
+				if (MiApp_EstablishConnection(i, CONN_MODE_DIRECT) != 0xFF) { 
+					joinedNetwork = TRUE;  										// a connection has been established - WISDOM_STONE completed TxRx_Init successfully
+					// YL 19.8 ...
+					// YL 25.8 break;
+					// ... YL 19.8
+				}
+				i++;  															// try to establish connection with next active scan response
+			}
+			t2 = MiWi_TickGet();  									
+			if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_NWK_JOINING) {	
+				break;
+			}
+			//<>#if defined DEBUG_PRINT 
+				blink_led();	// the stone is looking for a connection
+			//<>#endif
+			}
+		
+			if (!joinedNetwork) {  				// no connections has been found 
+				g_sleep_request = TRUE;			// go to sleep till next wakeup time
+			}
+		// ... YL 17.8
+		// was: #endif //WISDOM_STONE
+	}
+	// ... YL 18.8
+
+	// #if defined DEBUG_PRINT // YL 16.8
+		play_buzzer(1);	// the stone/plug finished TxRx_Init
+	// #endif	
+		
+	// YL 25.5 added AY...
+	if (justResetNetwork) { // YS 17.11
+		while (!ConnectionTable[0].status.bits.isValid); 	// make sure the other side reconnected
+	}
+	// ...YL 25.5	 
 }
 
-#if defined (COMMUNICATION_PLUG)
-
-
+// YL 18.8 ...
+// <> #if defined DEBUG_PRINT
 /******************************************************************************
 * Function:
-*		TXRX_ERRORS TxRx_Connect()
-*
-* Description:
-*      This function should be called to connect to available connection.
-*	   Notice that that the plug is connecting to the stone, therefore the stone
-*	   is builiding the network, and the plug is connecting to the network. 
-*
-* Parameters:
-*	   None
-*
-* Return value: 
-*	   TXRX_NO_CONNECTIONS_FOUND
-*	   TXRX_CANNOT_JOIN_TO_NETWORK
-*
-******************************************************************************/
-
-
-TXRX_ERRORS TxRx_Connect(){
-
-	BYTE i = 0,j;
-        
-    WORD myChannel = 0xFF;
-    m_write((char *)"\r\nStarting Active Scan...");
-    
-	print_string(0, 0, "Active Scanning");
-
-    /*******************************************************************/
-    // Function MiApp_SearchConnection will return the number of 
-    // existing connections in all channels. It will help to decide 
-    // which channel to operate on and which connection to add.
-    // The return value is the number of connections. The connection 
-    //     data are stored in global variable ActiveScanResults. 
-    //     Maximum active scan result is defined as 
-    //     ACTIVE_SCAN_RESULT_SIZE
-    // The first parameter is the scan duration, which has the same 
-    //     definition in Energy Scan. 10 is roughly 1 second. 9 is a 
-    //     half second and 11 is 2 seconds. Maximum scan duration is 14, 
-    //     or roughly 16 seconds.
-    // The second parameter is the channel map. Bit 0 of the 
-    //     double word parameter represents channel 0. For the 2.4GHz 
-    //     frequency band, all possible channels are channel 11 to 
-    //     channel 26. As the result, the bit map is 0x07FFF800. Stack 
-    //     will filter out all invalid channels, so the application 
-    //     only needs to pay attention to the channels that are not 
-    //     preferred.
-    /*******************************************************************/
-    i = MiApp_SearchConnection(8, 0xFFFFFFFF);
-    
-	if (i==0){
-		return TXRX_NO_CONNECTIONS_FOUND;
-	}
-
-    if( i > 0 )
-    {
-        // now print out the scan result.
-        m_write("\r\nActive Scan Results: \r\n");
-        for(j = 0; j < i; j++)
-        {
-            m_write("Channel: ");
-            PrintDec(ActiveScanResults[j].Channel );
-            m_write("   RSSI: ");
-            PrintChar(ActiveScanResults[j].RSSIValue);
-            m_write("\r\n");
-            myChannel = ActiveScanResults[j].Channel;
-        }
-
-		/*******************************************************************/
-		// Function MiApp_EstablishConnection try to establish a new 
-		// connection with peer device. 
-		// The first parameter is the index to the active scan result, which 
-		//      is acquired by discovery process (active scan). If the value
-		//      of the index is 0xFF, try to establish a connection with any 
-		//      peer.
-		// The second parameter is the mode to establish connection, either 
-		//      direct or indirect. Direct mode means connection within the 
-		//      radio range; Indirect mode means connection may or may not 
-		//      in the radio range. 
-		/*******************************************************************/
-		if( MiApp_EstablishConnection(0, CONN_MODE_DIRECT) == 0xFF )
-		{
-			m_write("\r\nJoin Fail");
-			return TXRX_CANNOT_JOIN_TO_NETWORK;
+*		void TxRx_PrintConnectionTable(void) 
+*******************************************************************************/	
+void TxRx_PrintConnectionTable(void) {
+	
+	BYTE i = 1;
+	
+	write_eol();
+	m_write_debug("CONNECTION TABLE from TXRX:");	
+	for (; i < CONNECTION_SIZE; i++) {
+		if (ConnectionTable[i - 1].status.bits.isValid) {
+			if (i - 1 == 0) {
+				m_write_debug("O");
+			}
+			else {
+			m_write_debug(byte_to_str(i - 1));
+			}
+			m_write_debug("----------------------------");
+			m_write_debug(" - long address: (0) ");
+			m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[0]));
+			m_write_debug(" - long address: (1) ");
+			m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[1]));
+			if (ConnectionTable[i - 1].status.bits.longAddressValid) {
+				m_write_debug(" and valid ");
+			}
+			else {
+				m_write_debug(" and not valid ");
+			}						
+			m_write_debug(" - short address: (0) ");
+			m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.LB)));
+			m_write_debug(" - short address: (1) ");
+			m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.HB)));
+			if (ConnectionTable[i - 1].status.bits.shortAddressValid) {
+				m_write_debug(" and valid ");
+			}
+			else {
+				m_write_debug(" and not valid ");
+			}
+			m_write_debug("============================");
 		}
-    }
-   
-	TxRx_Reset_ACK_Sequencers();//YS 22.12
-	return TXRX_NO_ERROR;
-
+	}
+	write_eol();
+	m_write_debug("The index of myParent: ");
+	if (myParent == 0) {
+		m_write_debug("0");
+	}
+	else {
+		m_write_debug(byte_to_str(myParent));
+	}
+	write_eol();
+	m_write_debug("My addresses: ");
+	m_write_debug(" - long address: (0) ");
+	m_write_debug(byte_to_str(myLongAddress[0]));
+	m_write_debug(" - long address: (1) ");
+	m_write_debug(byte_to_str(myLongAddress[1]));			
+	m_write_debug(" - short address: (0) ");
+	m_write_debug(byte_to_str((BYTE)(myShortAddress.v[0])));
+	m_write_debug(" - short address: (1) ");
+	m_write_debug(byte_to_str((BYTE)(myShortAddress.v[1])));
+	write_eol();
+	
+	//m_write("Ack Info: ");
+	//write_eol();
+	//#if defined WISDOM_STONE
+	//m_write(byte_to_str(blockAckInfo.txLastSeq));
+	//m_write(", ");
+	//m_write(byte_to_str(blockAckInfo.txExpectedSeq));
+	//m_write(", ");
+	//m_write(byte_to_str(blockAckInfo.rxLastSeq));
+	//m_write(", ");
+	//m_write(byte_to_str(blockAckInfo.rxExpectedSeq));
+	//write_eol();
+	//#elif defined COMMUNICATION_PLUG
+	//for (i = 1; i < MAX_NWK_SIZE; i++) {
+		//m_write(byte_to_str(blockAckInfo[i].txLastSeq));
+		//m_write(", ");
+		//m_write(byte_to_str(blockAckInfo[i].txExpectedSeq));
+		//m_write(", ");
+		//m_write(byte_to_str(blockAckInfo[i].rxLastSeq));
+		//m_write(", ");
+		//m_write(byte_to_str(blockAckInfo[i].rxExpectedSeq));
+		//write_eol();
+	//}
+	//#endif
 }
-
-#endif
-
-
+// <>#endif
+// ... YL 18.8
 
 /******************************************************************************
 * Function:
@@ -485,9 +529,9 @@ TXRX_ERRORS TxRx_Connect(){
 *
 * Description:
 *      This is the primary user interface function to perform period tasks.
-*	   This funcion checks whether there is availiable message, and if so,
+*	   This funcion checks whether there is available message, and if so,
 *	   it tries to get the whole packet, and perform the appropriate action,
-*	   depends on if ir runs at the stone or at the plug. 
+*	   depends on if it runs at the stone or at the plug. 
 *
 * Example: 	void main(void)
 *    		{
@@ -515,50 +559,55 @@ TXRX_ERRORS TxRx_Connect(){
 *	   Any parameter at the TXRX_ERRORS enum.
 *
 ******************************************************************************/
+TXRX_ERRORS TxRx_PeriodTasks() {
 
-TXRX_ERRORS TxRx_PeriodTasks(){
-
-	
 	TXRX_ERRORS status;
-	MIWI_TICK t1,t2;//YS 25.1
-	// Check if there is available message..
-	if( MiApp_MessageAvailable())
-	{	
+	MIWI_TICK t1, t2; 				//YS 25.1
+	// check if there is available message
+	if (MiApp_MessageAvailable()) {	
 		t1 = MiWi_TickGet();
-		while(1){
-			status = TxRx_ReceivePacket();		
-			if(status == TXRX_NO_ERROR){
+		while (1) {
+			status = TxRx_ReceivePacket();
+			#if defined DEBUG_PRINT
+				TxRx_PrintConnectionTable();
+			#endif
+			if (status == TXRX_NO_ERROR) {
 				break;
 			}
-			#if defined (TXRX_DEBUG_PRINT)
-				TxRx_printError(status);
-			#endif
-
-			t2 = MiWi_TickGet();//YS 25.1
-			if(MiWi_TickGetDiff(t2, t1) > TIMEOUT_RETRYING_RECEIVING_PACKET){
-				return TXRX_NO_ERROR;
-			}
+			t2 = MiWi_TickGet(); 	//YS 25.1
+			if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_RETRYING_RECEIVING_PACKET) {
+				// YL 19.8 ...
+				// was: return TXRX_NO_ERROR;
+				status = TXRX_NO_PACKET_RECEIVED;
+				// ... YL 19.8
+			}	
 		}
+
+		// YL 19.8 ...
+		if (status != TXRX_NO_ERROR) {
+			return status;	
+		}
+		// ... YL 19.8
 		
-		#if defined (WISDOM_STONE)
-			TxRx_WistoneHandler();	//YS 25.1
-
-		#elif defined (COMMUNICATION_PLUG)
-			TxRx_PlugHandler();//YS 25.1
-
-		#endif
-		//return status; YS 25.1
+		#if defined WISDOM_STONE
+			// YL 19.8 ...
+			// was: TxRx_WistoneHandler(); 	//YS 25.1
+			status = TxRx_WistoneHandler();
+			// ... YL 19.8
+		#elif defined COMMUNICATION_PLUG
+			// YL 19.8 ...
+			// was: TxRx_PlugHandler(); 	//YS 25.1
+			status = TxRx_PlugHandler();
+			// ... YL 19.8
+		#endif //WISDOM_STONE
 	}
-
-	return TXRX_NO_ERROR;
-
-
+	// YL 19.8 ...
+	// was: return TXRX_NO_ERROR;
+	return status;
+	// ... YL 19.8	
 }
 
-/******************************************************************************
-******************************************************************************/
-
-#if defined (WISDOM_STONE)
+#if defined WISDOM_STONE
 
 /******************************************************************************
 * Function:
@@ -568,7 +617,7 @@ TXRX_ERRORS TxRx_PeriodTasks(){
 *      This is an interface function to perform period tasks in the
 *	   stone.
 *	   This function is called in the TxRx_PeriodTasks. The function checks
-*	   what is the type of the received packet, and proccesing it.
+*	   what is the type of the received packet, and processes it.
 *
 * Parameters:
 *	   None
@@ -577,41 +626,31 @@ TXRX_ERRORS TxRx_PeriodTasks(){
 *	   Any parameter at the TXRX_ERRORS enum.
 *
 ******************************************************************************/
-
 TXRX_ERRORS TxRx_WistoneHandler(){	
-
 	
-	if(rxBlock.blockHeader.blockType == TXRX_TYPE_DATA){ // It is impossible that the block type here is data, since this code is running in the stone..			
+	if (rxBlock.blockHeader.blockType == TXRX_TYPE_DATA) {   	// it is impossible that the block type here is data, since this code is running in the stone		
 		return TXRX_RECEIVED_INVALID_PACKET;
 	}
 	
-	#if defined (ENABLE_BLOCK_ACK)
-
-		if(rxBlock.blockHeader.blockType == TXRX_TYPE_ACK){	// meaning we received an ack, nothing to do..
+	#if defined ENABLE_BLOCK_ACK
+		if (rxBlock.blockHeader.blockType == TXRX_TYPE_ACK) { 	// we received an ack, nothing to do; //YL the seq num of ack is OK at this point (TxRx_PeriodTasks calls TxRx_ReceivePacket before it calls TxRx_WistoneHandler: TxRx_ReceivePacket -> TxRx_ReceiveMessage -> TxRx_ReceivePacketHeader; TxRx_ReceivePacketHeader checks the seq num)		
 			return TXRX_NO_ERROR;
 		}
-		
-		else{	// meaning it is a command, then we need to send ACK..
+		else {													// it is a command, so we need to send ACK			
 			TXRX_ERRORS status = TxRx_SendAck();
-
-			if(status != TXRX_NO_ERROR){
+			if (status != TXRX_NO_ERROR) {				
 				return status;
 			}
 		}
-	#endif
+	#endif //ENABLE_BLOCK_ACK
 	
-	// Copy the input command to g_in_msg array
-	strcpy(g_in_msg, rxBlock.blockBuffer);	// to check that RX_block_buffer is not bigger than 100
-
-
+	// copy the input command to g_in_msg array to check that RX_block_buffer is not bigger than 100
+	strcpy(g_in_msg, (char*)rxBlock.blockBuffer);	 // YL 14.4 added casting to avoid signedness warning
 	return TXRX_NO_ERROR;
-	
 }
+#endif //WISDOM_STONE
 
-#endif
-
-
-#if defined (COMMUNICATION_PLUG)
+#if defined COMMUNICATION_PLUG
 
 /******************************************************************************
 * Function:
@@ -630,67 +669,62 @@ TXRX_ERRORS TxRx_WistoneHandler(){
 *	   Any parameter at the TXRX_ERRORS enum.
 *
 ******************************************************************************/
-TXRX_ERRORS TxRx_PlugHandler(){
+TXRX_ERRORS TxRx_PlugHandler() {
 
-	
 	BYTE isBlockNeedToBePrinted = 1;
-
-	#if defined (ENABLE_BLOCK_ACK)
+	
+	#if defined ENABLE_BLOCK_ACK
 		TXRX_ERRORS status;
-		if((rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) || (rxBlock.blockHeader.blockType == TXRX_TYPE_DATA)){	// Need to send ack for the command/data
-			if(blockAckInfo.rxLastSeq == blockAckInfo.rxExpectedSeq) {	// meaning we received again a block that we handled before, since the ack was unsuccessuful.
+		if ((rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) ||
+			(rxBlock.blockHeader.blockType == TXRX_TYPE_DATA)) {				// need to send ack for the command/data <- can the plug receive a command?
+			// YL 19.8 ...
+			// was: if (blockAckInfo.rxLastSeq == blockAckInfo.rxExpectedSeq) {
+			if (blockAckInfo[rxFromEUI0].rxLastSeq ==
+				blockAckInfo[rxFromEUI0].rxExpectedSeq) {	// we received again a block that we handled before, since the ack was unsuccessful
+			// ... YL 19.8
 				isBlockNeedToBePrinted = 0;
 			}
 			status = TxRx_SendAck();
-			if(status != TXRX_NO_ERROR){
+			if (status != TXRX_NO_ERROR) {
 				return status;
 			}
 		}
-
-		else{ // meaning it is ack..
-			return TXRX_NO_ERROR;
+		else { // it is ack
+			return TXRX_NO_ERROR;	// YL the seq num of ack is OK at this point (TxRx_PeriodTasks calls TxRx_ReceivePacket before it calls TxRx_PlugHandler: TxRx_ReceivePacket -> TxRx_ReceiveMessage -> TxRx_ReceivePacketHeader; TxRx_ReceivePacketHeader checks the seq num)
 		}
-	#endif
+	#endif // ENABLE_BLOCK_ACK
 	
-	WORD i = 0;
+	//WORD i = 0; isn't used
 	//RFIE = 0;
-
-	if(isBlockNeedToBePrinted == 0){	// Again, if we received a block that handled before and the ack was bot received by the stone.
+	if (isBlockNeedToBePrinted == 0) {									// if we received a block that was handled before and the ack was not received by the stone
 		return TXRX_NO_ERROR;
 	}
-
-
-	if(rxBlock.blockHeader.blockType == TXRX_TYPE_DATA){	// if we received data, print it by b_write..
-		if(isAppStop == 0){	// Do not print the last block that was received..
+	if (rxBlock.blockHeader.blockType == TXRX_TYPE_DATA) {				// if we received data, print it using b_write
+		// YL 22.8 ...
+		// was: if (isAppStop == 0) {									// do not print the last block that was received
+		if (isStopped[(finalDestinationNwkAddress[0])] == FALSE) {		// do not print the last block that was received
+		// ... YL 22.8
 			b_write(rxBlock.blockBuffer, MAX_BLOCK_SIZE);
- 		}
-		
-	}
-			
-	else if(rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND){ // if we received command, print it by m_write..
-		m_write(rxBlock.blockBuffer);
-	}
-	
+ 		}	
+	}			
+	else if (rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) {	 	// if we received command, print it using m_write
+		m_write((char*)rxBlock.blockBuffer); // YL 14.4 added casting to avoid signedness warning
+	}	
 	//RFIE = 1;
-
-
 	return TXRX_NO_ERROR;
 }
+#endif //COMMUNICATION_PLUG
 
-
-#endif
-
-
-/******************************************************************************
-******************************************************************************/
 /******************************************************************************
 * Function:
 *		TXRX_ERRORS TxRx_TransmitBuffer()
 *
 * Description:
-*      This function performs the tranmission to the other device. It transmits
-*	   the header, the bufffer itself and the trailer. All this data should be
+*      This function performs the transmission to the other device. It transmits
+*	   the header, the buffer itself and the trailer. All this data should be
 *	   filled in the txBlock , and it is done in TxRx_SendPacket function.
+*	   YL - TxRx_TransmitBuffer calls MiApp_WriteData that copies the contents 
+*	   of txBlock (blockHeader, blockBuffer, blockTrailer) into TxBuffer and unicasts it
 *
 * Parameters:
 *	   None
@@ -700,79 +734,141 @@ TXRX_ERRORS TxRx_PlugHandler(){
 *	   TXRX_UNABLE_SEND_PACKET
 *
 ******************************************************************************/
-TXRX_ERRORS TxRx_TransmitBuffer(){
+TXRX_ERRORS TxRx_TransmitBuffer() {
 	
-	MIWI_TICK t1;
-	
+	MIWI_TICK t1;	
 	WORD trailerPos = 0;
 	txBlock.blockPos = 0;
-
-	MiApp_FlushTx(); 
-
-	BYTE blockInf = (txBlock.blockHeader.blockType) & 0x03;
-	blockInf |= ((txBlock.blockHeader.ackSeq <<2)&0xFC);
-	MiApp_WriteData(blockInf);
-
-	if(txBlock.blockHeader.blockLen > 512){
-		txBlock.blockHeader.blockLen = 512;
-	}
-
-	BYTE blockLen = (BYTE)((txBlock.blockHeader.blockLen>>8)&(0x00FF));
-	MiApp_WriteData(blockLen);
-	blockLen = (BYTE)((txBlock.blockHeader.blockLen)&(0x00FF));
-	MiApp_WriteData(blockLen);	
 	
-	WORD message_counter = 3;
-
-	while(txBlock.blockPos < (txBlock.blockHeader.blockLen + TXRX_TRAILER_SIZE)){
+	//YL 14.8...
+	BYTE i = 0;								// to write "MY_ADDRESS_LENGTH" bytes of sourceNwkAddress 
+	MIWI_TICK t2;							// to enable timeout on unicast trials
+	TXRX_ERRORS status = TXRX_NO_ERROR;		// to inform on timeout
+	//...YL 14.8
+	
+	MiApp_FlushTx(); 
+	BYTE blockInf = (txBlock.blockHeader.blockType) & 0x03;
+	blockInf |= ((txBlock.blockHeader.ackSeq << 2) & 0xFC); 					// YL blockInf = aaaa,aatt (6 ack bits + 2 type bits)  
+	MiApp_WriteData(blockInf);
+	
+	// YL 14.8 ...	
+	for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+		MiApp_WriteData(txBlock.blockHeader.sourceNwkAddress[i]);				// for: MY_ADDRESS_LENGTH = 2:
+																				//		sourceNwkAddress[0] is EUI_0 from the EEPROM
+																				//		sourceNwkAddress[1] is EUI_1 (constant)
+	}
+	// ... YL 14.8
 		
-		if(message_counter == 0){
-			MiApp_FlushTx();
+	// YL 17.8 ...
+	for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+		MiApp_WriteData(txBlock.blockHeader.destinationNwkAddress[i]);			// for: MY_ADDRESS_LENGTH = 2:
+																				//		destinationNwkAddress[0] is a parameter EUI_0 
+																				//		destinationNwkAddress[1] is a parameter EUI_1 																				
+	}
+	// ... YL 17.8
+	
+	if (txBlock.blockHeader.blockLen > MAX_BLOCK_SIZE) {						// YL 23.7 MAX_BLOCK_SIZE instead of 512
+		txBlock.blockHeader.blockLen = MAX_BLOCK_SIZE;
+	}
+	BYTE blockLen = (BYTE)((txBlock.blockHeader.blockLen >> 8) & (0x00FF));
+	MiApp_WriteData(blockLen);													// YL upper byte of blockLen - the length of the data (blockBuffer); blockLen has MAX_BLOCK_SIZE = 512 bytes max
+	blockLen = (BYTE)((txBlock.blockHeader.blockLen) & (0x00FF));
+	MiApp_WriteData(blockLen);													// YL lower byte of blockLen - the length of the data (blockBuffer)
+	
+	// YL 14.8 ...
+	// was: WORD message_counter = 3;											// YL message_counter counts the bytes that MiApp_WriteData writes to TxBuffer, TX_BUFFER_SIZE = 60 bytes max at time; so far MiApp_WriteData wrote the header: blockInf + 2 bytes of blockLen; next MiApp_WriteData writes the data and the trailer 
+	// YL 17.8 ... added destinationNwkAddress
+	// was: WORD message_counter = MSG_INF_LENGTH + MY_ADDRESS_LENGTH + MSG_LEN_LENGTH;
+	WORD message_counter = MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH + MSG_LEN_LENGTH;
+	// ... YL 17.8
+	// ... YL 14.8
+	
+	while (txBlock.blockPos < (txBlock.blockHeader.blockLen + TXRX_TRAILER_SIZE)) {	// YL blockPos counts the bytes of the data (blockBuffer) and of blockTrailer
+		if (message_counter == 0) {
+			MiApp_FlushTx();														// YL resets the pointer (TxData) to PAYLOAD_START - the 12-th byte of TxBuffer
 		}
-
-		if(txBlock.blockPos < txBlock.blockHeader.blockLen){	// meaning we are writing the buffer itself..
+		if (txBlock.blockPos < txBlock.blockHeader.blockLen) {						// meaning we are writing the buffer itself.
 			MiApp_WriteData(txBlock.blockBuffer[txBlock.blockPos++]);
 		}
-		else{	// meaning we writng the trailer..
+		else {																		// meaning we are writing the trailer.
 			MiApp_WriteData(txBlock.blockTrailer[trailerPos++]);
 			txBlock.blockPos++;
 		}
-
 		message_counter++;
-
-		if(message_counter == TX_BUFFER_SIZE){			
-			message_counter = 0;	
-
+		if (message_counter == TX_BUFFER_SIZE) {									// YL currently TX_BUFFER_SIZE = 60; MiApp_UnicastConnection 	
+			message_counter = 0;														
 			t1 = MiWi_TickGet();
-			while(MiApp_UnicastConnection(0, FALSE)==FALSE){
-//YS 30.11 start	
-				blockTryTxCounter = TxRx_noOverflowADD(5, blockTryTxCounter);	// 5 is RETRANSSMISION_TIMES
-				//YS 30.11
-				//t2 = MiWi_TickGet();
-				//if(MiWi_TickGetDiff(t2, t1) > TIMEOUT_SENDING_MESSAGE){	// Waits 1 second to get the whole command
-				//	return TXRX_UNABLE_SEND_PACKET;
-				//}
-			}
-			blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);	// add the number of transmission needed in the lower level.
-		}
-//YS 30.11 end
-	}
 
-	if(message_counter > 0){
-		
-		t1 = MiWi_TickGet();	
-		while(MiApp_UnicastConnection(0, FALSE)==FALSE){
-//YS 30.11 start
-			blockTryTxCounter = TxRx_noOverflowADD(5, blockTryTxCounter);	// 5 is RETRANSSMISION_TIMES
-//			t2 = MiWi_TickGet();
-//			if(MiWi_TickGetDiff(t2, t1) > TIMEOUT_SENDING_MESSAGE){	// Waits 1 second to get the whole command
-//				return TXRX_UNABLE_SEND_PACKET;
-//			}
+			// YL 9.8 ...
+			// was: while (MiApp_UnicastConnection(0, FALSE) == FALSE) {								// YL MiApp_UnicastConnection sends TxBuffer every time MiApp_WriteData wrote 60 bytes to it (the total size of the data sent each time is 72 bytes, since the first 11 bytes of TxBuffer are reserved for the wireless protocol)			
+			while (MiApp_UnicastAddress(finalDestinationNwkAddress, TRUE, FALSE) == FALSE) {
+			// ... YL 9.8
+			// YS 30.11 start
+				// YL 2.9 ... added #ifdef
+				// was: blockTryTxCounter = TxRx_noOverflowADD(RETRANSMISSION_TIMES, blockTryTxCounter);
+				#if defined ENABLE_RETRANSMISSION
+					blockTryTxCounter = TxRx_noOverflowADD(RETRANSMISSION_TIMES, blockTryTxCounter);	// YL 14.8 - magic number 5 replaced with RETRANSMISSION_TIMES
+				#endif
+				// ... YL 2.9
+				// YL 16.8 ...
+				t2 = MiWi_TickGet();
+				if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_RESENDING_PACKET) {	
+					status = TXRX_UNABLE_SEND_PACKET;
+					break;
+				}
+				// ... YL 16.8			
+			}
+			// YL 2.9 ... added #ifdef 
+			// was: blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);			// add the number of transmission needed in the lower level.
+			#if defined ENABLE_RETRANSMISSION
+				blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);
+			#endif
+			// ... YL 2.9
+		}   //YS 30.11 end
+		// YL 16.8 ...
+		if (status == TXRX_UNABLE_SEND_PACKET) {	
+			break;
 		}
-		blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);// add the number of transmission needed in the lower level.
+		// ... YL 16.8	
 	}
-//YS 30.11 end
-	return TXRX_NO_ERROR;
+	
+	if (message_counter > 0) {		// YL MiApp_UnicastConnection sends TxBuffer before MiApp_WriteData wrote 60 bytes to it, because we have nothing more to say
+		t1 = MiWi_TickGet();
+		
+		// YL 9.8 ...
+		// was: while (MiApp_UnicastConnection(0, FALSE) == FALSE) {	
+		while (MiApp_UnicastAddress(finalDestinationNwkAddress, TRUE, FALSE) == FALSE) {
+		// ... YL 9.8
+		// YS 30.11 start
+			// YL 2.9 ... added #ifdef
+			// was: blockTryTxCounter = TxRx_noOverflowADD(RETRANSMISSION_TIMES, blockTryTxCounter);	
+			#if defined ENABLE_RETRANSMISSION
+				blockTryTxCounter = TxRx_noOverflowADD(RETRANSMISSION_TIMES, blockTryTxCounter);	// YL 14.8 - magic number 5 replaced with RETRANSMISSION_TIMES
+			#endif
+			// ... YL 2.9
+			
+			// YL 16.8 ...
+			// was: break;
+			t2 = MiWi_TickGet();
+			if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_RESENDING_PACKET) {	
+				status = TXRX_UNABLE_SEND_PACKET;			
+				break;
+			}
+			// ... YL 16.8			
+		}
+		// YL 2.9 ... added #ifdef
+		// was: blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);
+		#if defined ENABLE_RETRANSMISSION
+			blockTryTxCounter = TxRx_noOverflowADD(messageRetryCounter, blockTryTxCounter);			// add the number of transmission needed in the lower level.
+		#endif
+		// ... YL 2.9
+	}   
+		// YS 30.11 end
+	
+	// YL 16.8 ...
+	// was: return TXRX_NO_ERROR;
+	return status;	// to return TXRX_UNABLE_SEND_PACKET if needed
+	// ... YL 16.8		
 }
 
 /******************************************************************************
@@ -780,9 +876,9 @@ TXRX_ERRORS TxRx_TransmitBuffer(){
 *		TXRX_ERRORS TxRx_SendPacket(BYTE *data, WORD dataLen, BLOCK_TYPE bType)
 *
 * Description:
-*      This function sending a packet to the other device. This packet can be 
+*      This function sends a packet to the other device. This packet can be 
 *	   either command or data or ack. The function fills the txBlock with the 
-*	   data. Then it used the TxRx_TransmitBuffer() function to send this
+*	   data. Then it uses the TxRx_TransmitBuffer() function to send this
 *	   data. Finally, if the packet is command or data, it waits for ack for 
 *	   the packet.
 *
@@ -797,89 +893,120 @@ TXRX_ERRORS TxRx_TransmitBuffer(){
 *
 ******************************************************************************/
 
-//We assume that this function may be interruptible at any stage.
+//We assume that this function may be interrupted at any stage. // YL TODO - reset
 
 TXRX_ERRORS TxRx_SendPacket(BYTE *data, WORD dataLen, BLOCK_TYPE bType){
 
 	TXRX_ERRORS status;
-	txBlock.blockHeader.blockType = bType;	// getting the block type we want to send
+	txBlock.blockHeader.blockType = bType;										// getting the block type we want to send
 
-	#if defined (ENABLE_BLOCK_ACK)
-
-		if(bType == TXRX_TYPE_ACK){	// if it is ack
-			txBlock.blockHeader.ackSeq = blockAckInfo.rxExpectedSeq;
+	// YL 14.8 ...
+	BYTE i = 0;	// to write "MY_ADDRESS_LENGTH" bytes into sourceNwkAddress  
+	// ... YL 14.8
+		
+	#if defined ENABLE_BLOCK_ACK
+		if (bType == TXRX_TYPE_ACK) {											// if it is ack
+			//fill txBlock with ack info:
+			// YL 20.8 ...
+			// was:  txBlock.blockHeader.ackSeq = blockAckInfo.rxExpectedSeq; 	// YL the seq num of the ack that the transmitter sends out must be the same as the seq num of the ack that the receiver expects to 
+			#if defined WISDOM_STONE
+				txBlock.blockHeader.ackSeq = blockAckInfo.rxExpectedSeq; 		// YL the seq num of the ack that the transmitter sends out must be the same as the seq num of the ack that the receiver expects to 			
+			#elif defined COMMUNICATION_PLUG
+				txToEUI0 = finalDestinationNwkAddress[0];
+				txBlock.blockHeader.ackSeq = blockAckInfo[txToEUI0].rxExpectedSeq;
+			#endif // WISDOM_STONE
+			// ... YL 20.8
+			
+			// YL 14.8 ...
+			for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+				txBlock.blockHeader.sourceNwkAddress[i] = myLongAddress[i];		// read "MY_ADDRESS_LENGTH" bytes into sourceNwkAddress	
+			}
+			// ... YL 14.8
+			
+			// YL 17.8 ...
+			for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+				txBlock.blockHeader.destinationNwkAddress[i] = finalDestinationNwkAddress[i];	// read "MY_ADDRESS_LENGTH" bytes into destinationNwkAddress
+			}
+			// ... YL 17.8
+			
 			txBlock.blockHeader.blockLen = 0;
 			status = TxRx_TransmitBuffer();
 			return status;
 		}
-		//else - meaning that it is command or data
+		// else - it is command or data
+		// YL 19.8 ...
+		// was:
+		// blockAckInfo.txExpectedSeq = (blockAckInfo.txLastSeq + 1) % MAX_ACK_LENGTH; 			// YL the seq num of the new transmitted cmd/data is txLastSeq + 1; //YL 9.8 replaced 60 with MAX_ACK_LENGTH
+		// txBlock.blockHeader.ackSeq =  blockAckInfo.txExpectedSeq;
+		#if defined WISDOM_STONE
+			blockAckInfo.txExpectedSeq = (blockAckInfo.txLastSeq + 1) % MAX_ACK_LENGTH;
+			txBlock.blockHeader.ackSeq =  blockAckInfo.txExpectedSeq;			
+		#elif defined COMMUNICATION_PLUG
+			txToEUI0 = finalDestinationNwkAddress[0];
+			blockAckInfo[txToEUI0].txExpectedSeq = (blockAckInfo[txToEUI0].txLastSeq + 1) % MAX_ACK_LENGTH;		// YL the seq num of the new transmitted cmd/data is txLastSeq + 1; //YL 9.8 replaced 60 with MAX_ACK_LENGTH
+			txBlock.blockHeader.ackSeq =  blockAckInfo[txToEUI0].txExpectedSeq; 								// YL ackSeq gets new (incremented) num
+		#endif // WISDOM_STONE
+		// ... YL 19.8
+	#endif //ENABLE_BLOCK_ACK
 	
-		blockAckInfo.txExpectedSeq = (blockAckInfo.txLastSeq + 1) % 60; 
-		txBlock.blockHeader.ackSeq =  blockAckInfo.txExpectedSeq;
-
-	#endif
-
-	txBlock.blockHeader.blockLen = dataLen;
-
-	if(txBlock.blockHeader.blockLen > 512){
-		txBlock.blockHeader.blockLen = 512;
+	//YL 14.8...	
+	for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+		txBlock.blockHeader.sourceNwkAddress[i] = myLongAddress[i];				// read "MY_ADDRESS_LENGTH" bytes into sourceNwkAddress
 	}
-
-	WORD i;
-	for(i=0; i<txBlock.blockHeader.blockLen; i++){
-		txBlock.blockBuffer[i] = data[i];
+	//...YL 14.8
+		
+	// YL 17.8 ...
+	for (i = 0; i < MY_ADDRESS_LENGTH; i++) {
+		txBlock.blockHeader.destinationNwkAddress[i] = finalDestinationNwkAddress[i];	// read "MY_ADDRESS_LENGTH" bytes into destinationNwkAddress	
 	}
-
-//-	Initiate transmission (to USB/Wireless)
-
-	status = TxRx_TransmitBuffer();
+	// ... YL 17.8	
 	
-	#if defined (ENABLE_BLOCK_ACK)
-
-		if (status != TXRX_NO_ERROR){
+	txBlock.blockHeader.blockLen = dataLen;										// YL TxRx_SendPacket fills txBlock with the len of the cmd/data, and the data itself (MAX_BLOCK_SIZE = 512 bytes max in txBlock.blockBuffer)
+	if (txBlock.blockHeader.blockLen > MAX_BLOCK_SIZE) { 						// YL 23.7 MAX_BLOCK_SIZE instead of 512
+		txBlock.blockHeader.blockLen = MAX_BLOCK_SIZE;
+	}
+	WORD j;
+	for (j = 0; j < txBlock.blockHeader.blockLen; j++) {
+		txBlock.blockBuffer[j] = data[j]; 										// YL when the data is longer than 512 bytes - what breaks it into blocks?
+	}
+	
+	//initiate transmission (to USB/Wireless)
+	status = TxRx_TransmitBuffer();												// YL TxRx_TransmitBuffer sends the cmd/data
+	
+	#if defined ENABLE_BLOCK_ACK
+		if (status != TXRX_NO_ERROR) {
 			return status;
 	 	}
-	
-		status = TxRx_ReceivePacket();	// Wating for ack to arrive about the packet, never mind if it is ack of command or data
-		if(status != TXRX_NO_ERROR){
-			return status;
-		}
 		
-		if(rxBlock.blockHeader.blockType == TXRX_TYPE_ACK){ // meaning it is indeed ack
+		status = TxRx_ReceivePacket();											// waiting for ack of the packet to arrive (the ack is for command or for data)
+		if (status != TXRX_NO_ERROR) {
+			return status;
+		}	
+		if (rxBlock.blockHeader.blockType == TXRX_TYPE_ACK) { 					// it is ack
 			return TXRX_NO_ERROR;			
 		}
+		#if defined WISDOM_STONE
+			else if (rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) { 		// if we received app stop in the middle of transmission
+				strcpy(g_in_msg, (char*)rxBlock.blockBuffer);					// to check that RX_block_buffer is not bigger than 100 // YL 14.4 added casting to avoid signedness warning
+				TXRX_ERRORS status = TxRx_SendAck();							// send ack to the command
 
-		#if defined (WISDOM_STONE)
-
-			else if(rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND){	// if we received app stop in the middle of transsmission..
-				strcpy(g_in_msg, rxBlock.blockBuffer);	// to check that RX_block_buffer is not bigger than 100
-				TXRX_ERRORS status = TxRx_SendAck();	// send ack to the command
-
-				if(status != TXRX_NO_ERROR){
+				if (status != TXRX_NO_ERROR) {
 					return status;
 				}
-				g_is_cmd_received = 1;	// indicates that a command was received during this period - inform the upper level by setting this variable.
-
-				status = TxRx_ReceivePacket();	// Wating for ack to arrive about the original packet, never mind if it is ack of command or data
-				if(status != TXRX_NO_ERROR){
+				g_is_cmd_received = 1;											// indicates that a command was received during this period - inform the upper level by setting this variable				
+				status = TxRx_ReceivePacket();									// waiting for ack of the original packet to arrive (the ack is for command or for data)
+				if (status != TXRX_NO_ERROR) {
 					return status;
 				}
-	
-				if(rxBlock.blockHeader.blockType == TXRX_TYPE_ACK){ // meaning it is indeed ack
+				if (rxBlock.blockHeader.blockType == TXRX_TYPE_ACK) { 			// it is ack
 					return TXRX_NO_ERROR;			
 				}	
 			}
-	
-
-	
-		#endif
-
+		#endif //WISDOM_STONE
 		return TXRX_RECEIVED_UNKNOWN_PACKET;
-
 	#else
 		return status;		
-	#endif
-		
+	#endif //ENABLE_BLOCK_ACK	
 }
 
 /******************************************************************************
@@ -901,23 +1028,26 @@ TXRX_ERRORS TxRx_SendPacket(BYTE *data, WORD dataLen, BLOCK_TYPE bType){
 *	   
 *
 ******************************************************************************/
-TXRX_ERRORS TxRx_SendPacketWithConfirmation(BYTE *data, WORD dataLen, BLOCK_TYPE bType){
+TXRX_ERRORS TxRx_SendPacketWithConfirmation(BYTE *data, WORD dataLen, BLOCK_TYPE bType) {
 
 	TXRX_ERRORS status;
 	MIWI_TICK t1, t2;
-
-	t1 = MiWi_TickGet();
-	while(1){
+	
+	t1 = MiWi_TickGet();	
+	while (1) {
 		status = TxRx_SendPacket(data, dataLen, bType);
-		if(status == TXRX_NO_ERROR){
+		if (status == TXRX_NO_ERROR) {
 			break;
 		}
 		t2 = MiWi_TickGet();
-		if(MiWi_TickGetDiff(t2, t1) > TIMEOUT_RESENDING_PACKET){	// Waits 3 seconds to get the whole command
+		if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_RESENDING_PACKET) {	// waits a few seconds to get the whole command
+			// YL 19.8 ...
+			// was: break;
+			status = TXRX_UNABLE_SEND_PACKET;		
 			break;
+			// ... YL 19.8
 		}
 	}
-	
 	return status;
 }
 
@@ -939,20 +1069,19 @@ TXRX_ERRORS TxRx_SendPacketWithConfirmation(BYTE *data, WORD dataLen, BLOCK_TYPE
 *	   
 *
 ******************************************************************************/
-
-
-TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length){
-
+TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length) {
+		
 	TXRX_ERRORS status = TxRx_SendPacketWithConfirmation(samples_block, TX_message_length, TXRX_TYPE_DATA);
 
-	if(status != TXRX_NO_ERROR){
-		TxRx_printError(status);
+	if (status != TXRX_NO_ERROR) {
+		TxRx_PrintError(status);
 	}
-	return status;
-	
+
+	// YL 17.8 ...	
+	// was: return status;
+	return 0;	// as if there is no error so after the timeout the stone would stop searching for non-existing nwk address and continue normally
+	// ... YL 17.8	
 }
-
-
 
 /******************************************************************************
 * Function:
@@ -960,7 +1089,7 @@ TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length){
 *
 * Description:
 *      The next function is responsible for transmiting "regular" responses.
-*      In other words, this function is the coevelent of m_write for USB.
+*      In other words, this function is the equivalent to m_write for USB.
 *	   This function is used in the stone.
 *
 * Parameters:
@@ -971,14 +1100,13 @@ TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length){
 *	   
 *
 ******************************************************************************/
-
-TXRX_ERRORS m_TxRx_write(BYTE *str){
-	
+TXRX_ERRORS m_TxRx_write(BYTE *str) {
+		
 	WORD commandLen = strlen((char*)str);
 	TXRX_ERRORS status = TxRx_SendPacketWithConfirmation(str, commandLen, TXRX_TYPE_COMMAND);
 	
-	if(status != TXRX_NO_ERROR){
-		TxRx_printError(status);
+	if (status != TXRX_NO_ERROR) {
+		TxRx_PrintError(status);
 	}	
 	return status;
 }
@@ -990,13 +1118,13 @@ TXRX_ERRORS m_TxRx_write(BYTE *str){
 * Description:
 *      This function sending a command packet to the other device. It uses the
 *	   TxRx_SendPacketWithConfimation() function to accomplish this aim.
-*	   This functions is used in he plug.
+*	   This functions is used in the plug.
 *	   
 * Example:
 *		if(ProccessIO)
 *		{
-*			strcpy(g_in_msg,cmd_Current);	
-*			TXRX_ERRORS status = TxRx_SendCommand(g_in_msg);
+*			strcpy(msg,cmd_Current);	
+*			TXRX_ERRORS status = TxRx_SendCommand(msg);
 *			if(status != TXRX_NO_ERROR)
 *			{
 *				// Error handling
@@ -1013,20 +1141,20 @@ TXRX_ERRORS m_TxRx_write(BYTE *str){
 *	   
 *
 ******************************************************************************/
-
-TXRX_ERRORS TxRx_SendCommand(BYTE* command){
-
+TXRX_ERRORS TxRx_SendCommand(BYTE* command) {
+		
 	WORD commandLen = strlen((char*)command);
 	TXRX_ERRORS status = TxRx_SendPacketWithConfirmation(command, commandLen, TXRX_TYPE_COMMAND);
 
-	if(status != TXRX_NO_ERROR){
-		TxRx_printError(status);
+	if (status != TXRX_NO_ERROR) {
+		TxRx_PrintError(status);
 	}
-	return status;
-
+	
+	// YL 17.8 ...	
+	// was: return status;
+	return 0;	// as if there is no error so after the timeout the plug would stop searching for non-existing nwk address and continue normally
+	// ... YL 17.8
 }
-
-
 
 /******************************************************************************
 * Function:
@@ -1046,24 +1174,32 @@ TXRX_ERRORS TxRx_SendCommand(BYTE* command){
 *	   
 *
 ******************************************************************************/
-
-
-TXRX_ERRORS TxRx_SendAck(){
-
+TXRX_ERRORS TxRx_SendAck() {	// YL TODO - add if defined ENABLE_BLOCK_ACK (and in other places related to ACK)
+		
 	TXRX_ERRORS status = TxRx_SendPacket(NULL, 0, TXRX_TYPE_ACK);
-	if(status == TXRX_NO_ERROR){
-		blockAckInfo.rxLastSeq = blockAckInfo.rxExpectedSeq;
-	}
-	else{
-		TxRx_printError(status);	
+	
+	// YL 19.8 ...
+	// was:
+	//if (status == TXRX_NO_ERROR) {
+		//blockAckInfo.rxLastSeq = blockAckInfo.rxExpectedSeq;	//TODO YL TxRx_SendPacket of ack succeeded, so the transmitter got the ack... 
+	//}
+	#if defined WISDOM_STONE
+		if (status == TXRX_NO_ERROR) {
+			blockAckInfo.rxLastSeq = blockAckInfo.rxExpectedSeq;	//TODO YL TxRx_SendPacket of ack succeeded, so the transmitter got the ack... 			
+		}
+	#elif defined COMMUNICATION_PLUG
+		if (status == TXRX_NO_ERROR) {
+			blockAckInfo[rxFromEUI0].rxLastSeq = blockAckInfo[rxFromEUI0].rxExpectedSeq;	//TODO YL TxRx_SendPacket of ack succeeded, so the transmitter got the ack... 			
+		}
+	#endif // WISDOM_STONE
+	// ... YL 19.8
+	else {
+		// YL 19.8 ...
+		// was: TxRx_PrintError(status);	commented, because the error is printed at higher levels
+		// ... YL 19.8
 	}
 	return status;
-	
 }
-
-
-/******************************************************************************
-******************************************************************************/
 
 /******************************************************************************
 * Function:
@@ -1085,86 +1221,168 @@ TXRX_ERRORS TxRx_SendAck(){
 *	   
 *
 ******************************************************************************/
-
-TXRX_ERRORS TxRx_ReceivePacketHeader(){
-
+TXRX_ERRORS TxRx_ReceivePacketHeader() {
+		
+	// YL 15.8... i is original variable that i used to read MY_ADDRESS_LENGTH bytes into finalDestinationNwkAddress
 	WORD i = 0;
-
-	rxBlock.blockHeader.blockType = ((rxMessage.Payload[0])& (0x03));
-	if(rxBlock.blockHeader.blockType > 2){
+	BYTE j = 0;
+	BYTE messageInformation[MSG_INF_LENGTH]; // to replace rxMessage.Payload[0] and to make the reading of rxMessage.Payload more clear
+	BYTE receivedSourceNwkDestination[MY_ADDRESS_LENGTH];
+	BYTE receivedDestinationNwkDestination[MY_ADDRESS_LENGTH];
+	
+	
+	for (i = 0; i < MSG_INF_LENGTH; i++) { // meanwhile MSG_INF_LENGTH is 1
+		messageInformation[i] = rxMessage.Payload[i];
+	}
+	// was: rxBlock.blockHeader.blockType = ((rxMessage.Payload[0]) & (0x03));
+	rxBlock.blockHeader.blockType = ((messageInformation[0]) & (0x03));
+	// ... YL 15.8
+	
+	if (rxBlock.blockHeader.blockType > 2) {
 		return TXRX_WRONG_BLOCK_TYPE;
+	} 
+		
+	// YL 17.8 ...
+	for (i = MSG_INF_LENGTH, j = 0;
+		i < (MSG_INF_LENGTH + MY_ADDRESS_LENGTH); i++, j++) {
+		receivedSourceNwkDestination[j] = rxMessage.Payload[i];
 	}
 
-
-	#if defined (ENABLE_BLOCK_ACK)
-
-		if((rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) || (rxBlock.blockHeader.blockType == TXRX_TYPE_DATA)){	// meaning the block is either command or data
-				
-			BYTE receivedDataSeq = (((rxMessage.Payload[0])>> 2)&0x3F);		
-			
-			if(receivedDataSeq == ((blockAckInfo.rxLastSeq + 1)%60)){	// if the recived seqence is +1 more than the last ack
-				blockAckInfo.rxExpectedSeq = receivedDataSeq;
-			}
-
-			else if(receivedDataSeq == blockAckInfo.rxLastSeq ){	//meaning the previous ack was not received.
-				blockAckInfo.rxExpectedSeq = receivedDataSeq;
-				
-			}
-
-			else{	
-				#if defined (COMMUNICATION_PLUG) && defined (TXRX_DEBUG_PRINT)
-					sprintf((char *)temp_string, "\r\nreceivedData:%d\r\n", receivedDataSeq); 
-					m_write(temp_string);
-					sprintf((char *)temp_string, "lastReceived:%d\r\n", blockAckInfo.rxLastSeq); 
-					m_write(temp_string);
-				#endif			
-				return TXRX_WRONG_DATA_SEQ;
-			}
-				
-		}
-		
+	for (i = MSG_INF_LENGTH + MY_ADDRESS_LENGTH, j = 0; 
+		i < (MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH); i++, j++) {
+		receivedDestinationNwkDestination[j] = rxMessage.Payload[i];
+	}
 	
-		if(rxBlock.blockHeader.blockType == TXRX_TYPE_ACK){ // meaning it is ack from the plug to the stone
-			
-			BYTE receivedAckSeq = (((rxMessage.Payload[0])>> 2)&0x3F);
-	
-			if(receivedAckSeq == blockAckInfo.txExpectedSeq){	// if the received ack is the same as the last data seq that we sent
-				blockAckInfo.txLastSeq = blockAckInfo.txExpectedSeq; 
-				return TXRX_NO_ERROR;
-			}
-			else{
-				return TXRX_WRONG_ACK_SEQ; 
-			}
+	// make sure the message is indeed accepted by the addressed receiver:
+	for (j = 0; j < MY_ADDRESS_LENGTH; j++)	{
+		if (receivedDestinationNwkDestination[j] != myLongAddress[j]) {
+			return TXRX_NWK_NOT_ME; 
 		}
-
-	#endif
-
-	rxBlock.blockHeader.blockLen = (WORD)rxMessage.Payload[1];
+	}
+	
+	// the received source network address becomes the destination network address for the reply:
+	for (j = 0; j < MY_ADDRESS_LENGTH; j++)	{
+		finalDestinationNwkAddress[j] = receivedSourceNwkDestination[j];
+	}	
+	// ... YL 17.8
+	
+	#if defined ENABLE_BLOCK_ACK		
+		if ((rxBlock.blockHeader.blockType == TXRX_TYPE_COMMAND) 
+			|| (rxBlock.blockHeader.blockType == TXRX_TYPE_DATA)) {				// the block is either command or data
+			// YL 15.8...
+			// was: BYTE receivedDataSeq = (((rxMessage.Payload[0]) >> 2) & 0x3F);
+			BYTE receivedDataSeq = (((messageInformation[0]) >> 2) & 0x3F);
+			// ...YL 15.8			
+			// YL 19.8 ...
+			// was:
+			//if (receivedDataSeq == ((blockAckInfo.rxLastSeq + 1) % MAX_ACK_LENGTH)) { 	// if the recieved sequence is +1 more than the last ack //YL 9.8 replaced 60 with MAX_ACK_LENGTH
+				//blockAckInfo.rxExpectedSeq = receivedDataSeq;
+			//}
+			//else if (receivedDataSeq == blockAckInfo.rxLastSeq ) {				// the previous ack was not received
+				//blockAckInfo.rxExpectedSeq = receivedDataSeq;
+			//}
+			//else {	
+				//return TXRX_WRONG_DATA_SEQ;
+			//}
+			#if defined WISDOM_STONE
+				if (receivedDataSeq == ((blockAckInfo.rxLastSeq + 1) % MAX_ACK_LENGTH)) { 	// if the recieved sequence is +1 more than the last ack //YL 9.8 replaced 60 with MAX_ACK_LENGTH
+					blockAckInfo.rxExpectedSeq = receivedDataSeq;
+				}
+				else if (receivedDataSeq == blockAckInfo.rxLastSeq ) {				// the previous ack was not received
+					blockAckInfo.rxExpectedSeq = receivedDataSeq;
+				}
+				else {	
+					return TXRX_WRONG_DATA_SEQ;
+				}
+			#elif defined COMMUNICATION_PLUG
+				rxFromEUI0 = finalDestinationNwkAddress[0]; 
+				if (receivedDataSeq == ((blockAckInfo[rxFromEUI0].rxLastSeq + 1) % MAX_ACK_LENGTH)) { 	// if the recieved sequence is +1 more than the last ack //YL 9.8 replaced 60 with MAX_ACK_LENGTH
+					blockAckInfo[rxFromEUI0].rxExpectedSeq = receivedDataSeq;
+				}
+				else if (receivedDataSeq == blockAckInfo[rxFromEUI0].rxLastSeq ) {	// the previous ack was not received
+					blockAckInfo[rxFromEUI0].rxExpectedSeq = receivedDataSeq;
+				}
+				else {	
+					return TXRX_WRONG_DATA_SEQ;
+				}
+			#endif // WISDOM_STONE
+			// ... YL 19.8
+		}
+		if (rxBlock.blockHeader.blockType == TXRX_TYPE_ACK) {		 			// the ack is from the plug to the stone //YL maybe "else if" instead of "if"?
+						
+			// YL 15.8...
+			// was: BYTE receivedAckSeq = (((rxMessage.Payload[0]) >> 2) & 0x3F);
+			BYTE receivedAckSeq = (((messageInformation[0]) >> 2) & 0x3F);
+			// ...YL 15.8				
+			
+			// YL 19.8 ...
+			// was:
+			//if (receivedAckSeq == blockAckInfo.txExpectedSeq) {					// if the received ack is the same as the last data seq that we sent
+				//blockAckInfo.txLastSeq = blockAckInfo.txExpectedSeq; 
+				//return TXRX_NO_ERROR;
+			//}
+			//else {
+				//return TXRX_WRONG_ACK_SEQ; 
+			//}
+			#if defined WISDOM_STONE
+				if (receivedAckSeq == blockAckInfo.txExpectedSeq) {					// if the received ack is the same as the last data seq that we sent
+					blockAckInfo.txLastSeq = blockAckInfo.txExpectedSeq; 
+					return TXRX_NO_ERROR;
+				}
+				else {
+					return TXRX_WRONG_ACK_SEQ; 
+				}
+			#elif defined COMMUNICATION_PLUG
+				rxFromEUI0 = finalDestinationNwkAddress[0];
+				if (receivedAckSeq == blockAckInfo[rxFromEUI0].txExpectedSeq) {					// if the received ack is the same as the last data seq that we sent
+					blockAckInfo[rxFromEUI0].txLastSeq = blockAckInfo[rxFromEUI0].txExpectedSeq; 
+					return TXRX_NO_ERROR;
+				}
+				else {
+					return TXRX_WRONG_ACK_SEQ; 
+				}
+			#endif // WISDOM_STONE
+			// ... YL 19.8
+		}
+	#endif //ENABLE_BLOCK_ACK
+			
+	// now we read the length of received message ("MSG_LEN_LENGTH = 2" bytes): 
+	// i = MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH
+	rxBlock.blockHeader.blockLen = (WORD)rxMessage.Payload[i++];				//YL the receiver accepted the "header" message, and now it reads blockLen into rxBlock.blockHeader 
 	rxBlock.blockHeader.blockLen <<= 8;
-	
 	rxBlock.blockHeader.blockLen &= 0xFF00;
-	rxBlock.blockHeader.blockLen += (WORD)((rxMessage.Payload[2])&(0x00FF));
-
-	if(rxBlock.blockHeader.blockLen > 512)
-	{
-		rxBlock.blockHeader.blockLen = 512;
+	rxBlock.blockHeader.blockLen += (WORD)((rxMessage.Payload[i++]) & (0x00FF));
+	
+	if (rxBlock.blockHeader.blockLen > MAX_BLOCK_SIZE) { 						//YL 23.7 MAX_BLOCK_SIZE instead of 512
+		rxBlock.blockHeader.blockLen = MAX_BLOCK_SIZE;
 		return TXRX_WRONG_PACKET_LENGTH;
 	}
-
 	rxBlock.handlingParam.blockPos = 0;
-	rxBlock.handlingParam.isHeader = FALSE;
-	
-	
-	for(i = 3; i < rxMessage.PayloadSize; i++)
-    {
-   		rxBlock.blockBuffer[rxBlock.handlingParam.blockPos++] =  rxMessage.Payload[i];
+	rxBlock.handlingParam.isHeader = FALSE;										//YL rxBlock.handlingParam.isHeader <- FALSE to enable receiving "non header" message portions; rxBlock.handlingParam.isHeader turns TRUE again after we receive the "trailer" portion  
+	// i = MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH + MSG_INF_LENGTH
+	while (i < rxMessage.PayloadSize) {											//YL the receiver reads the data into rxBlock.blockBuffer ("data" - meaning - Payload bytes except for 3 first bytes of the header; these "data" bytes may include the trailer too)
+		rxBlock.blockBuffer[rxBlock.handlingParam.blockPos++] = rxMessage.Payload[i++];
     }
-	
-	
+		
 	return TXRX_NO_ERROR;	
-}
-
-
+}	
+	// backup:
+	//rxBlock.blockHeader.blockLen = (WORD)rxMessage.Payload[1];					//YL the receiver accepted the "header" message, and now it reads blockLen into rxBlock.blockHeader 
+	//rxBlock.blockHeader.blockLen <<= 8;
+	//rxBlock.blockHeader.blockLen &= 0xFF00;
+	//rxBlock.blockHeader.blockLen += (WORD)((rxMessage.Payload[2]) & (0x00FF));
+	//if (rxBlock.blockHeader.blockLen > MAX_BLOCK_SIZE) { 							//YL 23.7 MAX_BLOCK_SIZE instead of 512
+	//	rxBlock.blockHeader.blockLen = MAX_BLOCK_SIZE;
+	//	return TXRX_WRONG_PACKET_LENGTH;
+	//}
+	//rxBlock.handlingParam.blockPos = 0;
+	//rxBlock.handlingParam.isHeader = FALSE;										//YL rxBlock.handlingParam.isHeader <- FALSE to enable receiving "non header" message portions; rxBlock.handlingParam.isHeader turns TRUE again after we receive the "trailer" portion  
+	//for (i = 3; i < rxMessage.PayloadSize; i++) {									//YL the receiver reads the data into rxBlock.blockBuffer ("data" - meaning - Payload bytes except for 3 first bytes of the header; these "data" bytes may include the trailer too)
+   	//	rxBlock.blockBuffer[rxBlock.handlingParam.blockPos++] =  rxMessage.Payload[i];
+    //}	
+	//return TXRX_NO_ERROR;
+	//}
+	//...YL 15.8 
 
 /******************************************************************************
 * Function:
@@ -1184,14 +1402,12 @@ TXRX_ERRORS TxRx_ReceivePacketHeader(){
 *	   
 *
 ******************************************************************************/
-
 void TxRx_ReceiveBuffer(){
-	
+
 	WORD i = 0;
-	
-    for(i = 0; i < rxMessage.PayloadSize; i++)
-    {
-   		rxBlock.blockBuffer[rxBlock.handlingParam.blockPos++] =  rxMessage.Payload[i];
+		
+    for (i = 0; i < rxMessage.PayloadSize; i++) {
+   		rxBlock.blockBuffer[rxBlock.handlingParam.blockPos++] = rxMessage.Payload[i];
     }
 }
 
@@ -1212,33 +1428,24 @@ void TxRx_ReceiveBuffer(){
 *	   
 *
 ******************************************************************************/
-
 TXRX_ERRORS TxRx_ReceivePacketTrailer(){
-
+	
 	TXRX_ERRORS status = TXRX_NO_ERROR;
-
-	WORD i =0;
-
-	for(i = 0; i < TXRX_TRAILER_SIZE; i++)
-	{
-		rxBlock.blockTrailer[i] = rxBlock.blockBuffer[rxBlock.blockHeader.blockLen+i];	
-		if(rxBlock.blockTrailer[i] != TxRx_Trailer[i])
-		{
+	WORD i = 0;
+	
+	for (i = 0; i < TXRX_TRAILER_SIZE; i++) {
+		rxBlock.blockTrailer[i] = rxBlock.blockBuffer[rxBlock.blockHeader.blockLen + i];		
+		if (rxBlock.blockTrailer[i] != TxRx_Trailer[i]) {						//YL check last TXRX_TRAILER_SIZE = 4 bytes of blockBuffer; these bytes should be identical to constant trailer string
 			status = TXRX_RECEIVED_INVALID_TRAILER;
 			break;
 		}
 	}
-	
-	rxBlock.handlingParam.isHeader = TRUE;	// meaning we received all the packet, and next we are waiting for next block=>waiting for header... 
-	rxBlock.blockBuffer[rxBlock.blockHeader.blockLen] = '\0';
-
+	rxBlock.handlingParam.isHeader = TRUE;										// we received the whole packet; next we are waiting for the header of the next block; //YL reset rxBlock fields for next transmission
+	rxBlock.blockBuffer[rxBlock.blockHeader.blockLen] = '\0';					
 	rxBlock.handlingParam.blockPos = 0;
 	rxBlock.blockHeader.blockLen = 0;
-
 	return status;
-
 }
-
 
 /******************************************************************************
 * Function:
@@ -1264,49 +1471,45 @@ TXRX_ERRORS TxRx_ReceivePacketTrailer(){
 *	   
 *
 ******************************************************************************/
-
 TXRX_ERRORS TxRx_ReceiveMessage(){
 	
-
 	/*******************************************************************/
 	// Function MiApp_MessageAvailable will return a boolean to indicate 
 	// if a message for application layer has been received by the 
 	// transceiver. If a message has been received, all information will 
 	// be stored in the rxMessage, structure of RECEIVED_MESSAGE.
+	// YL TxRx_ReceiveMessage uses:
+	// - TxRx_ReceivePacketHeader
+	// - TxRx_ReceiveBuffer
+	// - TxRx_ReceivePacketTrailer
+	// to copy rxMessage.Payload bytes into the fields of rxBlock struct
 	/*******************************************************************/
-	if( MiApp_MessageAvailable() )
-	{		         
+		
+	if (MiApp_MessageAvailable()) {		         
 		TXRX_ERRORS status;
-		if(rxBlock.handlingParam.isHeader == TRUE){	// Meaning it is the beggining of the block
+		if (rxBlock.handlingParam.isHeader == TRUE) {				// it is the beginning of the block
 			 status = TxRx_ReceivePacketHeader();
-			if(status != TXRX_NO_ERROR){
+			if (status != TXRX_NO_ERROR) {
 				MiApp_DiscardMessage();
 				return status;
 			}
 		}
-
-		else{
+		else {
 			TxRx_ReceiveBuffer();
 		} 
-
-		if((rxBlock.handlingParam.blockPos) >= (rxBlock.blockHeader.blockLen+TXRX_TRAILER_SIZE)){	// Meaning we got the whole of the block
+		if ((rxBlock.handlingParam.blockPos) >= 
+			(rxBlock.blockHeader.blockLen + TXRX_TRAILER_SIZE)) {	// we got the whole block
 			status = TxRx_ReceivePacketTrailer();
-			if(status != TXRX_NO_ERROR){
+			if (status != TXRX_NO_ERROR) {
 				MiApp_DiscardMessage();
 				return status;	
 			}
 		}
-
-		MiApp_DiscardMessage();
-		
-		
+		MiApp_DiscardMessage();	
 		return TXRX_NO_ERROR; // message received
 	}
-		
-	return TXRX_NO_PACKET_RECEIVED; 
-   			     
+	return TXRX_NO_PACKET_RECEIVED;    			     
 }
-
 
 /******************************************************************************
 * Function:
@@ -1332,97 +1535,414 @@ TXRX_ERRORS TxRx_ReceiveMessage(){
 *	   
 *
 ******************************************************************************/
-
-TXRX_ERRORS TxRx_ReceivePacket(){
-
+TXRX_ERRORS TxRx_ReceivePacket() {
+	
 	WORD i = 0;
 	TXRX_ERRORS status = TXRX_NO_ERROR;
-
-	for(i=0; i<(MAX_BLOCK_SIZE); i++){
+	
+	for (i = 0; i < (MAX_BLOCK_SIZE); i++) {							//YL TxRx_ReceivePacket resets all rxBlock fields before calling TxRx_ReceiveMessage that actually recieves the data according to it's type (header\buffer\trailer)
 		rxBlock.blockBuffer[i] = '\0';
 	}
-
-	rxBlock.blockHeader.blockType = 0;
-
+	rxBlock.blockHeader.blockType = 0;									
 	rxBlock.handlingParam.isHeader = TRUE;
 	rxBlock.handlingParam.isTrailer = FALSE;
 	rxBlock.handlingParam.blockPos = 0;
 	rxBlock.blockHeader.blockLen = 0;
-
-	
 	MIWI_TICK t1, t2;
-
 	t1 = MiWi_TickGet();
-	while(1){
-		 status = TxRx_ReceiveMessage();	// Recive the command packet
 		
-		if(status != TXRX_NO_PACKET_RECEIVED){
+	while (1) {
+		status = TxRx_ReceiveMessage();									// receive the command packet
+		if (status != TXRX_NO_PACKET_RECEIVED) {
 			break;
 		}
-		t2 = MiWi_TickGet();
-		
-		if((MiWi_TickGetDiff(t2, t1)) > TIMEOUT_RECEIVING_MESSAGE){	// Waits 5 seconds to get the whole command
+		t2 = MiWi_TickGet();		
+		if ((MiWi_TickGetDiff(t2, t1)) > TIMEOUT_RECEIVING_MESSAGE) {	// waits a few seconds to get the whole command
 			status = TXRX_NO_PACKET_RECEIVED;
 			break;
 		}
 	}
-	
-	if(status == TXRX_NO_ERROR){ // meaning we received the header of the packet at least
+	if (status == TXRX_NO_ERROR) {										// we received at least the header of the packet
 		t1 = MiWi_TickGet();
-		while(rxBlock.handlingParam.isHeader == FALSE){	// While we did not get the whole command..
-			status = TxRx_ReceiveMessage();	// Continue to try getting the whole command
-			if((status != TXRX_NO_ERROR)&&(status != TXRX_NO_PACKET_RECEIVED)){
+		while (rxBlock.handlingParam.isHeader == FALSE) {				// until we get the whole command - continue try getting it
+			status = TxRx_ReceiveMessage();	
+			if ((status != TXRX_NO_ERROR) && (status != TXRX_NO_PACKET_RECEIVED)) {
 				break;
 			}
 			t2 = MiWi_TickGet();
-			
-			if((MiWi_TickGetDiff(t2, t1)) > TIMEOUT_RECEIVING_MESSAGE){	// Waits 5 seconds to get the whole command
+			if ((MiWi_TickGetDiff(t2, t1)) > TIMEOUT_RECEIVING_MESSAGE) { // waits a few seconds to get the whole command
 				status = TXRX_PARTIAL_PACKET_RECEIVED;
 				break;
 			}
 		}
-	}
-	
+	}	
 	return status;
 }
-
-
 
 /******************************************************************************
 YS 30.11
 This function was written in order to prevent overflows which cause an
 arithmetic trap to occur.
-
 ******************************************************************************/
-BYTE TxRx_noOverflowADD(BYTE toAdd, BYTE addingTo){
-	if(toAdd>=255-addingTo){
-		return 255;
+BYTE TxRx_noOverflowADD(BYTE toAdd, BYTE addingTo) {
+
+	if(toAdd >= 255 - addingTo){
+		return 255;	//YL "zeros"?
 	}
-	return addingTo+toAdd;
+	return addingTo + toAdd;
 }
 
 /******************************************************************************
 YS 22.12
 This function resets the ACK sequencers.
-
+YL...
+- ack seq num has 6 bits
+- when the tranmitter sends out a message, i.e: 
+	- cmd\data if the plug is the transmitter
+	- data if the stone is the transmitter
+  the receiver must ack accepting the message:
+  TxRx_SendPacket uses MiApp_UnicastMessage to send the message out in portions 
+  of 72 bytes max, every portion has it's ackSeq num and it must be acknowledged
+  by the receiver.
+- for example - assume the counters have their initial values, and that first: 
+	- the plug is the transmitter, and the stone is the receiver:
+		- when the plug calls TxRx_SendPacket to send cmd\data out - 
+		  txLastSeq + 1 -> txExpectedSeq, so txExpectedSeq = 1, and
+		  txExpectedSeq -> ackSeq, so the first portion has ackSeq = 1. 
+		- when the stone accepts the first portion, then rxBlock.handlingParam.isHeader == TRUE,
+		  and therefore TxRx_ReceivePacketHeader is called.
+		  TxRx_ReceivePacketHeader checks the ackSeq num and updates rxExpectedSeq: 
+			- rxLastSeq + 1 -> rxExpectedSeq, or |
+			- rxLastSeq -> rxExpectedSeq, else   | - we have 2 valid options because... - check
+			- TXRX_WRONG_DATA_SEQ
+		  if ackSeq = 1, then rxLastSeq = 0, and therefore we have rxExpectedSeq = 1.
+	- next the stone is the transmitter, and the plug is the receiver:
+		- now the stone has to ack the first portion, and so it calls TxRx_SendAck;
+		  TxRx_SendAck calls TxRx_SendPacket with TXRX_TYPE_ACK, and rxExpectedSeq -> ackSeq,
+		  so in our case the ackSeq of ack message is identical to ackSeq of the 
+		  data\cmd that it acks: ackSeq = 1. if there are no errors in TxRx_SendPacket, 
+		  then the plug received the ack: rxExpectedSeq -> rxLastSeq, and so we have rxLastSeq = 1.
+		- txExpectedSeq -> txLastSeq in TxRx_ReceivePacketHeader when the plug 
+		  receives the ack, and so in our case we have txLastSeq = 1
+...YL
 ******************************************************************************/
-void TxRx_Reset_ACK_Sequencers(){//YS 22.12
-	txBlock.blockHeader.ackSeq = 1;
-	blockAckInfo.txLastSeq =0;
-	blockAckInfo.txExpectedSeq = 1;
-	blockAckInfo.rxLastSeq = 0;
-	blockAckInfo.rxExpectedSeq = 1;
-}
-
-/******************************************************************************
-******************************************************************************/
-void TxRx_printError(TXRX_ERRORS error){
-
-	#if defined (COMMUNICATION_PLUG)
-		m_write(TxRx_err_messages[error]);
-		m_write("\r\n");
+void TxRx_Reset_ACK_Sequencers() { //YS 22.12
+	
+	// YL 19.8 ...
+	// was:
+	//txBlock.blockHeader.ackSeq = 1;
+	//blockAckInfo.txLastSeq = 0;
+	//blockAckInfo.txExpectedSeq = 1;
+	//blockAckInfo.rxLastSeq = 0;
+	//blockAckInfo.rxExpectedSeq = 1;
+	txBlock.blockHeader.ackSeq = 1; 
+	#if defined WISDOM_STONE
+		blockAckInfo.txLastSeq = 0;
+		blockAckInfo.txExpectedSeq = 1;
+		blockAckInfo.rxLastSeq = 0;
+		blockAckInfo.rxExpectedSeq = 1;
+	#elif defined COMMUNICATION_PLUG
+	BYTE i;
+	for (i = 1; i < MAX_NWK_SIZE; i++) {  	// i = 0 isn't used
+		blockAckInfo[i].txLastSeq = 0;
+		blockAckInfo[i].txExpectedSeq = 1;
+		blockAckInfo[i].rxLastSeq = 0;
+		blockAckInfo[i].rxExpectedSeq = 1;
+	}
 	#endif
-
-	print_string(0, 0, TxRx_err_messages[error]);
+	// ... YL 19.8
 }
 
+// YL 20.8 ...
+// was: void TxRx_printError(TXRX_ERRORS error)
+/******************************************************************************
+* Function:
+* 		int TxRx_PrintError(TXRX_ERRORS error)
+******************************************************************************/
+int TxRx_PrintError(TXRX_ERRORS error) {
+	
+	#if defined COMMUNICATION_PLUG
+		m_write(TxRx_err_messages[error]);
+		// YL 19.8 m_write("\r\n");
+	#endif //COMMUNICATION_PLUG
+	
+	print_string(0, 0, TxRx_err_messages[error]);
+	
+	write_eol();	// YL 16.8 
+	return (-1);
+}
+// ...YL 20.8
+
+// YL 4.8 moved runPlugCommand here from app file and renamed it to TxRx_Reconnect...
+
+//OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+#if defined COMMUNICATION_PLUG
+//OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+// YL 22.8 ...
+// is broadcast possible only for app + some RTC cmds 
+// (and not appStop)?
+void TxRx_AppStop(void) {
+		
+	if (isBroadcast == FALSE) {	
+		// update isStopped array at "EUI_0 of the stone" index:
+		if (isAppStop == TRUE) {
+			isStopped[(finalDestinationNwkAddress[0])] = TRUE;			
+		}
+		else {
+			isStopped[(finalDestinationNwkAddress[0])] = FALSE;			
+		}
+	}
+	else {	
+		// in case of broadcast - update the whole isStopped array:
+		BYTE i;	
+		if (isAppStop == TRUE) {		
+			for (i = 1; i < MAX_NWK_SIZE; i++) {	// i = 0 isn't used 
+				isStopped[i] = TRUE;
+			}
+		}
+		else {		
+			for (i = 1; i < MAX_NWK_SIZE; i++) {	// i = 0 isn't used 
+				isStopped[i] = FALSE;
+			}
+		}
+	}
+	return;
+}
+// ... YL 22.8
+/******************************************************************************
+* Function:
+*		void TxRx_Reconnect(void)
+* Description:
+*		Run MiApp_ResyncConnection() to reconnect the network connection
+* Parameters:
+*		None
+* Return value:
+*		None
+*******************************************************************************/
+void TxRx_Reconnect(void) {
+
+	// YL 6.9 ... meanwhile
+	return;
+	// ... YL 6.9
+
+	if (MiApp_ResyncConnection(0, 0xFFFFFFFF)) { //YL 5.8 TODO - check MiApp_ResyncConnection params
+		m_write ("RECONNECTED: network connection recovery successful!");
+	} 
+	else {
+		m_write ("NOT-CONNECTED: couldn't recover network connection!");				
+	}
+	write_eol();
+	cmd_ok();
+}
+
+//BACKUP:
+/******************************************************************************
+// TxRx_Reconnect()
+// if it is a plug command, run it, otherwise don't.
+// returns a boolean to indicate if it was a valid plug command.
+*******************************************************************************/
+//BOOL TxRx_Reconnect(void) {
+//	if (strcmp(g_curr_msg, "plug reconnect") == 0) { //currently the only plug command 
+//		if (MiApp_ResyncConnection(0, 0xFFFFFFFF)) {
+//			m_write ("RECONNECTED: network connection recovery successful!");
+//			write_eol();
+//		} 
+//		else {
+//			m_write ("NOT-CONNECTED: couldn't recover network connection!");
+//			write_eol();				
+//		}
+//		cmd_ok();
+//		return TRUE;
+//	}
+//	return FALSE;
+//}
+//...YL 4.8
+
+//YL 4.8...
+/******************************************************************************
+* Function:
+*		BOOL TxRx_ExecuteIfPlugCommand(void) 
+* Description:
+*		- check the kind of the received command:
+*			- if this is "app stop", update isAppStop 
+* 		- check if the command is for the plug:
+*			- if the command is for the plug - execute it
+*			- otherwise we consider it "stone" command: 
+*				- NOTE: this "stone" command might also be some illegal string,
+*					and to find out this - the stone should parse it after 
+*					receiving it from the plug
+*				- update global finalDestinationNwkAddress (the destination is some stone in the nwk)	
+* Parameters:
+*		None
+* Return value:
+* 		- TRUE:
+*			- if the command is for the plug, or
+*			- if the plug found that the input is invalid (err msg is printed)
+* 		- FALSE: otherwise (the command is presumable "stone" command)
+* Side effects:
+*		- updates global finalDestinationNwkAddress (if the input is valid)
+*		- updates global isBroadcast if needed	
+*		- calls handle_plug_msg() that:
+*			- removes the destination from the beginning of g_curr_msg (so only the cmd remains)
+*			- updates global isAppStop if we received "app stop"	
+******************************************************************************/	
+BOOL TxRx_ExecuteIfPlugCommand(void) {
+
+	//was: strcpy(g_in_msg, g_curr_msg); but g_in_msg is used only in stone's code; 
+		
+	int result = handle_plug_msg();
+	if (result == (-1)) {
+		return TRUE; 	// to avoid sending illegal command to the stone
+	}
+	
+	isBroadcast = FALSE;
+	isAppStop = FALSE;
+	finalDestinationNwkAddress[0] = (0xFF & result);		// EUI_0
+	finalDestinationNwkAddress[1] = EUI_1;					// constant; 
+		
+	switch (finalDestinationNwkAddress[0]) {	
+		case PLUG_NWK_ADDR:	
+			TxRx_Reconnect();	// execute the only plug command 
+			return TRUE;
+		case BROADCAST_NWK_ADDR:	
+			isBroadcast = TRUE;	
+	}
+	if (finalDestinationNwkAddress[0] == PLUG_NWK_ADDR) { 	// we should get here only with stone commands
+		TxRx_PrintError(TXRX_NWK_UNKNOWN_ADDR);
+		return TRUE;
+	}
+	TxRx_AppStop();	
+	return FALSE;
+}
+
+//BACKUP:
+//	}
+//	if (strcmp(g_curr_msg, "app stop") == 0) {							// if we received app stop, do not print the blocks from now on.	
+//		isAppStop = 1;													// notify that app stop was received, and do not print the next blocks that will be received.
+//	}
+//	else {
+//		isAppStop = 0;
+//	}
+//	//YS 5.1.13
+//	if (!runPlugCommand()) {											//YL runPlugCommand: (g_curr_msg = "plug reconnect") ? MiApp_ResyncConnection : FALSE
+//		while (TxRx_SendCommand((BYTE*)g_in_msg) != TXRX_NO_ERROR) { 	//YS 5.10 checking if resync should run //YS 17.11 //YL 21.4 added casting to g_in_msg 
+//			TxRx_Init(TRUE); //YS 17.11									//YL keep calling TxRx_Init(TRUE) (to reset the network without resetting the data counters) as long as TxRx_SendCommand fails to transmit the command to the stone
+//		}
+//	}
+//}
+
+#endif // #ifdef COMMUNICATION_PLUG
+
+//...YL 4.8	
+
+// YL 18.8 ... backup: (
+
+//void TxRx_Init(BOOL justResetNetwork) { //YS 17.11	
+
+	// YL 17.8 ...
+	//MIWI_TICK t1, t2;	// to limit TxRx_Init time for the plug\stone
+	// ... YL 17.8
+		
+	//initialize the MRF ports
+	//MRFInit();
+	
+	//read from EEPROM the byte that is used as the LSByte of the EUI:		
+	//myLongAddress[0] = (BYTE)(0xFF & eeprom_read_byte(EUI_0_ADDRESS)); 
+				
+	//MiApp_ProtocolInit(FALSE);  
+	
+	//YL 25.5 added AY... 
+	//if (!justResetNetwork) {
+		//TxRx_Reset_ACK_Sequencers(); //YS 22.12 init required for the acks	//YL 29.7 AY called TxRx_Reset_ACK_Sequencers in both - plug and stone if(!justResetNetwork), 
+																			//and in addition - at the end of TxRx_Connect, in plug only, and without any condition
+																			//(whereas the stone started the network); do we need this additional call? 
+		//WORD n;
+		//for (n = 0; n < TXRX_TRAILER_SIZE; n++) {
+			//txBlock.blockTrailer[n] = TxRx_Trailer[n]; // init of constant trailer that is used for synchronization of the block
+		//}
+	//}
+	//...YL 25.5
+	
+	//MiApp_ConnectionMode(ENABLE_ALL_CONN); 
+	
+	//#if defined (COMMUNICATION_PLUG)	// TODO - add some indication so the plug will finish init only when max stones joined the network
+	// the plug is the only PAN coordinator.
+	// it is the only one that starts the network, and then accepts others that join it
+	
+	// YL 17.8 ...
+	// was: MiApp_StartConnection(START_CONN_ENERGY_SCN, 10, 0xFFFFFFFF); //YL 25.5 to select the most quiet channel: START_CONN_ENERGY_SCN instead of START_CONN_DIRECT
+	//t1 = MiWi_TickGet();
+	//while (1) {
+		//MiApp_StartConnection(START_CONN_ENERGY_SCN, 10, 0xFFFFFFFF); //YL 25.5 to select the most quiet channel: START_CONN_ENERGY_SCN instead of START_CONN_DIRECT
+		//t2 = MiWi_TickGet();
+		//if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_NWK_ESTABLISHMENT) {		
+			//break;
+		//}
+		//if (MiApp_MessageAvailable()) {
+			//DelayMs(400);
+		//}
+	//}
+		
+	// ... YL 17.8
+	//#endif //COMMUNICATION_PLUG
+	
+	// YL 17.8 ... backup is below TxRx_Init; replaced j with t1 and t2
+	//#if defined (WISDOM_STONE)
+	// the stone is a regular (non-PAN) coordinator.
+	// it searches for networks and establish connection to one of them
+	
+	//BOOL	joinedNetwork = FALSE;
+	//BYTE	totalActiveScanResponses;
+	//BYTE	i;
+	
+	//t1 = MiWi_TickGet();		
+	//while (!joinedNetwork) { 
+		//totalActiveScanResponses = MiApp_SearchConnection(10, 0xFFFFFFFF);
+		//i = 0;
+		//while ((!joinedNetwork) && (i < totalActiveScanResponses)) {			
+			//if (MiApp_EstablishConnection(i, CONN_MODE_DIRECT) != 0xFF) { 
+				//joinedNetwork = TRUE;  										// a connection has been established - WISDOM_STONE completed TxRx_Init successfully
+			//}
+			//i++;  															// try to establish connection with next active scan response
+		//}
+		//t2 = MiWi_TickGet();  									
+		//if (MiWi_TickGetDiff(t2, t1) > TIMEOUT_NWK_JOINING) {	
+			//break;
+		//}	
+	//if (!joinedNetwork) {  				// no connections has been found 
+		//g_sleep_request = TRUE;			// go to sleep till next wakeup time
+	//}
+	//#endif //WISDOM_STONE
+	// ... YL 17.8
+	
+	//if (justResetNetwork) { //YS 17.11
+		//while (!ConnectionTable[0].status.bits.isValid); //make sure the other side reconnected
+	//}	 
+//}
+// ... YL 18.8
+
+// YL 17.8 ... backup:
+	//#if defined (WISDOM_STONE)
+	// the stone is a regular (non-PAN) coordinator.
+	// it searches for networks and establish connection to one of them
+	
+	//BOOL	joinedNetwork = FALSE;
+	//BYTE	totalActiveScanResponses;
+	//BYTE	i, j = 0; //YL 25.5 added j to limit the time of this search to 10 minutes max 
+		
+	//while ((!joinedNetwork) && (j < 0xFF)) { 	
+	//totalActiveScanResponses = MiApp_SearchConnection(10, 0xFFFFFFFF);
+	//i = 0;
+		//while ((!joinedNetwork) && (i < totalActiveScanResponses)) {				
+			//if (MiApp_EstablishConnection(i, CONN_MODE_DIRECT) != 0xFF) { //YL 17.7 (1) maybe the param should be 0xFF, and not i, to form a cluster socket; (2) try CONN_MODE_INDIRECT\DIRECT
+				//joinedNetwork = TRUE;  			// a connection has been established - WISDOM_STONE completed TxRx_Init successfully
+			//}
+			//i++;  								// try to establish connection with next active scan response
+		//}
+		//j++;  									// no connections have been established after checking all active scan responses; call MiApp_SearchConnection again 				
+	//}	
+	//if ((!joinedNetwork) && (j == 0xFF)) {  		// no connections has been found during ~10 minutes 
+		//g_sleep_request = TRUE;					// go to sleep till next wakeup time
+	//}
+	//#endif //WISDOM_STONE
+// ... YL 17.8

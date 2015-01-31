@@ -1,6 +1,6 @@
 /*******************************************************************************
 
-Wisdome Stone - under road sensing system
+Wisdom Stone - under road sensing system
 
 ********************************************************************************
 
@@ -28,61 +28,36 @@ Wisdome Stone - under road sensing system
 		- Final version of stage 1
 		- P2P implementation by Yossi and Amnon
 		- Debugged and working
+ ver 1.06.0 date: 23.9.13 - P2P replaced with MiWi
+		- Initial MiWi version
+		- MiWi implementation by Yulia
+		- Debugged and working			
 		
 ********************************************************************************
 	General:
 	========
-this is the main file of the top level application for Wisdome Stone System.
+this is the main file of the top level application for Wisdom Stone System.
 this project can be compiled with two main compiler flags:
 - WISDOM_STONE
 - COMMUNICATION_PLUG
 
-Other complilation flags:
+other complilation flags:
 - USBCOM - use USB as the wired communication channel
 - RS232  - use the UART as the wired communication channel
 
-WISDOM_STONE
+WISDOM_STONE //YL editted the description
 ============
-the main process waits for a command to be recieved from USB / UART, or from RF TXRX
-(depends on the #define used).
-it parses the command, and goto the relevant function.
+the main process of the stone waits for a command to be recieved from: 
+- USB / UART, or 
+- RF TXRX (depends on the #define used)
+then the main calls the relevant function to handle the command.
 
-COMMUNICATION_PLUG
+COMMUNICATION_PLUG //YL editted the description
 ==================
-it can be used for the plug (USB <-> RF converter) or as the wistone itself.
-
-It is based on the sample application that demonstrate the rich features
-of MiWi(TM) Development Evniroment (DE). This demo should be used 
-with FeatureDemoNode2 together. In this demo, following MiWi(TM) 
-DE features has been implemented:
- - Network Freezer
-     This application demonstrate how to invoke Network Freezer
-     feature that restore the previous network configurations
-     after reset or power cycle.
- - Active Scan 
-     This application will do an active scan to allocate all PANs
-     running in the neighborhood and choose the PAN that share the 
-     same PAN identifier to establish connection.
- - Energy Scan
-     If no existing PAN that matches the desired PAN identifier, this
-     application will find a channel with least noise among all the
-     supported channels.
- - Indirect Message Feature 
-     This application is able to store the message to the device
-     with radio off during idle and deliever the message when that 
-     device wakes up and asking for it. This application is also
-     capable of delivering broadcast message to each individual 
-     device with radio off during idle
- - Frequency Agility 
-     As a frequency agility starter, this application is able to 
-     decide the optimal channel and change operating channel. It
-     also has to broadcast and let other devices to change channel.
- 
-Change History:
-Rev   Date         Author    Description
-0.1   03/01/2008   yfy       Initial revision
-3.1   05/28/2010   yfy       MiWi DE 3.1
-
+the main process of the plug transmits:
+- commands and acknowledgements from the USB to the stone
+- data and acknowledgements from the stone to the USB
+(hence the plug is basically USB <-> RF converter)
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
@@ -126,13 +101,13 @@ BOOL	g_usb_connected; 					// YS 17.8 - was usb connected successfully
 //		- TS: read from FLASH and transmit block, or
 //		- OST: sample and transmit block on-line
 //	- handle USB periodical tasks (we use interrupt mode)
-//	- handle commad (if received)
+//	- handle command (if received)
 //	- handle power maintenance
 //	- refresh LCD screen
 *******************************************************************************/
-int main(void)
-{	
-	PPS_config(); //YS 17.8				// remappable pins configs
+int main(void) {
+	
+	//YL 5.8 - moved: PPS_config(); to init_all  	//YS 17.8	// remappable pins configs
 	init_all();							// init entire system's components
 	while (!g_sleep_request) { 			// continue until "app sleep" command received
 		if (g_mode == MODE_SS)  		// Store and Sample
@@ -141,17 +116,18 @@ int main(void)
 			handle_TS();
 		else if (g_mode == MODE_OST) 	// Online Sample and Transmit
 			handle_OST();
+	
 		exec_message_command();			// execute commands received from: USB/RX/Boot
 #ifdef LCD_INSTALLED
 		refresh_screen(); 				// periodically, copy screen 4 x 16 memory buffer to LCD
 		//DelayMs(1);					// to be used only when nothing is activated except for the LCD
-#endif // #ifdef LCD_INSTALLED	
+#endif // LCD_INSTALLED	
 	}
 	prepare_for_shutdown();				// actions needed before going to sleep
-	return(0);								// should never get here...
+	return(0);							// should never get here...
 } 
 
-#endif // #if defined WISDOM_STONE 
+#endif // WISDOM_STONE 
 
 
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -160,47 +136,67 @@ int main(void)
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 
 /***** GLOBAL VARIABLES: ******************************************************/
-BYTE isAppStop;
+//YL 4.8 was: BYTE isAppStop; <- moved isAppStop to TxRx					
 
 /*******************************************************************************
 // main()
-// - while not RXTX error found
+// - while not TXRX error found
 //   - if received something from USB then transmit it to TXRX
 //	 - using periodic tasks in TXRX, check if received something from there and transmit it to USB
 *******************************************************************************/
-void main(void)
-{   
-    PPS_config();	//YS 17.8		// remappable pins configs
+int main(void) {	  //YL 21.4 int main() instead of void main()
+  
+    //YL 5.8 - moved: PPS_config(); to init_all 	//YS 17.8	// remappable pins configs 
 	init_all();	
 	
 	while (1) {
 #if defined (USBCOM)
-		USB_STATUS usbStatus = USB_ReceiveData();
+	USB_STATUS usbStatus = USB_ReceiveData();
 
-		if (usbStatus == USB_RECEIVED_DATA) {
-			strcpy(g_in_msg, g_curr_msg);
-			if (strcmp(g_curr_msg, "app stop") == 0) {	// If we received app stop, do not print the blocks from now on..		//YL 11.11 strcmp instead of strcmp_ws
-				isAppStop = 1;	// notify that app stop was received, and do not print the next blcks that will bbe received..
-			}
-			else {
-				isAppStop = 0;
-			}
-			//YS 5.1.13
-			if (!runPlugCommand()) {
-				while (TxRx_SendCommand(g_in_msg) != TXRX_NO_ERROR) {//YS 5.10 checking if resync should run//YS 17.11
-					TxRx_Init(TRUE); //YS 17.11
-				}
+	//YL 4.8... the backup is next to main
+	if (usbStatus == USB_RECEIVED_DATA) {
+		// parse the data from USB, to see if the command is for the plug, 
+		// and if so - execute it; otherwise - we consider it "stone" command (including the case of illegal string) 
+		BOOL isPlugCommand = TxRx_ExecuteIfPlugCommand();
+		if (isPlugCommand == FALSE) {
+			// send the command to the stone
+			while (TxRx_SendCommand((BYTE*)g_curr_msg) != TXRX_NO_ERROR) {
+				// keep calling TxRx_Init(TRUE) 
+				// (to reset the network without resetting the data counters) 
+				// as long as TxRx_SendCommand fails to transmit the command to the stone
+				
+				// YL 16.8 ... meanwhile reconnect doesn't work
+				// TxRx_Init(TRUE);
+				// ... YL 16.8
 			}
 		}
-#endif // #if defined (USBCOM)
-		
-		//TXRX_ERRORS status = TxRx_PeriodTasks();//YS 25.1
-		TxRx_PeriodTasks();//YS 25.1
-		/*if (status != TXRX_NO_ERROR) {
-			TxRx_printError(status);
-			TxRx_Init(TRUE); //YS 17.11
-		}*/ //YS 25.1
 	}
-	while (1);
+	//...YL 4.8		
+#endif // USBCOM
+	// YL handle the messages that the stone sends to the plug
+	TxRx_PeriodTasks();	 //YS 25.1													
+	}
+	//YL 5.8 commented: while (1);
+	return(0); //YL 21.4 added to avoid warning in case of void main()
 }
-#endif // #if defined COMMUNICATION_PLUG
+#endif // COMMUNICATION_PLUG
+
+//YL 4.8 backup...
+// if (usbStatus == USB_RECEIVED_DATA) {
+	// strcpy(g_in_msg, g_curr_msg);
+	
+	// if (strcmp(g_curr_msg, "app stop") == 0) {								// if we received app stop, do not print the blocks from now on.		
+		// isAppStop = 1;														// notify that app stop was received, and do not print the next blocks that will be received.
+	// }
+	// else {
+		// isAppStop = 0;
+	// }
+	// // YS 5.1.13
+	// if (!runPlugCommand()) {													//YL runPlugCommand: (g_curr_msg = "plug reconnect") ? MiApp_ResyncConnection : FALSE
+		// while (TxRx_SendCommand((BYTE*)g_in_msg) != TXRX_NO_ERROR) { 		//YS 5.10 checking if resync should run //YS 17.11 //YL 21.4 added casting to g_in_msg 
+			// TxRx_Init(TRUE); //YS 17.11										
+		// }
+	// }
+//}
+//...YL 4.8
+

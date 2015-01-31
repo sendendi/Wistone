@@ -150,7 +150,7 @@
         // the available routes dynamically. This definition is only valid for
         // a coordinator.
         /*********************************************************************/
-        #define MAX_ROUTING_FAILURE 3
+		#define MAX_ROUTING_FAILURE 3
         
         /*********************************************************************/
         // ACTIVE_SCAN_RESULT_SIZE defines the maximum number of active scan

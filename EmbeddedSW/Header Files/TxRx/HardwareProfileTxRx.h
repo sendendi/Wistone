@@ -63,8 +63,8 @@
 	
 			#define PHY_CS              LATBbits.LATB2
        		#define PHY_CS_TRIS         TRISBbits.TRISB2
-       		//#define PHY_RESETn          LATFbits.LATF3
-       		//#define PHY_RESETn_TRIS     TRISFbits.TRISF3
+       		//#define PHY_RESETn        LATFbits.LATF3
+       		//#define PHY_RESETn_TRIS   TRISFbits.TRISF3
 
 	        #define SPI_SDI             PORTDbits.RD14		// RF7 => RD14
 	        #define SDI_TRIS            TRISDbits.TRISD14
@@ -109,8 +109,8 @@
 	
 			#define PHY_CS              LATAbits.LATA4  	//SC changed to RA4, was LATBbits.LATB2
        		#define PHY_CS_TRIS         TRISAbits.TRISA4  	//SC changed to RA4, was TRISBbits.TRISB2
-       		//#define PHY_RESETn          LATBbits.LATB15  	//SC changed to RB15, was LATFbits.LATF3
-       		//#define PHY_RESETn_TRIS     TRISBbits.TRISB15 	//SC changed to RB15, was TRISFbits.TRISF3
+       		//#define PHY_RESETn        LATBbits.LATB15  	//SC changed to RB15, was LATFbits.LATF3
+       		//#define PHY_RESETn_TRIS   TRISBbits.TRISB15 	//SC changed to RB15, was TRISFbits.TRISF3
 
 	        #define SPI_SDI             PORTGbits.RG9		//SC changed to RG9, was PORTDbits.RD14	// RF7 => RD14
 	        #define SDI_TRIS            TRISGbits.TRISG9   	//SC changed to RG9, was TRISDbits.TRISD14
@@ -128,14 +128,14 @@
 			#define RF_INT_PIN      	PORTDbits.RD2   	// INT is connected to RD2
             #define RF_INT_TRIS     	TRISDbits.TRISD2
 
-     		//#define PHY_CS              LATDbits.LATD10	// CS is connected to RD10 - SC void for debug
-     		//#define PHY_CS_TRIS         TRISDbits.TRISD10
+     		//#define PHY_CS            LATDbits.LATD10	// CS is connected to RD10 - SC void for debug
+     		//#define PHY_CS_TRIS       TRISDbits.TRISD10
      		#define PHY_RESETn          LATDbits.LATD0		// RESET is connected to RD0
      		#define PHY_RESETn_TRIS     TRISDbits.TRISD0
 	
 
-			//#define SPI_SDI             PORTDbits.RD9		// SDI is connected to RD9 - SC void for debug
-       		//#define SDI_TRIS            TRISDbits.TRISD9
+			//#define SPI_SDI           PORTDbits.RD9		// SDI is connected to RD9 - SC void for debug
+       		//#define SDI_TRIS          TRISDbits.TRISD9
        		#define SPI_SDO             LATDbits.LATD3 		// SDO is connected to RD3		
        		#define SDO_TRIS            TRISDbits.TRISD3
        		#define SPI_SCK             LATDbits.LATD8 		// SCK is connected to RD8
@@ -156,7 +156,7 @@
           #define RFIE            IEC1bits.INT1IE
       #endif
 
-      #define CLOCK_FREQ      20000000//8000000 //YL 11.8 was 32000000(?) 
+      #define CLOCK_FREQ      20000000 //YL 11.8 was 32000000
 
       #define TMRL TMR2
       

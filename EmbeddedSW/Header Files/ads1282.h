@@ -2,7 +2,7 @@
 #define __ADS1282_H__
 #include "wistone_main.h"
 #include "p24FJ256GB110.h"
-#include "GenericTypeDefs.h" 
+#include "GenericTypeDefs.h"
 
 /***** DEFINE: ****************************************************************/
 // FLASH sector address for the first block of ADC samples

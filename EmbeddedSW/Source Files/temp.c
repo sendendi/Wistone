@@ -135,7 +135,7 @@ int handle_temp(int sub_cmd)
 			write_eol();
 			break;
 		default:
-			err(ERR_INVALID_SUB_CMD);
+			err(ERR_UNKNOWN_SUB_CMD);
 			cmd_error(0);
 			break;
 	}
@@ -144,5 +144,6 @@ int handle_temp(int sub_cmd)
 	cmd_ok();
 	return 0;
 }
+
 #endif //#ifdef WISDOM_STONE
  

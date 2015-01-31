@@ -185,13 +185,18 @@ int flash_format(void)
 	DWORD i;
 	DWORD sector_addr = 1;	//AY - start formatting at zero sector didn't work 
 	BYTE zero_buff[FLASH_SECTOR_SZ] = {0};	//maybe this doesn't fill whole array with 0
-	int res;
+	int res;	
 		
 	m_write("note: flash format might take over an hour to complete"); 
 	write_eol();
 	for (i = 1; i < MAX_FLASH_SECTOR_ADDR; i++) {	//AY - start formatting at zero sector didn't work 
 		res = flash_write_sector(sector_addr++, zero_buff);
-		m_write(".");
+		// YL 22.8 ... to speed format up
+		// was: m_write(".");
+		if (i%100 == 0) {
+			m_write(".");
+		}
+		// ... YL 22.8
 		if (res != 0)
 			return err(ERR_EEPROM_FORMAT);
 	}
@@ -208,7 +213,10 @@ int flash_format(void)
 int handle_flash(int sub_cmd)	
 {
 	int res = 0;
-	BYTE buff[FLASH_SECTOR_SZ];
+	// YL 22.8 ... clear buff
+	// was: BYTE buff[FLASH_SECTOR_SZ];
+	BYTE buff[FLASH_SECTOR_SZ] = {0};
+	// ... YL 22.8
 	DWORD sector_addr = 0;
 
 	// dispatch to the relevant sub command function according to sub command
@@ -237,7 +245,7 @@ int handle_flash(int sub_cmd)
 			if (sector_addr < 0)
 				return -1;		
 			res = flash_read_sector(sector_addr, buff); 
-			m_write(buff);	
+			m_write((char*)buff);	// YL 14.4 added casting to avoid signedness warning
 			write_eol();	
 			break;
 	
@@ -246,7 +254,7 @@ int handle_flash(int sub_cmd)
 			break;
 			
 		default:
-			err(ERR_INVALID_SUB_CMD);
+			err(ERR_UNKNOWN_SUB_CMD);
 			cmd_error(0);
 			break;
 	}
