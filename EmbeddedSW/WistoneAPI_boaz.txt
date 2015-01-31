@@ -1,0 +1,272 @@
+Wisdom Stone API
+================
+
+Low level commands:
+~~~~~~~~~~~~~~~~~~~
+-	WRITE command:	w <device> <address> <data>\n
+	each write command will be answered by one of the two strings:
+	- "ok\n" – the command was successfully executed
+	- "error\n" – error was found
+-	READ command:	r <device> <address>\n
+	each read command will be answered by one of the two strings:
+	- "<data>\n" – the command was successfully executed, <data> is the read value.
+	- "error\n" – error was found
+
+<device> types, and their <address> / <data>:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-	"led" – LED 
+	- <address> - 1, 2  //YL 25.8 - meanwhile - only led 2 operates as led
+	- <data> - "1" LED on, "0" LED off
+	- Write only, default: "0"
+-	"buzzer" – the buzzer
+	- <address> - 0 
+	- <data> - 0,…,10 – duration of 1Khz beep, in units of Sec
+	- Write only, default: "0"
+-	"switch" – the switch/keypad pressed value
+	- <address> - 1, 2	//YL 25.8 - meanwhile - only switch 1 operates as switch
+	- <data> - "0" - pressed, "1" - released	
+	- Read only
+-	"eeprom" – the on board EEPROM 
+	- <address> - the address within the 256K memory space, in decimal (e.g 16372); 
+	- <data> - the 8bit data for the memory address, in DEC (e.g. 235)
+	- READ / WRITE, default: none.	
+-	"rtc" - Real Time Clock
+	- <address> - the register address in the RTC memory space; 
+	- <data> - the 8bit data for this register
+	- READ / WRITE, default: none.
+-	"temp" - Temperature Sensor
+	- <address> - the register address in the temperature sensor memory space; 
+	- <data> - the 8bit data for this register
+	- READ / WRITE, default: none.
+-	"flash" – the on board micro-SD FLASH card
+	- <address> - the address within the FLASH memory space, in decimal (e.g 16372);
+	- <data> - the 8bit data for the memory address, in DEC (e.g. 235)
+	- READ / WRITE, default: none.
+	- NOTE: flash minit should be executed first before any flash commands, except for flash gcd;
+			also if the card was pulled out, flash minit should be executed again in order
+			to continue sending flash any further commands 
+-	"lcd" - the LCD screen attached to Wistone
+	- <address> - coordinate on screen. row = address DIV row_length, colomn = address MOD row_length; //YL 12.8 default address - 0.
+	- <data> - string to display. don't use ""
+	- WRITE only
+-	"ads" - the ADC Texas Instruments ADS1282 assembled on Wistone
+	- <address> - the register address in the ADC memory space; 
+	- <data> - 8
+	- READ / WRITE, default: none.
+-	"accmtr" - the accelerometer sensor assembled on Wistone
+	- <address> - the register address in the accelerometer memory space, in DEC:
+					- 0:  FIFO setup register, 6 ls bits are count watermark
+					- 13: who am i register, read only; returns 26 if MMA8451.Q is recognized																								
+	- <data> -  the 8bit data for this register 
+	- READ / WRITE, default: none. 
+
+higher level commands:
+~~~~~~~~~~~~~~~~~~~~~~
+
+FLASH commands: flash <sub command> <optional parameters>
+~~~~~~~~~~~~~~~
+-	flash format
+	– format FLASH - reset the FLASH memory
+	- No parameters
+	- Go over all address space of FLASH and write zeros
+-	flash gcd
+	- get the value of Card Detect
+-	flash minit
+	- Initialize the FLASH media
+-	flash wsector <sector address> <string>
+	- write the string into start of specific sector address
+-	flash rsector <sector address>
+	- read the sector at the specific address, and write the 512 bytes to the terminal
+-	flash gcap //YL 27.3 added gcap
+	- no parameters
+	- get the value of FLASH capacity in sectors
+	- NOTE: if the card was pulled out after system turn on, flash minit should be executed before
+		sending flash any further commands 
+	
+EEPROM commands: eeprom <sub command> <optional parameters>
+~~~~~~~~~~~~~~~
+-	eeprom format 
+	– format EEPROM - reset the non-volatile memory
+	- No parameters
+	- Go over all fields in eeprom and reset them to the default values: 0xFF, unsigned int
+-	eeprom write <address> <data>	
+	- write data string to specified address in EEPROM
+	- <address> - the address within the 32KB memory space in decimal (e.g 16320)
+				- NOTE: 1) the address should be at least 1 KB (to prevent BOOT table override)
+						2) the address should be a multiple of 64 (i.e - the writing should start at the beginning of some EEPROM page (64B), otherwise the writing might be erroneous) //YL 11.10
+	- <data> - data string, max - 60 characters length (any further characters are ignored), no need to use ""
+-	eeprom read	<address> <number of bytes>	
+	- read specified number of data bytes from specified address in EEPROM 
+	- <address> - the address within the 256K memory space, in decimal (e.g 16320)
+				- NOTE: the address should be a multiple of 64 (i.e - the reading should start at the beginning of some EEPROM page (64B), otherwise the reading might be erroneous) //YL 11.10
+	- <number of bytes> - the number of bytes to read, in decimal, no length restriction; only non-blank sequences are displayed, separated with ; (this mark is not read from the eeprom, and is just used as a delimiter)
+-	eeprom sboot <entry number> [<command>]	
+	- set default command to be executed after the RTC wakes the system up
+	- <entry number> - number of entry in boot table - 0,.., 9
+				- NOTE: the entry should not be neccessarily blank, and if it is not - then the command it contains would be replaced with the new one
+	- <command>	- command string to insert into specified boot table entry, max - 60 characters length (any further characters are ignored), no need to use ""
+				- to erase a command from the specified entry - enter: eeprom sboot <entry number> (without <command> parameter)
+				- NOTE: 1) it is important to fill the boot table sequentially: #0 table entry, #1 table entry, and so on
+						2) is is not neccessary to erase all boot commands that are not needed anymore:
+						e.g if 5 first table entries contain commands, and only the first 2 are needed - 
+						enter: eeprom sboot 2 
+						this command breaks the sequence of non-blank table entries,
+						i.e - when the system wakes up - it would execute only #0 and #1 boot commands,
+						and ignore the remaining commands (#3 and #4)  
+						in other words - the system executes only the commands that come before the lowest blank table entry.
+						e.g to ignore all boot commands the next time the system wakes up - enter: eeprom sboot 0
+-	eeprom gboot <entry number> 
+	- get pre-set default command string from boot table
+	- <entry number> - number of some entry in boot table - 0,.., 9 
+		
+System commands: sys <sub command> <optional parameters>
+~~~~~~~~~~~~~~~
+-	sys gver 
+	– Get version - returns SW version ID & PSU serial number
+	- no parameters
+-	sys sid <data>
+	- set specific ID of the Wistone into the last byte of the EEPROM
+	- <data> - the Wistone ID, 0 <= data <= MAX_SN
+-	sys gpower
+	- no parameters
+	- Gets the current power status from the HW power manager and DC/DC components
+	- return <BATSTAT> <STAT1> <STAT2> <ACPG> <USBPG> <DCDCOK1> <DCDCOK2> <DCDCOK3>
+	- <BATSTAT> - n.nn - battery voltage
+	- <STAT1> <STAT2> <ACPG> <USBPG> <DCDCOK1> <DCDCOK2> <DCDCOK3> - 0 or 1 for each field
+-	sys spower <5v enable> <12v enable> <-12v enable>
+	- <5v enable>   - 0 - disable, or 1 - enable 5v   power source
+	- <12v enable>  - 0 - disable, or 1 - enable 12v  power source
+	- <-12v enable> - 0 - disable, or 1 - enable -12v power source
+	- set on/off the specific DC-DCs on the power board: 0 - off, 1 - on
+	- e.g if only 5v and -12v need to be on - use: "sys spower 1 0 1"
+-	sys gerr 
+	– Get error - returns description of last error detected by Wiston application
+	- no parameters
+
+Real Time Clock commands: rtc <sub command> <optional parameters>
+~~~~~~~~~~~~~~~~~~~~~~~~
+-	rtc stime <hour> <minute> <second>
+	- set the time registers within the Real Time Clock
+	- <hour> - 0-24
+	- <minute> - 0-59
+	- <second> - 0-59	
+-	rtc sdate <day> <month> <year> <weekday> 
+	- set the date registers within the Real Time Clock
+	- <day> - 1-31
+	- <month> - 1-12
+	- <year> - 00-99  
+	- <weekday> - 1-7 
+-	rtc gtime
+	- no parameters
+	- returns time from RTC registers: <hour> <minute> <second>
+	- <hour> - 0-24
+	- <minute> - 0-59
+	- <second> - 0-59	
+-	rtc gdate
+	- no parameters
+	- return date from RTC registers: <day> <month> <year> <weekday>
+	- get the date registers within the Real Time Clock
+	- <day> - 1-31
+	- <month> - 1-12
+	- <year> - 00-99		
+	- <weekday> - SUN, MON,...	
+-	rtc swakeup <delay> 		
+	- set the RTC alarm to wake the system up once (for periodic wakeup - use salarm)
+	- <delay> - the delay until the system is on to execute pre-set command, in minutes
+	- NOTE: 1) as soon as the RTC wakes the system up - the system starts executing a batch of pre-set boot commands; 
+			   therefore - when the alarm is set and before the system is shut-down,
+			   it is important to insert into EEPROM's boot table at least one "app start" command
+			   (which is actually the reason for the wakeup) and that the last table's command would be app shutdown (for power-saving)
+			   in addition, the parameters of "app start" should be used to determine 
+			   how long the system works before it shuts down:
+			   e.g if one of boot commands is: "app start ts 10000 4000 usb" - 
+			   it means that the system would be on at least 10000/5 = 2000 seconds,
+			   since the transmitting rate is 5 blocks per second.
+			2) specified delay summed up with current Wistone time should not exceed 24 hour period,
+			   e.g if "rtc stime" returns 23:30, the maximum delay possible to guarantee normal operation is 29 minutes;
+-	rtc salarm <hour> <minute> <day> <weekday> 
+	- set the alarm registers within the RTC to periodically wake the system up (for single wakeup - use swakeup)
+	- if some of the parameters are irrelevant - enter 'x' to indicate that:
+		-	e.g if only hour needs to be set - enter: <hour> x x x
+			and if only hour and day - enter: <hour> x <day> x
+			to disable any periodic alarm settings - enter: x x x x; in this case the alarm is set to a default value - 10:00 AM on the first day of the next month
+			e.g the setting: rtc salarm 10 30 x 1 means that the alarm is activated every time the RTC reaches Sunday, 10:30 AM. 
+	- NOTE:	1) as soon as the RTC wakes the system up - the system starts executing a batch of pre-set boot commands; 
+			   therefore - when the alarm is set and before the system is shut-down,
+			   it is important to insert into EEPROM's boot table at least one "app start" command
+			   (which is actually the reason for the wakeup) and that the last table's command would be "app shutdown" (for power-saving)
+	- <hour> - 0-24
+	- <minute> - 0-59
+	- <day> - 1-31 
+	- <weekday> - 1-7  
+ 
+temperature sensor commands: temp <sub command> <optional parameters>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-	temp gtemp
+	- no parameters
+	- return temperature in Celcius from Temperature Sensor: <temp>
+	- <temp> - nn.n (e.g. 24.6)
+
+acceletometer sensor commands: accmtr <sub command> <optional parameters>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-	accmtr config <option> <data> 
+	- configure the accelerometer data-rate/scaling/mode registers
+	- <option> - an option to choose:	1 - data rate
+										2 - scaling
+										3 - mode			
+	- <data> - desired settings for: 	data rate:	1 - 100 Hz, 2 - 200 Hz, 4 - 400 Hz
+										scaling: 	2 - +/-2g,  4 - +/-4g,  8 - +/-8g
+										mode:		1 - normal mode
+													2 - low power low noise mode
+													3 - high resolution mode
+													4 - low power mode
+						
+LCD commands: lcd <sub command> <optional parameters>
+~~~~~~~~~~~~
+-	lcd clrscr
+	- no parameters
+	- clears the LCD screen
+
+Application commands: app <sub command> <optional parameters>
+~~~~~~~~~~~~~~~~~~~~
+- 	app start <mode> <num of blocks> [<start sector address> and/or <destination>] [<combination mode>] //YL 7.11 added combination mode parameter
+		- SS: 	app start ss  <num of blocks> <start sector address> <combination mode> 
+		- TS: 	app start ts  <num of blocks> <start sector address> <destination>
+		- OST:	app start ost <num of blocks> <destination> <combination mode>
+	- start sampling/storing/transmiting according to selected mode for num_of_blocks x 0.5KB samples 
+	- <mode> = ss - Sample and Store mode for num_of_blocks x 0.5KB samples  
+	- <mode> = ts - Transmit Samples mode for num_of_blocks x 0.5KB samples
+	- <mode> = ost - Online Sample and Transmit mode for num_of_blocks x 0.5KB samples
+	- <num of blocks> - num of 0.5KB blocks to read from flash and to transmit, or to store in flash.
+	- <start sector address> - flash sector address to start with. relevant in SS and TS modes. 
+	- <destination> - usb or wireless - where to send the data. relevant in TS and OST modes.
+	- <combination mode> -
+		- "dual" - combine samples from ADS1282 and MMA8451Q. relevant in SS and OST modes only
+		- "single" - generate samples from MMA8451Q only
+	- when done, returns: "start <mode> done" 
+	- NOTE: - every mode adds an header block that precedes the data; 
+			  in SS and TS modes - if the sampled data is stored in flash - the start sector 
+			  (which is specified by <start sector address> parameter) contains only the header,
+			  and <num of blocks> sectors come after the header. That way - if previously stored
+			  samples of SS mode are displayed to the terminal using TS mode - then the header block
+			  might be displayed twice (it happens if the range of the sectors requested in TS mode
+			  includes SS <start sector address>); 
+			  if so - then the first header belongs to TS and the second one - to SS
+- 	app stop
+	- no parameters
+	- stop the current active mode (Sampling/storing/transmiting), even if not completed the needed num_of_blocks x 0.5KB samples
+	- when done, returns: "stopped"
+- 	app sleep
+	- no parameters
+	- switch wistone to sleep mode
+	- return "good night"
+- 	app shutdown
+	- no parameters
+	- turn main power off ("kill itself"...)
+	- return "shutting down"
+Communication Plug Commands: plug <sub_cmd> ...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-	plug reconnect	YS 5.1.13
+	-no parameters
+	-tries to reconnect the plug's wireless connection.
+	-should not be used alone, main use is the GUI's network failure recovery protocol
