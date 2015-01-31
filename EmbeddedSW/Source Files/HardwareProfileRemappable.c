@@ -115,7 +115,7 @@ void PPS_flash_config(void) {
 
 //************************************************************
 // Function PPS_mrf49_config()
-// make sure we nulock the pins mapping before
+// make sure we unlock the pins mapping before
 //************************************************************
 void PPS_mrf49_config(void){
 
@@ -154,7 +154,7 @@ void PPS_mrf49_config(void){
 	RPINR22bits.SDI2R = 27;      	// SC changed to RP27, was RPINR22bits.SDI2R = 43;
 
 	//*********************************************
-	// Assign External Interrupt 1 to Pin RPI33 = RE8	
+	// Assign External Interrupt 1 to Pin RP11 = RD0	
 	//*********************************************
 	RPINR0bits.INT1R = 11;       	// SC changed to RP11 and commented, was RPINR0bits.INT1R = 33;	 
 
@@ -179,7 +179,7 @@ void PPS_mrf49_config(void){
 
 //************************************************************
 // Function PPS_mrf24_config()
-// make sure we nulock the pins mapping before
+// make sure we unlock the pins mapping before
 //************************************************************
 void PPS_mrf24_config(void){
 
@@ -219,10 +219,10 @@ void PPS_mrf24_config(void){
 void PPS_accmtr_config(void){	
 
 #if defined (EXPLORER16)
-	// Assign External Interrupt 1 to Pin RP30 = RF2	
+	// Assign External Interrupt 2 to Pin RP30 = RF2	
 	RPINR1bits.INT2R = 30;	 //.30 represents RP30	
 #elif defined (WISTONE_BOARD)
-	// Assign External Interrupt 1 to Pin RP13 = RB2	
+	// Assign External Interrupt 2 to Pin RP13 = RB2	
 	RPINR1bits.INT2R = 13;	 //.13 represents RP13	
 #endif // #if defined (EXPLORER16)
 }

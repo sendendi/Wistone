@@ -50,9 +50,9 @@ following are the functions for handling system commands, like get version...
 #include "TimeDelay.h"						//TxRx - Common	
 
 /***** GLOBAL VARIABLES: ******************************************************/
-char	*g_version = "1.06.0";		 		// program version number. to be incremented each new release
-char   	g_curr_boot_cmd[MAX_BOOT_CMD_LEN];	//YL 17.9 the next boot command to be executed
-BOOL   	g_sn_write = FALSE;					//YL 11.11 to protect the last EEPROM's byte which stores the serial number of a stone 
+char	*g_version = "1.07.0";		 		// program version number. to be incremented each new release
+char   	g_curr_boot_cmd[MAX_BOOT_CMD_LEN];	// YL 17.9 the next boot command to be executed
+BOOL   	g_sn_write = FALSE;					// YL 11.11 to protect the last EEPROM's byte which stores the serial number of a stone 
 int		g_vbat_level;						// the voltage sampled at AN10, updated by Timer4 state machine
 
 /***** INTERNAL PROTOTYPES: ***************************************************/
@@ -60,7 +60,7 @@ void handle_get_error(void);
 void handle_gver();	
 void display_welcome(void);
 
-#define MAX_USB_RETRIES 1000 //YS 17.8
+#define MAX_USB_RETRIES 1000 // YS 17.8
 //defines the time we wait for a USB connection - each retry is 2mSec long
 //For example - 1000 means we wait for 2 seconds.
 
@@ -107,7 +107,7 @@ void init_all(void) {
 	TxRx_Init(FALSE);	// YL 16.8 to start TxRx along with USB;
 	//	was: 
 	//  if (g_usb_connected == FALSE){
-	//		TxRx_Init(FALSE);			// YS 17.8//YS 17.11
+	//		TxRx_Init(FALSE);			// YS 17.8 // YS 17.11
 	//	}
 	// ... YL 16.8
 
@@ -128,10 +128,11 @@ void init_all(void) {
 	err_clear();
 #endif //#ifdef WISDOM_STONE
 	display_welcome();
-	//<> #if defined DEBUG_PRINT
-		TxRx_PrintConnectionTable();
-	//<>#endif
-		
+	// YL 24.9 ...
+#if defined COMMUNICATION_PLUG	
+	TxRx_PrintNetworkTopology();
+#endif
+	// ... YL 24.9	
 	return;
 }
 
@@ -179,21 +180,21 @@ void init_power(void)
 void display_welcome(void) //YL 2.5 added USB_ReceiveData() after most m_write cmd to enable the printing in init stage too
 {	
    	m_write("\r\nWisdom-Stone, Welcome!\r\n");
-	USB_ReceiveData(); 		//YL 2.5
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
 	write_ver(g_version);	// return initial message to terminal
 	#if defined (COMMUNICATION_PLUG)
     m_write("\r\n     Starting COMMUNICATION_PLUG Mode");
-	USB_ReceiveData(); 		//YL 2.5
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
 	#elif defined (WISDOM_STONE)
 	m_write("\r\n     Starting WISDOM_STONE Mode");
-	USB_ReceiveData(); 		//YL 2.5
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
 	#endif //COMMUNICATION_PLUG
     #if defined (MRF24J40)
     m_write("\r\n     RF Transceiver: MRF24J40");
-	USB_ReceiveData(); 		//YL 2.5
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
     #elif defined (MRF49XA)
     m_write("\r\n     RF Transceiver: MRF49XA");
-	USB_ReceiveData(); 		//YL 2.5
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
     #endif //MRF24J40
     #ifdef EXPLORER16
 	m_write("\r\n   Demo Instruction:");
@@ -207,10 +208,11 @@ void display_welcome(void) //YL 2.5 added USB_ReceiveData() after most m_write c
 	#endif //EXPLORER16
     #if defined (PROTOCOL_P2P)
 	m_write("\r\n     Feature P2P Mode \r\n");
-	USB_ReceiveData(); 		//YL 2.5
-	#elif defined (PROTOCOL_MIWI) //YL 4.5 added MiWi case
+	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
+	#elif defined (PROTOCOL_MIWI) // YL 4.5 added MiWi case
 	m_write("\r\n     Feature MiWi Mode \r\n");
-	USB_ReceiveData();
+	// YL 12.9 USB_ReceiveData();
+	write_eol();
     #endif //PROTOCOL_P2P
 
 	/*******************************************************************/
@@ -235,7 +237,7 @@ void display_welcome(void) //YL 2.5 added USB_ReceiveData() after most m_write c
 //    set it to default - 10:00 AM on the first day of the next month;
 //	  if alarm setting fails - do not shut down
 *******************************************************************************/
-void prepare_for_shutdown(void) //YL 18.9 moved here from app, editted 19.9
+void prepare_for_shutdown(void) //YL 18.9 moved here from app, edited 19.9
 {
 	Alarm alm;
 	BYTE alarm_is_set = eeprom_read_byte(ALARM_ADDRESS);	 //YL 15.10 even if no alarm or wakeup cmds were received this time, the alarm might still be set (previously when the system was on)

@@ -22,7 +22,7 @@ following are the functions for parsing incoming message.
 #include "wistone_main.h"
 //YL 6.8 moved to envelop only handle_msg/read/write #ifdef WISDOM_STONE
 
-// YL 5.8 editted functions and DS descriptions
+// YL 5.8 edited functions and DS descriptions
 
 /***** INCLUDE FILES: *********************************************************/
 #include <string.h>
@@ -601,10 +601,10 @@ int handle_plug_msg(void) {
 		return cmd_error(ERR_INVALID_PARAM_COUNT);
 	}
 	dest = parse_int_num(g_tokens[0]); 	
-	if ((dest < 0) || (dest > MAX_NWK_ADDR)) {
+	if ((dest < 0) || (dest > MAX_NWK_ADDR_EUI0)) {
 		return TxRx_PrintError(TXRX_NWK_UNKNOWN_ADDR);
 	}
-	if ((dest == PLUG_NWK_ADDR) && (strcmp("reconnect", g_tokens[1]) != 0)) {		// so far - "reconnect" is the only plug command		
+	if ((dest == PLUG_NWK_ADDR_EUI0) && (strcmp("reconnect", g_tokens[1]) != 0)) {		// so far - "reconnect" is the only plug command		
 		return cmd_error(ERR_UNKNOWN_CMD);
 	}
 	if ((strcmp("app", g_tokens[1]) == 0) && (strcmp("stop", g_tokens[2]) == 0)) {	// the command is "app stop"

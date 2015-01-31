@@ -26,7 +26,7 @@ Description:
 
 #define MAX_CMD_LEN 100		
 
-typedef enum{
+typedef enum {
 
 	USB_NO_ERROR				= 0,
 	USB_NOT_CONFIGURED			= 1,
@@ -34,7 +34,7 @@ typedef enum{
 	USB_NOT_RECEIVED_DATA		= 3,
 	USB_NOT_READY_TO_SEND_DATA	= 4
 
-}USB_STATUS;
+} USB_STATUS;
 
 
 /********************************************************************
@@ -60,7 +60,6 @@ typedef enum{
 void InitializeSystem(void);
 
 
-
 /******************************************************************************
  * Function:        void USB_WriteData(BYTE *str, WORD len)
  *
@@ -68,7 +67,7 @@ void InitializeSystem(void);
  *
  * Input:           
  *					str - The data to write through usb.
- *					len - Thhe length of the data to be written.
+ *					len - The length of the data to be written.
  *
  * Output:          None.					
  *
@@ -76,7 +75,7 @@ void InitializeSystem(void);
  *
  * Overview:        This is the primary user interface function for sending data
  *					through usb.
- *					Any sending to the usb sould be done through this function.
+ *					Any sending to the usb should be done through this function.
  *
  * Note:            None
  *****************************************************************************/
@@ -97,13 +96,12 @@ void USB_WriteData(BYTE *str, WORD len);
  *
  * Overview:        This is the primary user interface function for receiving data
  *					and commands through usb.
- *					This function should be called regulary (every iteration of the
- *					the main loop), as it performes periodic tasks of the usb.
+ *					This function should be called regularly (every iteration of the
+ *					the main loop), as it performs periodic tasks of the usb.
  *
  * Note:            None
  *****************************************************************************/
 USB_STATUS USB_ReceiveData();
-
 
 
 #endif // _WISTONE_USB_H_

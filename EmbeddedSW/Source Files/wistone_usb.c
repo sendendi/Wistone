@@ -23,15 +23,13 @@
 #include "SymbolTime.h"
 
 
-
-typedef enum{
+typedef enum {
 
 	USB_PROCESS_IN			= 0,
 	USB_PROCESS_OUT 		= 1,
 	USB_PROCESS_IN_AND_OUT	= 2
 
-}USB_PROCESS_DIRECTION;
-
+} USB_PROCESS_DIRECTION;
 
 
 void InitializeSystem(void);
@@ -39,13 +37,14 @@ USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut);
 USB_STATUS USB_ProcessIn();
 USB_STATUS USB_ProcessOut();
 void USB_WriteSingleBuffer(WORD len);
-
 void USBDeviceTasks(void);
-void YourHighPriorityISRCode();
-void YourLowPriorityISRCode();
 void USBCBSendResume(void);
-void BlinkUSBStatus(void);
-void UserInit(void);
+// YL 9.9 ... all the following aren't used
+// void YourHighPriorityISRCode();
+// void YourLowPriorityISRCode();
+// void BlinkUSBStatus(void);
+// void UserInit(void);
+// ... YL 9.9
 
 /** V A R I A B L E S ********************************************************/
 
@@ -88,8 +87,6 @@ USB_BUFFERS usbBuffer;
 #else
 	#error "You picked a wrong pic"
 #endif
-
-
 
 
 /** DECLARATIONS ***************************************************/
@@ -139,7 +136,7 @@ void InitializeSystem(void)
 //	sense feature by making sure "USE_USB_BUS_SENSE_IO" has been defined in the
 //	HardwareProfile.h file.    
     #if defined(USE_USB_BUS_SENSE_IO)
-    tris_usb_bus_sense = INPUT_PIN; // See HardwareProfile.h
+    TRIS_USB_BUS_SENSE = INPUT_PIN; // See HardwareProfile.h
     #endif
     
 //	If the host PC sends a GetStatus (device) request, the firmware must respond
@@ -155,13 +152,12 @@ void InitializeSystem(void)
 //	has been defined in HardwareProfile.h, and that an appropriate I/O pin has been mapped
 //	to it in HardwareProfile.h.
     #if defined(USE_SELF_POWER_SENSE_IO)
-    tris_self_power = INPUT_PIN;	// See HardwareProfile.h
+    TRIS_SELF_POWER = INPUT_PIN;	// See HardwareProfile.h
     #endif
     
     USBDeviceInit();	//usb_device.c.  Initializes USB module SFRs and firmware
     					//variables to known states.
 }//end InitializeSystem
-
 
 
 /******************************************************************************
@@ -177,8 +173,8 @@ void InitializeSystem(void)
  *
  * Side Effects:    None
  *
- * Overview:        This function should be called regulary for maintaining
- *					sending and receiveing packets.
+ * Overview:        This function should be called regularly for maintaining
+ *					sending and receiving packets.
  *					This function is internal function that is used by USB_ReceiveData()
  *					and USB_SendData() user interface functions.
  *
@@ -209,13 +205,10 @@ USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
 		status = USB_ProcessIn();
 	}
 
-
     CDCTxService();
 
-
 	return status;
-}		//end ProcessIO
-
+}	// end ProcessIO
 
 
 /******************************************************************************
@@ -239,9 +232,8 @@ USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
  *
  * Note:            None
  *****************************************************************************/
-
-USB_STATUS USB_ProcessIn(){
-
+USB_STATUS USB_ProcessIn() 
+{
 	BYTE numBytesRead =  getsUSBUSART(usbBuffer.rxBuffer, 64);
 		
 	if (numBytesRead <= 0){
@@ -256,7 +248,7 @@ USB_STATUS USB_ProcessIn(){
 
 		if (usbBuffer.rxBuffer[i] == '\r'){
 			g_curr_msg[commandPos + i] = '\0';
-			if (strcmp(g_curr_msg, "app stop") == 0){			//YL 4.8 TODO is this comparison used? if yes -  fix it! (03app stop)
+			if (strcmp(g_curr_msg, "app stop") == 0){			// YL 4.8 TODO is this comparison used? if yes -  fix it! (3 app stop)
 				USB_WriteData((BYTE*)"\r\nWISTONE> ", 11); 		// YL 14.4 added casting to avoid signedness warning
 			}			
  			USB_WriteData((BYTE*)g_curr_msg, commandPos + i); 	// YL 14.4 added casting to avoid signedness warning
@@ -268,8 +260,7 @@ USB_STATUS USB_ProcessIn(){
 
 	commandPos += numBytesRead;
 
-	return USB_NOT_RECEIVED_DATA;	// Not received all the command, since '\r' wan not received
-	
+	return USB_NOT_RECEIVED_DATA;	// Not received all the command, since '\r' was not received
 }
 
 
@@ -293,17 +284,15 @@ USB_STATUS USB_ProcessIn(){
  * Note:            None
  *****************************************************************************/
 
-USB_STATUS USB_ProcessOut(){
-
+USB_STATUS USB_ProcessOut() 
+{
     if(USBUSARTIsTxTrfReady())
     {		
 		putUSBUSART(usbBuffer.txBuffer,	usbBuffer.numBytesToWrite);
 		return USB_NO_ERROR;
-
 	}
 
 	return USB_NOT_READY_TO_SEND_DATA;
-
 }
 
 
@@ -322,13 +311,13 @@ USB_STATUS USB_ProcessOut(){
  *
  * Overview:        This is the primary user interface function for sending data
  *					through usb.
- *					Any sending to the usb sould be done through this function.
+ *					Any sending to the usb should be done through this function.
  *
  * Note:            None
  *****************************************************************************/
 
-void USB_WriteData(BYTE *str, WORD len){
-
+void USB_WriteData(BYTE *str, WORD len) 
+{
 	WORD i = 0;
 	WORD bufferPos = 0;
 
@@ -342,32 +331,31 @@ void USB_WriteData(BYTE *str, WORD len){
 
 	// write the remainder of the data.
 	USB_WriteSingleBuffer((bufferPos + 1));
-
-	
 }
+
 
 /******************************************************************************
  * Function:        void USB_WriteSingleBuffer(WORD len)
  *
- * PreCondition:    The data should be wriiten to usbBuffer.txBuffer.
+ * PreCondition:    The data should be written to usbBuffer.txBuffer.
  *
  * Input:           
- *					len - Thhe length of the data to be written.
+ *					len - The length of the data to be written.
  *
  * Output:          None.					
  *
  * Side Effects:    None
  *
  * Overview:        This function writes single buffer (buffer size is set currently 
- *					to 40, but it can be cahnged it the define).
+ *					to 40, but it can be changed it the define).
  *					The data should be written to usbBuffer.txBuffer before calling
  *					this function.
  *
  * Note:            None
  *****************************************************************************/
-
-void USB_WriteSingleBuffer(WORD len){
-
+ 
+void USB_WriteSingleBuffer(WORD len) 
+{
 	USB_STATUS status;
 	MIWI_TICK t1,t2;
 	
@@ -386,6 +374,7 @@ void USB_WriteSingleBuffer(WORD len){
 	}
 }
 
+
 /******************************************************************************
  * Function:        USB_STATUS USB_ReceiveData()
  *
@@ -400,22 +389,19 @@ void USB_WriteSingleBuffer(WORD len){
  *
  * Overview:        This is the primary user interface function for receiving data
  *					and commands through usb.
- *					This function should be called regulary (every iteration of the
- *					the main loop), as it performes periodic tasks of the usb.
+ *					This function should be called regularly (every iteration of the
+ *					the main loop), as it performs periodic tasks of the usb.
  *
  * Note:            None
  *****************************************************************************/
 
-USB_STATUS USB_ReceiveData(){
-
+USB_STATUS USB_ReceiveData()
+{
 	USB_STATUS status = ProcessIO(USB_PROCESS_IN);
 
 	return status;
 
 }
-
-
-
 
 
 // ******************************************************************************************************
@@ -435,7 +421,6 @@ USB_STATUS USB_ReceiveData(){
 // The USBCBSendResume() function is special, in that the USB stack will not automatically call this
 // function.  This function is meant to be called from the application firmware instead.  See the
 // additional comments near the function.
-
 /******************************************************************************
  * Function:        void USBCBSuspend(void)
  *
@@ -454,7 +439,7 @@ USB_STATUS USB_ReceiveData(){
 void USBCBSuspend(void)
 {
 	//Example power saving code.  Insert appropriate code here for the desired
-	//application behavior.  If the microcontroller will be put to sleep, a
+	//application behaviour.  If the microcontroller will be put to sleep, a
 	//process similar to that shown below may be used:
 	
 	//ConfigureIOPinsForLowPower();
@@ -462,8 +447,8 @@ void USBCBSuspend(void)
 	//DisableAllInterruptEnableBits();
 	//EnableOnlyTheInterruptsWhichWillBeUsedToWakeTheMicro();	//should enable at least USBActivityIF as a wake source
 	//Sleep();
-	//RestoreStateOfAllPreviouslySavedInterruptEnableBits();	//Preferrably, this should be done in the USBCBWakeFromSuspend() function instead.
-	//RestoreIOPinsToNormal();									//Preferrably, this should be done in the USBCBWakeFromSuspend() function instead.
+	//RestoreStateOfAllPreviouslySavedInterruptEnableBits();	//Preferably, this should be done in the USBCBWakeFromSuspend() function instead.
+	//RestoreIOPinsToNormal();									//Preferably, this should be done in the USBCBWakeFromSuspend() function instead.
 
 	//IMPORTANT NOTE: Do not clear the USBActivityIF (ACTVIF) bit here.  This bit is 
 	//cleared inside the usb_device.c file.  Clearing USBActivityIF here will cause 
@@ -474,6 +459,7 @@ void USBCBSuspend(void)
         USBSleepOnSuspend();
     #endif
 }
+
 
 /******************************************************************************
  * Function:        void USBCBWakeFromSuspend(void)
@@ -507,6 +493,7 @@ void USBCBWakeFromSuspend(void)
 	// clocking (IE: 48MHz clock must be available to SIE for full speed USB
 	// operation).
 }
+
 
 /********************************************************************
  * Function:        void USBCB_SOF_Handler(void)
@@ -555,6 +542,7 @@ void USBCB_SOF_Handler(void)
         }
     }*/
 }
+
 
 /*******************************************************************
  * Function:        void USBCBErrorHandler(void)
@@ -609,7 +597,7 @@ void USBCBErrorHandler(void)
  *
  * Overview:        When SETUP packets arrive from the host, some
  * 					firmware must process the request and respond
- *					appropriately to fulfill the request.  Some of
+ *					appropriately to fulfil the request.  Some of
  *					the SETUP packets will be for standard
  *					USB "chapter 9" (as in, fulfilling chapter 9 of
  *					the official USB specifications) requests, while
@@ -720,7 +708,7 @@ void USBCBInitEP(void)
  *
  *                  If the host has not armed the device to perform remote wakeup,
  *                  then this function will return without actually performing a
- *                  remote wakeup sequence.  This is the required behavior, 
+ *                  remote wakeup sequence.  This is the required behaviour, 
  *                  as a USB device that has not been armed to perform remote 
  *                  wakeup must not drive remote wakeup signalling onto the bus;
  *                  doing so will cause USB compliance testing failure.
@@ -732,7 +720,7 @@ void USBCBInitEP(void)
  *                  bus and host are not in a suspended condition, or are 
  *                  otherwise not in a remote wakeup ready state.  Therefore, it
  *                  is safe to optionally call this function regularly, ex: 
- *                  anytime application stimulus occurs, as the function will
+ *                  any time application stimulus occurs, as the function will
  *                  have no effect, until the bus really is in a state ready
  *                  to accept remote wakeup. 
  *
@@ -749,7 +737,7 @@ void USBCBInitEP(void)
  *                  period of ~3-15 ms depending on the core frequency.
  *
  *                  According to USB 2.0 specification section 7.1.7.7,
- *                  "The remote wakeup device must hold the resume signaling
+ *                  "The remote wakeup device must hold the resume signalling
  *                  for at least 1 ms but for no more than 15 ms."
  *                  The idea here is to use a delay counter loop, using a
  *                  common value that would work over a wide range of core
@@ -802,7 +790,7 @@ void USBCBSendResume(void)
             //device must continuously see 5ms+ of idle on the bus, before it sends
             //remote wakeup signalling.  One way to be certain that this parameter
             //gets met, is to add a 2ms+ blocking delay here (2ms plus at 
-            //least 3ms from bus idle to USBIsBusSuspended() == TRUE, yeilds
+            //least 3ms from bus idle to USBIsBusSuspended() == TRUE, yields
             //5ms+ total delay since start of idle).
             delay_count = 3600U;        
             do
@@ -811,7 +799,7 @@ void USBCBSendResume(void)
             }while(delay_count);
             
             //Now drive the resume K-state signalling onto the USB bus.
-            USBResumeControl = 1;       // Start RESUME signaling
+            USBResumeControl = 1;       // Start RESUME signalling
             delay_count = 1800U;        // Set RESUME line for 1-13 ms
             do
             {
@@ -872,7 +860,7 @@ void USBCBEP0DataReceived(void)
  *
  * Overview:        This function is called from the USB stack to
  *                  notify a user application that a USB event
- *                  occured.  This callback is in interrupt context
+ *                  occurred.  This callback is in interrupt context
  *                  when the USB_INTERRUPT option is selected.
  *
  * Note:            None

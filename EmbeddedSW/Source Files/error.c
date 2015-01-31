@@ -30,7 +30,7 @@ this file contains function for handling errors.
 ErrType g_error; 			// global variable holding the error number
 
 /*******************************************************************************
-YL 5.8 editted the description:
+YL 5.8 edited the description:
 * Table: 
 *		g_err_messages:
 * Description:
@@ -109,7 +109,7 @@ char *get_last_error_str(void) {
 *		err()
 * Description:
 * 		Write error message
-* in case of multiple error occured for the same current message,
+* in case of multiple error occurred for the same current message,
 * make sure only first identified error is stored into g_error,
 * and ignore the following errors found for the current message.
 * Side effects:
@@ -138,6 +138,7 @@ int err(ErrType err) {
 *		- updates global g_error
 *******************************************************************************/
 void err_clear(void) {
-	
+
 	g_error = ERR_NONE;
+	
 }

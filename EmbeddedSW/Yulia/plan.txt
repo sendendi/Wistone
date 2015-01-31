@@ -1,0 +1,198 @@
+
+
+. short address - sockets? -> the sockets use short address;
+. CRC inferred destination -> on the other hand the network is flooded(?)
+
+////////////////////////////////////////////////////////////////////////////////
+
+A S K:
+
+1. cleanup of unrelevant MiWi.c code lines (security, sleep,...)
+
+////////////////////////////////////////////////////////////////////////////////
+
+*** meanwhile - only deal with plug <-> stone communication ********************
+
+P L U G:
+
+wistone_main:
+~~~~~~~~~~~~~
+
+= main:
+=======
+
+1. add external parsing function to take care of "app stop":
+	- isAppStop - array of NWK_SIZE
+	- <dd>app stop
+2. runPlugCommand - instead of "plug reconnect" use "00reconnect"
+3. TxRx_SendCommand, TxRx_PeriodTasks -> TxRx files
+
+++ expand init function of the plug, so it would be completed only after all the
+stones join the network, or the max time for establishing the network is over.
+
+++ is it possible:
+- to use only the network table of the plug that MiWi constructs, or
+- would it be more convenient to add new DS 
+to enable the plug to address all network members when "broadcast" 
+"app start ss" and "app start ts" ("broadcast" - meaning sequential unicast). 
+
+TxRx:
+~~~~~
+
+++ important design detail - is it possible to assume that we have only P2P at any time?
+meaning - if the plug sends "app start" cmd to 02 then:
+- it should wait until 02 acks receiving the cmd, or
+- some predefined number of trials has failed
+and only then the plug may go on and send "app start" cmd to 03?
+in other words - the P2P connection between the plug and the stone won't be interrupted
+until the stone acks the cmd or the plug gives up and goes on?
+in addition - the plug should probably keep the info of the successful cmd transmissions,
+so it would not waste time;
+in addition - if during P2P arrives USB data - then it should probably be handled immediately 
+=> if P2P assumption is plausible - then for simplicity the ack counters in the plug
+and in the stone should be reset before "app" cmds; this is probably the way it is
+ALREADY implemented. 
+
+= TxRx_SendCommand:
+===================
+
+1. probably after the plug receives the cmd + the network destination in the beginning of it
+and reads it into global dest_nwk_addr - we may remove it from the beginning of the cmd
+(assuming that we will no longer use USB to send cmds to the stone -
+or actually it would also be possible if needed);
+therefore - dest_nwk_addr should not appear in handle_msg in parser.c - TODO
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+plug -> stone: 02w led 2 1
+
+plug code:----------------------------------------------------------------------
+
+= wistone_main file: no change
+
+= TxRx file:
+
+- TxRx_SendCommand: 
+	- keep global dest_nwk_addr (+ maybe add: isValid = TRUE when counters are reset in the beginning? and isValid = FALSE in the end?)
+	- remove dest_nwk_addr from the cmd - or not! if handle_msg of the stone expects it!
+- TxRx_SendPacketWithConfirmation: no change
+- TxRx_SendPacket, bType = cmd, fills txBlock, no change in ack info
+	- the message must contain source_nwk_addr! read it into txBlock from myLongAddress (EUI)
+	- calls TxRx_TransmitBuffer
+	- calls TxRx_ReceivePacket to typically receive ack -> To Be Continued... 
+- TxRx_TransmitBuffer:
+	- add MiApp_WriteData of source_nwk_addr from TxBlock to TxBuffer
+	- MiApp_UnicastAddress to dest_nwk_addr;
+	
+stone code:---------------------------------------------------------------------
+
+= wistone_main file: main -> exec_message_command -> MiApp_MessageAvailable: no change; -> TxRx_PeriodTasks
+
+= parser file: handle_msg - right now gets the cmd with nwk_addr! 
+
+= TxRx file:
+
+- TxRx_PeriodTasks:
+	- calls TxRx_ReceivePacket to receive the cmd -> To Be Continued... 
+- TxRx_ReceivePacket: no change; calls TxRx_ReceiveMessage repeatedly until (TRUE -> isHeader)
+- TxRx_ReceiveMessage: no change
+	- MiApp_MessageAvailable
+	- TxRx_ReceivePacketHeader, blockType = cmd, fills rxBlock (the cmd is copied to rxBlock.blockBuffer), (FALSE -> isHeader)
+		- extruct source_nwk_addr (<- who wants to know?) into global dest_nwk_addr
+	- MiApp_DiscardMessage
+- TxRx_PeriodTasks:
+	- calls TxRx_WistoneHandler
+- TxRx_WistoneHandler, blockType = cmd: no change
+- TxRx_SendAck: no change
+- TxRx_SendPacket, bType = ack, fills txBlock 
+	- the message must contain source_nwk_addr! read it into txBlock from myLongAddress (EUI)
+	- calls TxRx_TransmitBuffer
+- TxRx_TransmitBuffer:
+	- add MiApp_WriteData of source_nwk_addr from TxBlock to TxBuffer
+	- MiApp_UnicastAddress to dest_nwk_addr (<- who wants to know?)
+
+plug code:----------------------------------------------------------------------
+
+- TxRx_ReceivePacket
+- TxRx_ReceiveMessage
+	- MiApp_MessageAvailable
+	- TxRx_ReceivePacketHeader, blockType = ack
+		- compare global dest_nwk_addr (the device that had to receive the cmd) to source_nwk_addr from the txBlock (the device that actually acks receiving the cmd)
+	- MiApp_DiscardMessage
+	
+////////////////////////////////////////////////////////////////////////////////
+
+plug -> stone: 03start ts ...
+
+plug transmits the cmd and the stone acks it the same way as before;
+the difference is that the stone starts to send the data and the plug acks receiving it
+in addition only the header block should be different 
+
+stone code:----------------------------------------------------------------------
+ 
+= app file:
+
+- handle_TS: calls TxRx_SendData
+
+= TxRx file:
+
+- TxRx_SendData: 
+	- keep global dest_nwk_addr (+ maybe add: isValid = TRUE when counters are reset in the beginning? and isValid = FALSE in the end?)
+	- in this case - the dest_nwk_addr is always 00 (the plug)
+	- calls TxRx_SendPacketWithConfirmation
+- TxRx_SendPacketWithConfirmation: no change
+- TxRx_SendPacket, bType = data, fills txBlock, no change in ack info
+	- the message must contain source_nwk_addr! read it into txBlock from myLongAddress (EUI)
+	- calls TxRx_TransmitBuffer
+	- calls TxRx_ReceivePacket to typically receive ack -> To Be Continued... 
+- TxRx_TransmitBuffer:
+	- add MiApp_WriteData of source_nwk_addr from TxBlock to TxBuffer
+	- MiApp_UnicastAddress to dest_nwk_addr;	
+	
+plug code:----------------------------------------------------------------------
+
+*** make sure: the plug counters are reset before  
+
+- TxRx_PeriodTasks:
+	- MiApp_MessageAvailable
+	- TxRx_ReceivePacket
+	- TxRx_PlugHandler
+- TxRx_ReceivePacket:
+	- TxRx_ReceiveMessage, isHeader = TRUE
+	- TxRx_ReceivePacketHeader, blockType = data, fills rxBlock.header, isHeader = FALSE
+	- MiApp_DiscardMessage
+- TxRx_PlugHandler, blockType = data
+	- TxRx_SendAck - To Be Continued... - after the stone receives the ack
+	- b_write to data 
+- TxRx_SendAck:
+	- TxRx_SendPacket
+- TxRx_SendPacket, bType = ack, fills txBlock 
+	- the message must contain source_nwk_addr! read it into txBlock from myLongAddress (EUI)
+	- calls TxRx_TransmitBuffer
+- TxRx_TransmitBuffer:
+	- add MiApp_WriteData of source_nwk_addr (the plug) from TxBlock to TxBuffer
+	- MiApp_UnicastAddress to dest_nwk_addr (the stone)
+	
+stone code:----------------------------------------------------------------------
+
+- TxRx_PeriodTasks:
+	- MiApp_MessageAvailable
+	- TxRx_ReceivePacket
+- TxRx_ReceivePacket:
+	- TxRx_ReceiveMessage
+- TxRx_ReceiveMessage, isHeader = TRUE
+	- MiApp_MessageAvailable
+	- TxRx_ReceivePacketHeader
+	- MiApp_DiscardMessage
+- TxRx_ReceivePacketHeader, blockType = ack, ends here if the seq is OK 
+
+////////////////////////////////////////////////////////////////////////////////
+
+8.8 ~flash, ~battery
+
+
+
+
+
+

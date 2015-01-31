@@ -24,7 +24,7 @@ using HW implemented I2C protocol.
 - register READ/WRITE 
 
 ********************************************************************************
-we use Freescale MMA8451.Q accelorometer
+we use Freescale MMA8451.Q accelerometer
 
 *******************************************************************************/
 #include "wistone_main.h"
@@ -47,7 +47,7 @@ BYTE g_accmtr_overflow_cntr;
 BYTE g_accmtr_blk_overflow_cntr;	
 
 /***** INTERNAL PROTOTYPES: ***************************************************/
-int  accmtr_config(void);	//YS 17.8
+int  accmtr_config(void);	// YS 17.8
 void accmtr_reg_set(BYTE reg_addr, BYTE in_reg_addr, BYTE setting); 
 
 /*******************************************************************************
@@ -55,15 +55,15 @@ void accmtr_reg_set(BYTE reg_addr, BYTE in_reg_addr, BYTE setting);
 *		_INT2Interrupt()
 * Description:
 *		accelerometer ISR
-* 		acceletometer settings are such that the only source for interrupt is FIFO's watermark 
+* 		accelerometer settings are such that the only source for interrupt is FIFO's watermark 
 * NOTE: for debug - we check overflow as well
 *******************************************************************************/
 void  __attribute__((interrupt, auto_psv)) _INT2Interrupt(void) {
 
- 	int	i;
-	BYTE fifo_status_reg;	
-	BYTE numOfSamplesAvailable;
-	BYTE blockNum;
+ 	int		i;
+	BYTE 	fifo_status_reg;	
+	BYTE 	numOfSamplesAvailable;
+	BYTE 	blockNum;
 	
 	// mask PIC accelerometer interrupt:
 	ACC_IE = 0;		// disable accelerometer PIC interrupt.											
@@ -113,7 +113,7 @@ void  __attribute__((interrupt, auto_psv)) _INT2Interrupt(void) {
 	// we read exactly 6 x FIFO_WK_COUNT bytes
 	// (each sample consists of 6 bytes - 2 bytes for each axis)]
 	
-	numOfSamplesAvailable = fifo_status_reg & 0x3F;		// extruct num of available samples
+	numOfSamplesAvailable = fifo_status_reg & 0x3F;		// extract num of available samples
 	start_i2c_accmtr(0);
 	out_byte_i2c_accmtr(ACCMTR_DEVICE_ADDRESS_WR);
 	out_byte_i2c_accmtr(FIFO_HEAD_REG);
@@ -163,10 +163,10 @@ void  __attribute__((interrupt, auto_psv)) _INT2Interrupt(void) {
 *******************************************************************************/
 void init_accmtr() {
 	
-	BYTE i;
-	int check = accmtr_reg_read(WHO_AM_I_REG);	
+	BYTE 	i;
+	int 	check = accmtr_reg_read(WHO_AM_I_REG);	
 
-	// check for Accelerometer component existance:
+	// check for Accelerometer component existence:
 	if (check != (0x00FF & MMA8451_Q)) {
 		err(ERR_ACCMTR_UNKNOWN_ID);
 		return;
@@ -176,28 +176,28 @@ void init_accmtr() {
 	ACC_IE = 0;					// IEC1<11> - external interrupt #1 is disabled
 	INTCON2bits.INT2EP = 1;		// set Interrupt edge polarity to neg-edge										
 	
-	// Acclerometer Interrupt Registers:
-	accmtr_reg_set(CTRL_REG4, INT_EN_FIFO_MASK, FIFO_INT_DIS);	// CTRL_REG4<6> - INT_EN_FIFO bit:
-																// 1 - FIFO interrupt enabled, 0 - FIFO interrupt disabled		
+	// Accelerometer Interrupt Registers:
+	accmtr_reg_set(CTRL_REG4, INT_EN_FIFO_MASK, FIFO_INT_DIS);		// CTRL_REG4<6> - INT_EN_FIFO bit:
+																	// 1 - FIFO interrupt enabled, 0 - FIFO interrupt disabled		
 	
-	// Acclerometer Data Registers:
+	// Accelerometer Data Registers:
 	accmtr_standby();
 	accmtr_reg_set(FIFO_SETUP_REG, F_MODE_MASK, FIFO_FILL);			// FIFO_SETUP_REG<6-7> - 2 F_MODE bits,
 																	// set to 10 for FILL mode (FIFO stops accepting new samples when overflowed) 
 
 	accmtr_reg_set(FIFO_SETUP_REG, F_WMRK_MASK, FIFO_WK_COUNT);		// FIFO_SETUP_REG<0-5> - 6 F_WMRK bits:
-																	// FIFO event sample count watermark, currently set to 20 
+																	// FIFO event sample count watermark, currently set to 21
 
 	accmtr_reg_set(CTRL_REG1, DR_MASK, DEFAULT_DATA_RATE);			// CTRL_REG1<3-5> - 3 DR bits: data rate selection; 
-																	// CTRL_REG1<1> - select the Output Data Rate (ODR) for acceleration samples. //YS 17.8
+																	// CTRL_REG1<1> - select the Output Data Rate (ODR) for acceleration samples. // YS 17.8
 	
 	// YL 15.8 accmtr_reg_set(CTRL_REG2, MODS_MASK, HR_WAKE);		// CTRL_REG2<0-1> - 2 MODS bits = 10 for high resolution (14 bits) oversampling mode in WAKE mode
 	
 	// YL 15.8 accmtr_reg_set(CTRL_REG2, SMODS_MASK, HR_SLEEP);		// CTRL_REG2<3-4> - 2 SMODS bits = 11 for high resolution in SLEEP mode	
 	
-	accmtr_reg_set(CTRL_REG2, MODS_MASK, LOW_POWER_NOISE_WAKE);		// CTRL_REG2<0-1> - 2 MODS bits = 01 for low noise (14 bits) mode in WAKE mode//YL 15.8
+	accmtr_reg_set(CTRL_REG2, MODS_MASK, LOW_POWER_NOISE_WAKE);		// CTRL_REG2<0-1> - 2 MODS bits = 01 for low noise (14 bits) mode in WAKE mode // YL 15.8
 	
-	accmtr_reg_set(CTRL_REG2, SMODS_MASK, HR_SLEEP);				// CTRL_REG2<3-4> - 2 SMODS bits = 11 for high resolution in SLEEP mode//YL 15.8
+	accmtr_reg_set(CTRL_REG2, SMODS_MASK, HR_SLEEP);				// CTRL_REG2<3-4> - 2 SMODS bits = 11 for high resolution in SLEEP mode // YL 15.8
 	
 	accmtr_reg_set(XYZ_DATA_CFG, FS_MASK, FULL_SCALE_2G);			// XYZ_DATA_CFG<0-1> - 2 FS bits = 00 for 2g full scale mode
 	
@@ -244,12 +244,25 @@ void accmtr_standby() {
 * Description:
 * 		accelerometer active:
 *		CTRL_REG1<0> - ACTIVE bit: 1 - active, 0 - standby 
+* Return value:
+*		-  0   - on success
+*		- (-1) - on failure
 *******************************************************************************/
-void accmtr_active() {	
-		
+// YL 14.9 ...
+// was: void accmtr_active() {
+int accmtr_active() {	
+// ... YL 14.9		
 	unsigned int	i;
 	int 			res;	
 	BYTE 			curr_setting;
+	// YL 14.9 ... added to avoid preceding if accelerometer isn't assembled
+	int 			check = accmtr_reg_read(WHO_AM_I_REG);	
+
+	// check for accelerometer component existence:
+	if (check != (0x00FF & MMA8451_Q)) {
+		return err(ERR_ACCMTR_UNKNOWN_ID);
+	}
+	// ... YL 14.9
 	
 	// clear "double buffers" between accelerometer and TxRx (for OST only):
 	for (i = 0; i < CYCLIC_BUFFER_SIZE; i++) {
@@ -269,14 +282,25 @@ void accmtr_active() {
 	// read current value of control register #1:
 	res = accmtr_reg_read(CTRL_REG1); 								
 	if (res == -1) {
-		err(ERR_ACCMTR_REG_READ);
-		return;
+		// YL 14.9 ...
+		// was:
+		// err(ERR_ACCMTR_REG_READ);		
+		// return;
+		return err(ERR_ACCMTR_REG_READ);
+		// ... YL 14.9
 	}
 	curr_setting = res & 0xFF;
 	
 	// set active mode:
-	if (accmtr_reg_write(CTRL_REG1, curr_setting | ACTIVE_MASK)) 	
-		err(ERR_ACCMTR_REG_WRITE);	
+	if (accmtr_reg_write(CTRL_REG1, curr_setting | ACTIVE_MASK)) {	
+		// YL 14.9 ...
+		// was: err(ERR_ACCMTR_REG_WRITE);
+		return err(ERR_ACCMTR_REG_WRITE);
+		// ... YL 14.9
+	}
+	// YL 14.9 ...
+	return 0;
+	// ... YL 14.9
 }
 
 /*******************************************************************************
@@ -284,7 +308,7 @@ void accmtr_active() {
 *		accmtr_reg_set()
 * Description:
 * 		writes new setting to zeroed specified accelerometer register bits,
-*		considerring it's current setting
+*		considering it's current setting
 *******************************************************************************/
 void accmtr_reg_set(BYTE reg_addr, BYTE mask, BYTE setting) {
 
@@ -353,11 +377,11 @@ int accmtr_reg_read(BYTE reg_addr) {	//YL 15.9 added check to device read/write 
 * Function:
 *		accmtr_config()
 * Description:
-* 		handle a write to configure an accelorometer option.
+* 		handle a write to configure an accelerometer option.
 *******************************************************************************/
 int accmtr_config(void) { //YS 17.8
 
-	int 	res  = -1;
+	int res  = -1;
 	
 	// YL 5.8 changed parse_byte_num...
 	// BYTE	addr = parse_byte_num(g_tokens[2]);

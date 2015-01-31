@@ -41,16 +41,17 @@
 #define RESYNC_THRESHOLD 			3 	// YS 5.10 number of failed TXRX actions before a resync/reset occurs
 // YL 4.8 ...
 // YL 18.8 ...
-#define MAX_NWK_SIZE				5				// the number of devices in the network (including with plug) 
+#define MAX_NWK_SIZE				2				// the number of devices in the network (including the plug) 
 // ... YL 18.8
 #define MAX_ACK_LENGTH				60  			// 60 bits
-#define MAX_NWK_ADDR				MAX_NWK_SIZE 	// the max address (EUI[0]) of a device in the network
+#define MAX_NWK_ADDR_EUI0			MAX_NWK_SIZE 	// the max address of a device in the network
 // YL 20.8 ...
-// YL 5.9 ...
+// YL 24.9 ...
 // was: #define PLUG_NWK_ADDR				1
-#define PLUG_NWK_ADDR				MAX_NWK_SIZE	// the network address of the plug (the plug has the highest EUI[0]) 
-// ... YL 5.9
-#define NWK_STARTER_ADDR			1				// the network address (EUI[0]) of the plug
+#define PLUG_NWK_ADDR_EUI0			MAX_NWK_SIZE	// the EUI0 network address of the plug (the plug has the highest EUI[0])
+#define PLUG_NWK_ADDR_EUI1			EUI_1			// the EUI1 network address of the plug (constant)
+// ... YL 24.9
+#define NWK_STARTER_ADDR_EUI0		1				// the network address of the stone that calls MiApp_StartConnection
 // ... YL 20.8
 #define BROADCAST_NWK_ADDR			0				// the network address for broadcast command
 
@@ -60,7 +61,7 @@
 #define MSG_LEN_LENGTH				2   // 2 bytes with the length of the message
 // ... YL 14.8
 
-// If block ack is pererable, define the following:
+// If block ack is preferable, define the following:
 #define ENABLE_BLOCK_ACK	// YL TODO - add if defined ENABLE_ACK
 
 // Next are defines of times until timeout.. To change here the timing, confused between timing of message and packet..
@@ -70,10 +71,11 @@
 #define TIMEOUT_RESENDING_PACKET 							2 * ONE_SECOND 			//YS 25.1
 // ... YL 17.8
 
-// YL 17.8 ...
-#define TIMEOUT_NWK_ESTABLISHMENT		40 * ONE_SECOND		// YL 25.8 was: 60 * ONE_SECOND
-#define TIMEOUT_NWK_JOINING				200 * ONE_SECOND	// YL 25.8 was: 60 * ONE_SECOND
-// ... YL 17.8
+// YL 24.9 ...
+#define TIMEOUT_NWK_STARTING			50 * ONE_SECOND		// timeout for the starter stone to join the network
+#define TIMEOUT_NWK_JOINING				100 * ONE_SECOND	// timeout for the rest to join the network
+#define TIMEOUT_NWK_ESTABLISHMENT		TIMEOUT_NWK_JOINING	// the plug waits maximum TIMEOUT_NWK_JOINING (maximum time each stone attempts to join the network) 
+// ... YL 24.9
 
 // YL 2.9 ... added #ifdef
 // was: extern BYTE blockTryTxCounter;
@@ -145,9 +147,9 @@ void TxRx_Init(BOOL justResetNetwork); //YS 17.11
 *
 * Description:
 *      This is the primary user interface function to perform period tasks.
-*	   This funcion checks whether there is availiable message, and if so,
+*	   This function checks whether there is available message, and if so,
 *	   it tries to get the whole packet, and perform the appropriate action,
-*	   depends on if ir runs at the stone or at the plug. 
+*	   depends on if it runs at the stone or at the plug. 
 *
 * Example: 	void main(void)
 *    		{
@@ -206,8 +208,8 @@ TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length);
 *		TXRX_ERRORS m_TxRx_write(BYTE *str)
 *
 * Description:
-*      The next function is responsible for transmiting "regular" responses.
-*      In other words, this function is the coevelent of m_write for USB.
+*      The next function is responsible for transmitting "regular" responses.
+*      In other words, this function is the equivalent of m_write for USB.
 *	   This function is used in the stone.
 *
 * Parameters:
@@ -297,6 +299,15 @@ void TxRx_Reconnect(void);
 *		BOOL TxRx_ExecuteIfPlugCommand(void) 
 *******************************************************************************/	
 BOOL TxRx_ExecuteIfPlugCommand(void);
+
+// YL 24.9 ...
+/******************************************************************************
+* Function:
+*		void TxRx_PrintNetworkTopology(void) 
+*******************************************************************************/
+void TxRx_PrintNetworkTopology(void);
+// ... YL 24.9
+
 #endif // #ifdef COMMUNICATION_PLUG
 // ... YL 4.8
 

@@ -496,7 +496,7 @@
             2. Transfer length is known
         Remember: cdc_trf_state must == CDC_TX_READY
         Unlike putsUSBUSART, there is not code double checking
-        the transfer state. Unexpected behavior will occur if
+        the transfer state. Unexpected behaviour will occur if
         this function is called when cdc_trf_state != CDC_TX_READY
  
          Typical Usage:
@@ -551,7 +551,7 @@
  
         Remember: cdc_trf_state must == CDC_TX_READY
         Unlike putrsUSBUSART, there is not code double checking
-        the transfer state. Unexpected behavior will occur if
+        the transfer state. Unexpected behaviour will occur if
         this function is called when cdc_trf_state != CDC_TX_READY
  
           Typical Usage:
@@ -681,7 +681,7 @@ void CDCNotificationHandler(void);
     class. Input argument 'buffer' should point to a buffer area that is
     bigger or equal to the size specified by 'len'.
   Input:
-    event - the type of event that occured
+    event - the type of event that occurred
     pdata - pointer to the data that caused the event
     size - the size of the data that is pointed to by pdata
                                                                                    
@@ -741,12 +741,12 @@ BYTE getsUSBUSART(char *buffer, BYTE len);
 		
   Summary:
     putUSBUSART writes an array of data to the USB. Use this version, is
-    capable of transfering 0x00 (what is typically a NULL character in any of
+    capable of transferring 0x00 (what is typically a NULL character in any of
     the string transfer functions).
 
   Description:
     putUSBUSART writes an array of data to the USB. Use this version, is
-    capable of transfering 0x00 (what is typically a NULL character in any of
+    capable of transferring 0x00 (what is typically a NULL character in any of
     the string transfer functions).
     
     Typical Usage:
@@ -771,8 +771,8 @@ BYTE getsUSBUSART(char *buffer, BYTE len);
     255 BYTEs.
 
   Input:
-    char *data - pointer to a RAM array of data to be transfered to the host
-    BYTE length - the number of bytes to be transfered (must be less than 255).
+    char *data - pointer to a RAM array of data to be transferred to the host
+    BYTE length - the number of bytes to be transferred (must be less than 255).
 		
  *****************************************************************************/
 void putUSBUSART(char *data, BYTE Length);
@@ -876,7 +876,7 @@ void putrsUSBUSART(const ROM char *data);
     This function is needed, in order to advance the internal software state 
     machine that takes care of sending multiple transactions worth of IN USB
     data to the host, associated with CDC serial data.  Failure to call 
-    CDCTxService() perioidcally will prevent data from being sent to the
+    CDCTxService() periodically will prevent data from being sent to the
     USB host, over the CDC serial data interface.
     
     Typical Usage:
@@ -906,7 +906,7 @@ void putrsUSBUSART(const ROM char *data);
     }
     </code>
   Conditions:
-    CDCIniEP() function should have already exectuted/the device should be
+    CDCIniEP() function should have already executed/the device should be
     in the CONFIGURED_STATE.
   Remarks:
     None                                                                 

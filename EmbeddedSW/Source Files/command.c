@@ -256,7 +256,7 @@ void m_write_debug(char *str) {	//YL 20.4 added m_write_debug
 		m_write(str);
 	}
 	// ... YL 25.8
-	USB_ReceiveData(); //YL 2.5 to make sure the printing works in init stage too
+	// YL 12.9 USB_ReceiveData(); //YL 2.5 to make sure the printing works in init stage too
 	write_eol();
 	g_usb_or_wireless_print = dest_backup;
 }

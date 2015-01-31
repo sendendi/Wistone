@@ -11,8 +11,8 @@
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 //Uncomment ONE of the 2 following lines to choose application type: 
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-//#define WISDOM_STONE
-#define COMMUNICATION_PLUG
+#define WISDOM_STONE
+//#define COMMUNICATION_PLUG
 
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 //Uncomment ONE of the 2 following lines to choose mode of communication:
@@ -26,7 +26,7 @@
 #define WISTONE_BOARD	
 //#define EXPLORER16
 //#define LCD_INSTALLED			// indicates we have the LCD installed for debug messages
-//#define DEBUG_PRINT				
+#define DEBUG_PRINT				
 
 #define USE_AND_OR				// indicates for the compiler to use bit-wise flags for configurations
 #define MAX_BLOCK_SIZE 512		// sample/transmit/store block size in bytes

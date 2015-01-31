@@ -1,0 +1,408 @@
+
+23.10
+
+directories:
+23.10: 25.9 continued - check print network topology 
+
+			EUI_0
+#4 - stone	1
+#7 - stone	2
+#9 - plug 	3
+
+=> try #9 again after print topology debug + GitBash - to remove all the comments
+
+********************************************************************************
+
+25.9:
+
+directories:
+25.9: 24.9 continued; changed a few things
+
+25.9B: 25.9 continued - added USB refresh + a few changes (merged with 15.9)
+
+********************************************************************************
+
+24.9:
+
+directories:
+24.9: 23.9 continued; 
+
+- when the network is up the plug should print the network topology (only the initial);
+
+********************************************************************************
+
+23.9:
+
+directories:
+23.9: 7.9 continued;
+
+try 4 hops:
+
+			EUI_0
+#8 - stone	1
+#9 - stone	2
+#1 - stone 	3
+#5 - stone	4
+#7 - plug	5
+
+[eui: 5 plug, end device] <-> [eui: 1, PAN coordinator] <-> [eui: 2, coordinator] <-> [eui: 4, end device]
+
+stone#	role	EUI		short
+#8 		PAN  	1, 119	0, 0
+#7		ED		5, 119	0, 2 -> connection table, entry# 0: 1, 119 (connected only to PAN)
+#9		COO		2, 119	? (not connected to USB)
+#5		ED		4, 119	? (not connected to USB)
+#1		ED		3, 119	? (not connected to USB)
+
+********************************************************************************
+
+7.9:
+
+directories:
+7.9: 6.9C continued;
+
+********************************************************************************
+
+6.9:
+
+directories:
+6.9: 5.9 continued; <- works if stone 2 is the starter! 
+(when the plug is the starter - there is probably illegal access to MAX_NWK_ADDRESS array 
+
+6.9B: 6.9 continued after cleanup
+check:
+- CRC
+- bring back retransmissions
+- end device
+- everybody may send beacon
+
+6.9C: 6.9B continued after cleanup, crc is OK now, and all todo above
+
+********************************************************************************
+
+5.9:
+
+directories:
+5.9: 4.9 continued;
+
+- if MAC throws packets that weren't addressed to the device -
+how is the routing possible? the answer is probably that the routing is 
+usually done by unicasting, and that the broadcast isn't easily discarded 
+the way the unicast is. 
+- MRF49:
+	- ISR:
+		> checks whether the packet was addressed to the device or not if DSTPRSNT_MASK
+		> checks CRC
+	- MiMAC_ReceivedPacket: only fills DS for MiWiTasks.
+- MRF24:
+	- ISR: only (#ifdef ENABLE_SECURITY) isSameAddress is checked;
+		   on the other hand - whether the packet was addressed to the device
+		   or not may be also done by hardware (check this)
+	- MiMAC_ReceivedPacket: only fills DS for MiWiTasks.
+ 
+5.9B: 5.9 changed to a better version of address comparisson in the ISR;
+
+********************************************************************************
+
+4.9:
+
+directories:
+4.9: 3.9 continued;
+
+vocabulary:
+- 133/149 is a beacon request (stone) - broadcast
+- 135/159 beacon for everyone (plug) - broadcast
+- 161/177 caught the beacon, please let me join (stone) - unicast
+- 161/161 ok, join me (the plug) - unicast
+
+T H E   P R O B L E M: 
+the device takes care of a message that wasn't addressed to it 
+when MAC_COMMAND_ASSOCIATION_REQUEST and when MAC_COMMAND_ASSOCIATION_RESPONSE;
+why such a problem didn't exist when using long addresses only?
+check - is this a difference in SendMACPacket parameters that causes the problem
+(and how these parameters are interpreted in MAC layer)?
+shouldn't MiWi discard it?
+find the original MiWi code + check revision history
+maybe only short addresses of the destination are compared, and it's better to check long address too
+
+********************************************************************************
+
+3.9:
+
+directories:
+3.9: 2.9 continued;
+
+- weird...
+myShortAddress: v[0] = 0 (always for coordinator), v[1] = 2 (parent in case of coordinator)
+
+********************************************************************************
+
+2.9:
+
+directories:
+2.9: 1.9 continued;
+
+- check the address assignment in a network of 3 stones
+- find how to limit the ammount of the retrials
+
+********************************************************************************
+
+1.9:
+
+directories:
+1.9: 31.8 continued;
+
+********************************************************************************
+
+31.8:
+
+directories:
+31.8: 30.8 continued;
+
+- take care of MiWi + 30.8 issues
+
+********************************************************************************
+
+30.8:
+
+directories:
+30.8: 29.8B continued; 
+-> pay attention to:
+- active_result_scan
+- short address + beacon
+- broadcast in MiMAC_ReceivedPacket
+
+** test compared to 27.8
+
+- PANID: 
+- see how MRF24 interprets PANID info
+- take care of MiWi to always use constant PANID + make sure it:
+	- doesn't use SourcePANID from MAC_RECEIVED_PACKET
+	- doesn't use SourcePANID from RECEIVED_MESSAGE	
+
+********************************************************************************
+
+29.8:
+
+directories:
+29.8: 28.8 continued; look how MiMAC_ReceivedPacket interprets the message
+
+- try to use secEn and repeat(?), or only secEn if we only need to indicate 
+whether the source is short or long; on the other hand - what is the reason
+to characterize the source in MAC_TRANS_PARAM (before the source becomes the
+destination)? + different source-destination combinations influence the way
+rxMessage is filled...
+
+check the cases of: 
+- in MiWi: MiApp_ReceivedMessage + RouteMessage
+- in MRF49XA: MiMAC_SendPacket + MiMAC_ReceivedPacket
+
+NOTE: 4 hops must start and end with end device
+
+** took 25.8 - the plug was coordinator, and the stone wasn't
+ -> the connection was established
+
+29.8B: 29.8 continued (backup-ed because it compiled)
+ 
+********************************************************************************
+
+28.8:
+
+directories:
+28.8: 27.8 continued; look how MiMAC_ReceivedPacket interprets the message
+
+********************************************************************************
+
+27.8:
+
+directories:
+27.8: 26B.8 continued - IEEE_802_15_4
+
+********************************************************************************
+
+26.8:
+
+directories:
+26.8: 25.8 continued; after much was commented, 
+the project did compile and therefore was backup-ed
+
+26.8B: 26.8 continued
+
+********************************************************************************
+
+25.8:
+
+directories:
+25.8: 24.8 continued
+
+********************************************************************************
+
+24.8:
+
+directories:
+24.8: try to make MiWi work with short address; try to change TIMEOUT_NWK
+
+********************************************************************************
+
+23.8:
+
+directories:
+23.8: 22.8B continued; - check ts + app stop: nothing is printed, but when
+the size of the sent data was reduced to 20 it arrived and was printed;
+app stop from plug stops the application 
+
+********************************************************************************
+
+22.8: 
+
+directories:
+22.8: 21.8F continued:
+- the stone starts ss when it receives ss cmd from the plug
+- when the stone receives ts, the data seems to arrive to the plug, but only
+blank lines are printed to plug's terminal.
+
+22.8B: try to use eeprom to see the data sent by ts 
+
+********************************************************************************
+
+21.8:
+
+directories:
+21.8: 20.8 continued - try to use eeprom; 
+
+21.8B: NOTE: took 20.8C, back to USB - not successful
+
+21.8C: NOTE: took 20.8C, back to USB; can read temp if m_TxRx_write is used
+
+21.8D: NOTE: took 20.8C, back to USB; after commenting DEBUG_PRINT + changing
+timeouts in TxRx.h - the stone is able to transmit temprature to the plug
+
+21.8E: NOTE: took 20.8B, changed timeouts in TxRx.h - to try plug as a leaf;
+it works except for app commands; removed most comments.
+
+21.8F: took 21.8E, try to make app commands work
+
+********************************************************************************
+
+20.8:
+
+directories:
+20.8: try to connect 3 stones + ACK - works (with COMM_WIRELESS commented)
+
+20.8B: try to connect 3 stones with plug as a leaf: (with COMM_WIRELESS commented)
+			EUI_0
+#8 - stone	1
+#9 - stone	2
+#7 - plug	3
+
+20.8C: NOTE - took 20.8; try to make uncommented COMM_WIRELESS work - 
+to see a data transmitted as a reply 
+
+********************************************************************************
+
+19.8:
+
+directories:
+19.8: try to connect 3 stones - NOT_ME
+
+19.8B: try to connect 3 stones + error messages
+
+19.8C: try to connect 3 stones + ACK - not finished
+
+********************************************************************************
+
+18.8:
+
+directories:
+18.8: try to connect 3 stones - NOT_ME
+
+********************************************************************************
+
+17.8:
+
+directories:
+17.8: note - took 16.8B:
+- undone all the changes of: "give up if the nwk address isn't found"
+- now "give up resending" works 
+
+17.8B: try to connect 3 stones
+
+17.8C: try to connect 3 stones - NOT_ME
+
+********************************************************************************
+
+16.8:
+
+directories:
+16.8:
+- after removing all debug printings 
+	- the USB does not disconnect (from the plug)
+	- for short commands (the only that were checked) - the retransmissions aren't needed
+	- the stone may be also powered the battery
+
+16.8B: give up if the nwk address isn't found; the plug disconnects
+
+16.8C: took 16.8; try to connect 3 stones
+ 
+********************************************************************************
+
+15.8:
+
+directories:
+15.8: sourceNwkAddress -> sourceNwkAddress[MY_ADDRESS_LENGTH]:
+- works if the addressed stone is present
+- otherwise - the plug disconnects 
+- when battery is used - the stone buzzes, but the plug won't stop printing afterwards
+- always (x 2)? 
+	- the first unicast fails (because the plug doesn't receive ACK), 
+	- the second (or later) succeeds;
+	- in addition - the stone buzzes for every command it receives because of
+	retransmissions (though we entered only one)
+ 
+********************************************************************************
+
+14.8:
+
+directories:
+14.8: like 13.8, except for the comments
+
+14.8B: sourceNwkAddress -> sourceNwkAddress[MY_ADDRESS_LENGTH], but still doesn't work 
+
+********************************************************************************
+
+13.8:
+
+TODO:
+- init: + sometimes the beacon isn't received by the stone, and
+		+ if the plug is started before the stone - the init doesn't work;
+- TxRx_TransmitBuffer does 5 retrials - to stop trying when the stone that is 
+addressed doesn't belong to the network; MiApp_UnicastAddress searches only
+the source device network table; -> the change that is needed: expand the search
+to all the coordinators in the network (maybe by calling DiscoverNodeByEUI
+before calling MiApp_UnicastAddress, and return an error if 
+DiscoverNodeByEUI fails)
+
+
+problems:
+1. init does not always work
+
+2. ack in TxRx level doesn't work (make sure it works in MiWi level)
+
+3. limited number of retrials of TxRx_TransmitBuffer in MiApp_UnicastAddress to 5,
+so the plug would stop running it if the NWK address isn't present in NWK table
+of the plug (TODO - add the reason for failure, and later the address should not
+appear in any NWK table)
+
+directories:
+13.8:
+- ENABLE_BLOCK_ACK in TxRx.h is commented 
+- ENABLE_ACK in MiWi.h is uncommented
+- USB isn't connected to the stone, only the battery powers the stone
+
+2 w buzzer 0 1 - the stone buzzes;
+3 w buzzer 0 1 - the plug gives up after 5 trials, the stone doesn't react
+2 w buzzer 0 1 - the stone buzzes again
+********************************************************************************
+
+
+

@@ -41,6 +41,8 @@ Description:
 
 ******************************************************************************/
 //DOM-IGNORE-BEGIN
+
+
 /******************************************************************************
  FileName:     	usb_device.h
  Dependencies:	See INCLUDES section
@@ -74,6 +76,7 @@ Description:
  IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 *******************************************************************/
+
 
 /********************************************************************
  Change History:
@@ -123,12 +126,13 @@ Description:
 #define USB_EP0_NO_DATA        0x00     //no data to send
 #define USB_EP0_NO_OPTIONS     0x00     //no options set
 
+
 /********************************************************************
  * Standard Request Codes
  * USB 2.0 Spec Ref Table 9-4
  *******************************************************************/
 
-/* USB Device States as returned by USBGetDeviceState().  Only the defintions
+/* USB Device States as returned by USBGetDeviceState().  Only the definitions
    for these states should be used.  The actual value for each state should
    not be relied upon as constant and may change based on the implementation. */
 typedef enum
@@ -223,6 +227,7 @@ typedef enum
 
 } USB_DEVICE_STACK_EVENTS;
 
+
 /** Function Prototypes **********************************************/
 
 
@@ -254,6 +259,7 @@ typedef enum
                                                           
   **************************************************************************/
 void USBDeviceInit(void);
+
 
 /**************************************************************************
   Function:
@@ -430,7 +436,7 @@ void USBEnableEndpoint(BYTE ep, BYTE options);
     data over the USB port.  
 
     The USBTransferOnePacket() is intended for use with all application 
-    endpoints.  It is not used for sending or receiving applicaiton data 
+    endpoints.  It is not used for sending or receiving application data 
     through endpoint 0 by using control transfers.  Separate API 
     functions, such as USBEP0Receive(), USBEP0SendRAMPtr(), and
     USBEP0SendROMPtr() are provided for this purpose.
@@ -505,6 +511,7 @@ void USBEnableEndpoint(BYTE ep, BYTE options);
   *************************************************************************/
 USB_HANDLE USBTransferOnePacket(BYTE ep,BYTE dir,BYTE* data,BYTE len);
 
+
 /********************************************************************
     Function:
         void USBStallEndpoint(BYTE ep, BYTE dir)
@@ -529,6 +536,8 @@ USB_HANDLE USBTransferOnePacket(BYTE ep,BYTE dir,BYTE* data,BYTE len);
 
  *******************************************************************/
 void USBStallEndpoint(BYTE ep, BYTE dir);
+
+
 /**************************************************************************
     Function:
         void USBCancelIO(BYTE endpoint)
@@ -553,6 +562,7 @@ void USBStallEndpoint(BYTE ep, BYTE dir);
                                                           
   **************************************************************************/
 void USBCancelIO(BYTE endpoint);
+
 
 /**************************************************************************
     Function:
@@ -651,11 +661,13 @@ void USBCancelIO(BYTE endpoint);
   **************************************************************************/
 void USBDeviceDetach(void);
 
+
 /*DOM-IGNORE-BEGIN*/
 #if !defined(USB_INTERRUPT)
     #define USBDeviceDetach() 
 #endif
 /*DOM-IGNORE-END*/
+
 
 /**************************************************************************
     Function:
@@ -696,6 +708,7 @@ void USBDeviceDetach(void);
 ****************************************************************************/
 void USBDeviceAttach(void);
 
+
 /*DOM-IGNORE-BEGIN*/
 #if !defined(USB_INTERRUPT)
     #define USBDeviceAttach() 
@@ -734,7 +747,6 @@ void USBDeviceAttach(void);
     None                                                                                                          
   *****************************************************************************/
 void USBCtrlEPAllowStatusStage(void);
-
 
 
 /*******************************************************************************
@@ -844,6 +856,7 @@ extern volatile BOOL USBDeferOUTDataStagePackets;
 /*DOM-IGNORE-BEGIN*/
 #define USBDeferOUTDataStage()   {USBDeferOUTDataStagePackets = TRUE; outPipes[0].info.bits.busy = 1;}
 /*DOM-IGNORE-END*/
+
 
 /*******************************************************************************
   Function: void USBDeferStatusStage(void);
@@ -966,6 +979,7 @@ BOOL USBOUTDataStageDeferred(void);
 #define USBOUTDataStageDeferred() USBDeferOUTDataStagePackets
 /*DOM-IGNORE-END*/
 
+
 /*******************************************************************************
   Function: void USBDeferINDataStage(void);
     
@@ -1051,7 +1065,6 @@ extern volatile BOOL USBDeferINDataStagePackets;
 /*DOM-IGNORE-END*/
 
 
-
 /*******************************************************************************
   Function: BOOL USBINDataStageDeferred(void);
     
@@ -1102,7 +1115,6 @@ BOOL USBINDataStageDeferred(void);
 /*DOM-IGNORE-BEGIN*/
 #define USBINDataStageDeferred() USBDeferINDataStagePackets
 /*DOM-IGNORE-END*/
-
 
 
 /********************************************************************
@@ -1173,6 +1185,7 @@ BOOL USBGetRemoteWakeupStatus(void);
 #define USBGetRemoteWakeupStatus() RemoteWakeup
 /*DOM-IGNORE-END*/
 
+
 /***************************************************************************
   Function:
         USB_DEVICE_STATE USBGetDeviceState(void)
@@ -1231,7 +1244,6 @@ USB_DEVICE_STATE USBGetDeviceState(void);
 /*DOM-IGNORE-END*/
 
 
-
 /***************************************************************************
   Function:
         BOOL USBGetSuspendState(void)
@@ -1285,6 +1297,7 @@ BOOL USBGetSuspendState(void);
 /*DOM-IGNORE-BEGIN*/
 #define USBGetSuspendState() USBBusIsSuspended
 /*DOM-IGNORE-END*/
+
 
 /*******************************************************************************
   Function:
@@ -1364,6 +1377,7 @@ BOOL USBIsBusSuspended(void);
 #define USBIsBusSuspended() USBBusIsSuspended
 /*DOM-IGNORE-END*/
 
+
 /*******************************************************************************
   Function:
         void USBSoftDetach(void);
@@ -1428,6 +1442,7 @@ BOOL USBHandleBusy(USB_HANDLE handle);
 #define USBHandleBusy(handle) (handle==0?0:((volatile BDT_ENTRY*)handle)->STAT.UOWN)
 /*DOM-IGNORE-END*/
 
+
 /********************************************************************
     Function:
         WORD USBHandleGetLength(USB_HANDLE handle)
@@ -1461,6 +1476,7 @@ WORD USBHandleGetLength(USB_HANDLE handle);
 /*DOM-IGNORE-BEGIN*/
 #define USBHandleGetLength(handle) (((volatile BDT_ENTRY*)handle)->CNT)
 /*DOM-IGNORE-END*/
+
 
 /********************************************************************
     Function:
@@ -1594,6 +1610,7 @@ USB_HANDLE USBGetNextHandle(BYTE ep_num, BYTE ep_dir);
 #define USBGetNextHandle(ep_num, ep_dir) ((ep_dir == OUT_FROM_HOST)?((USB_HANDLE)pBDTEntryOut[ep_num]):((USB_HANDLE)pBDTEntryIn[ep_num]))
 /*DOM-IGNORE-END*/
 
+
 /********************************************************************
     Function:
         void USBEP0Transmit(BYTE options)
@@ -1627,6 +1644,7 @@ void USBEP0Transmit(BYTE options);
 #define USBEP0Transmit(options) inPipes[0].info.Val = options | USB_EP0_BUSY
 /*DOM-IGNORE-END*/
 
+
 /*************************************************************************
   Function:
         void USBEP0SendRAMPtr(BYTE* src, WORD size, BYTE Options)
@@ -1658,6 +1676,7 @@ void USBEP0SendRAMPtr(BYTE* src, WORD size, BYTE Options);
             inPipes[0].info.Val = options | USB_EP0_BUSY | USB_EP0_RAM;\
             }
 /*DOM-IGNORE-END*/
+
 
 /**************************************************************************
   Function:
@@ -1691,6 +1710,7 @@ void USBEP0SendROMPtr(BYTE* src, WORD size, BYTE Options);
             }
 /*DOM-IGNORE-END*/
 
+
 /***************************************************************************
   Function:
     void USBEP0Receive(BYTE* dest, WORD size, void (*function))
@@ -1714,6 +1734,7 @@ void USBEP0Receive(BYTE* dest, WORD size, void (*function));
 /*DOM-IGNORE-BEGIN*/
 #define USBEP0Receive(dest,size,function)  {outPipes[0].pDst.bRam = dest;outPipes[0].wCount.Val = size;outPipes[0].pFunc = function;outPipes[0].info.bits.busy = 1; }
 /*DOM-IGNORE-END*/
+
 
 /********************************************************************
     Function:
@@ -1749,6 +1770,7 @@ USB_HANDLE USBTxOnePacket(BYTE ep, BYTE* data, WORD len);
 /*DOM-IGNORE-BEGIN*/
 #define USBTxOnePacket(ep,data,len)     USBTransferOnePacket(ep,IN_TO_HOST,data,len)
 /*DOM-IGNORE-END*/
+
 
 /********************************************************************
     Function:
@@ -1787,6 +1809,7 @@ USB_HANDLE USBRxOnePacket(BYTE ep, BYTE* data, WORD len);
 #define USBRxOnePacket(ep,data,len)      USBTransferOnePacket(ep,OUT_FROM_HOST,data,len)
 /*DOM-IGNORE-END*/
 
+
 /*******************************************************************************
   Function:
     BOOL USB_APPLICATION_EVENT_HANDLER(BYTE address, USB_EVENT event, void *pdata, WORD size);
@@ -1815,6 +1838,7 @@ USB_HANDLE USBRxOnePacket(BYTE ep, BYTE* data, WORD len);
     None                                                                                                          
   *****************************************************************************/
 BOOL USB_APPLICATION_EVENT_HANDLER(BYTE address, USB_EVENT event, void *pdata, WORD size);
+
 
 /*******************************************************************************
   Function:
@@ -1854,7 +1878,7 @@ void *USBDeviceCBGetDescriptor (    UINT16 *length,
 
 /** Section: MACROS ******************************************************/
 
-/* The DESC_CONFIG_WORD() macro is implemented for convinence.  Since the 
+/* The DESC_CONFIG_WORD() macro is implemented for convenience.  Since the 
     configuration descriptor array is a BYTE array, each entry needs to be a
     BYTE in LSB format.  The DESC_CONFIG_WORD() macro breaks up a WORD into 
     the appropriate BYTE entries in LSB.
@@ -1868,14 +1892,14 @@ void *USBDeviceCBGetDescriptor (    UINT16 *length,
 */
 #define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
 
-/* The DESC_CONFIG_DWORD() macro is implemented for convinence.  Since the 
+/* The DESC_CONFIG_DWORD() macro is implemented for convenience.  Since the 
     configuration descriptor array is a BYTE array, each entry needs to be a
     BYTE in LSB format.  The DESC_CONFIG_DWORD() macro breaks up a DWORD into 
     the appropriate BYTE entries in LSB.
 */
 #define DESC_CONFIG_DWORD(a) (a&0xFF),((a>>8)&0xFF),((a>>16)&0xFF),((a>>24)&0xFF)
 
-/* The DESC_CONFIG_BYTE() macro is implemented for convinence.  The 
+/* The DESC_CONFIG_BYTE() macro is implemented for convenience.  The 
     DESC_CONFIG_BYTE() macro provides a consistant macro for use with a byte
     when generating a configuratin descriptor when using either the 
     DESC_CONFIG_WORD() or DESC_CONFIG_DWORD() macros.

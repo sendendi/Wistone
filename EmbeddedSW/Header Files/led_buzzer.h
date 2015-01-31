@@ -7,6 +7,15 @@
 #define SWITCH_1 1
 #define SWITCH_2 2
 
+// YL 12.9 ...
+#if defined USBCOM  && defined COMMUNICATION_PLUG
+#define MAX_USB_PACKETS_TO_HOST 2		// after USBTransferOnePacket() is called at least MAX_USB_PACKETS_TO_HOST times 
+										// (= USBTransferOnePacket() with IN_TO_HOST parameter), 
+										// USB_ReceiveData() is called by timer4 ISR to avoid buffer overflow
+extern 	BYTE g_usb_packets_to_host;
+#endif // USBCOM, COMMUNICATION_PLUG
+// ... YL 12.9
+
 /***** FUNCTION PROTOTYPES: ***************************************************/
 void init_timer4(void);
 void init_buzzer(void);

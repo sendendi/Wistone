@@ -81,7 +81,7 @@
 		//				 9.8 update: only the plug calls MiApp_StartConnection,
 		//				 and therefore only the plug may become NWK_ROLE_COORDINATOR
         /*********************************************************************/
-		//#define NWK_ROLE_COORDINATOR // YL 3.9 note: there is no #define NWK_ROLE_END_DEVICE, but it seems that nothing we use depends on it
+		#define NWK_ROLE_COORDINATOR // YL 3.9 note: there is no #define NWK_ROLE_END_DEVICE, but it seems that nothing we use depends on it
 		
 //------------------------------------------------------------------------
 // Definition of RF Transceiver. ONLY ONE TRANSCEIVER CAN BE CHOSEN

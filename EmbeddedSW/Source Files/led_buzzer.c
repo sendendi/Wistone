@@ -17,9 +17,9 @@ led_buzzer.c - handle buzzer and LED
 ********************************************************************************
 	General:
 	========
-the Wistone is equiped with LED, switches and buzzer for debug.
+the Wistone is equipped with LED, switches and buzzer for debug.
 the following functions:
-- initiate Timer4 for LED, Buzzer and switch maintanence
+- initiate Timer4 for LED, Buzzer and switch maintenance
 - create drivers for: LED, Switch and Buzzer
 *******************************************************************************/
 
@@ -27,15 +27,25 @@ the following functions:
 #include "timer.h"
 #include "analog.h"
 #include "system.h"
-#include "error.h"				//Application
-#include "wistone_main.h"		//Application
-#include "HardwareProfile.h"	//Common
-#include "p24FJ256GB110.h"		//Common
-#include "ads1282.h"			//Devices
-#include "led_buzzer.h"			//Devices
+#include "error.h"				// Application
+#include "wistone_main.h"		// Application
+#include "HardwareProfile.h"	// Common
+#include "p24FJ256GB110.h"		// Common
+#include "ads1282.h"			// Devices
+#include "led_buzzer.h"			// Devices
+// YL 12.9 ... for g_usb_packets_to_host
+//#if defined USBCOM
+#include "wistone_usb.h"
+//#endif
+// ... YL 12.9
 
 /***** GLOBAL VARIABLES: ******************************************************/
 int g_buzz_period = 0; 			// in order to play buzzer sound at 1Khz for some period (in mSec units) set this global variable to the period
+// YL 12.9 ...
+#if defined USBCOM
+BYTE g_usb_packets_to_host = 0;
+#endif
+// ... YL 12.9
 
 /***** DEFINES: ***************************************************************/
 #define ADS1282_FREQ	400		// external ADC desired sample frequency [Hz]
@@ -81,8 +91,7 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 	static unsigned int 	timer4_tick_counter = 0;
 	static int 				power_switch_msec_counter = 0;
 	static unsigned int     adc_stage = SAMPLE_STAGE;
-	//BACKUP... static unsigned int		led_cycle_time = 1000;
-	static unsigned long		led_cycle_time = 200; //YL
+	static unsigned long	led_cycle_time = 200; // YL was 1000
 	
 	//===============
 	// ADS1282 SYNC
@@ -108,11 +117,11 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 		g_buzz_period--;
 		BUZZER_PORT = !BUZZER_PORT;
 	}
-
+// YL 23.10 #if defined DEBUG_PRINT
 	//===============
 	// LED BLINK
 	//===============
-	// implement number of consequtive blinks according to POWER_STAT1,2 state:
+	// implement number of consecutive blinks according to POWER_STAT1,2 state:
 	// charge state					STAT1n	STAT2n  #of blinks
 	//   precharge					0		0		1
 	//	 fast charge				0		1		2
@@ -127,65 +136,73 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == 175) {
+	// YL 12.9 if (led_cycle_time == 175) {
+	else if (led_cycle_time == 175) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == 150) {
+	// YL 12.9 if (led_cycle_time == 150) {
+	else if (led_cycle_time == 150) {
 		if ((PWR_CHRG_STAT1) & (~PWR_CHRG_USBPG)) {
 			LED_TRIS_2 = 0;
 			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == 125) {
+	// YL 12.9 if (led_cycle_time == 125) {
+	else if (led_cycle_time == 125) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == 100) {
+	// YL 12.9 if (led_cycle_time == 100) {
+	else if (led_cycle_time == 100) {
 		if (((PWR_CHRG_STAT1) | ((~PWR_CHRG_STAT1) & PWR_CHRG_STAT2)) & (~PWR_CHRG_USBPG)) {
 			LED_TRIS_2 = 0;
 			LED_PORT_2 = 1;			// turn LED on 
 		}
 	}
-	if (led_cycle_time == 75) {
+	// YL 12.9 if (led_cycle_time == 75) {
+	else if (led_cycle_time == 75) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 	}
-	if (led_cycle_time == 50) {
+	// YL 12.9 if (led_cycle_time == 50) {
+	else if (led_cycle_time == 50) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 1;				// turn LED on 
 	}
-	if (led_cycle_time == 25) {
+	// YL 12.9 if (led_cycle_time == 25) {
+	else if (led_cycle_time == 25) {
 		LED_TRIS_2 = 0;
 		LED_PORT_2 = 0;				// turn LED off 
 		// period between LED turning on times: 1~10 seconds depends on battery level
 		//led_cycle_time = ((g_vbat_level - VBAT_STAT_MIN) / VBAT_STAT_UNIT) * 400 + 100;
 		//led_cycle_time = (((g_vbat_level - VBAT_STAT_MIN) * 10) / (VBAT_STAT_MAX - VBAT_STAT_MIN)) * 400 + 100;
-		led_cycle_time = (((g_vbat_level - VBAT_STAT_MIN) * 100) / (VBAT_STAT_MAX - VBAT_STAT_MIN)) * 20 + 75; //BM
+		led_cycle_time = (((g_vbat_level - VBAT_STAT_MIN) * 100) / (VBAT_STAT_MAX - VBAT_STAT_MIN)) * 20 + 75;  // BM
 	}
+// YL 23.10 #endif	
 	
 	//===============
 	// POWER SWITCH
 	//===============
 	//YS 17.8
-	// make sure we check power switch every 1K mSec //YL 16.9 and RTC timer interrupt bit:
-	timer4_tick_counter++; 				// count timer4 occurences modulo 64K (unsigned int) 
+	// make sure we check power switch every 1K mSec // YL 16.9 and RTC timer interrupt bit:
+	timer4_tick_counter++; 			// count timer4 occurrences modulo 64K (unsigned int) 
 	if ((timer4_tick_counter & 0x01FF) == 0x0000) {
 		// read power switch status
 		// keep in mind this is switch#1
-		if (!get_switch(SWITCH_1) && !power_switch_msec_counter) // if switch is pressed it returns "0" //YS 17.8 - make sure we don't reset the counter
+		if (!get_switch(SWITCH_1) && !power_switch_msec_counter) // if switch is pressed it returns "0" // YS 17.8 - make sure we don't reset the counter
 			// set down time counter to 2000 mSec
-			power_switch_msec_counter = 100; //YS 17.8
+			power_switch_msec_counter = 100; 	// YS 17.8
 	}
 	// in case power_switch_msec_counter was activated:
 	if (power_switch_msec_counter) {
 		power_switch_msec_counter--;
-		if (get_switch(SWITCH_1)) // if switch is released it returns "1"
+		if (get_switch(SWITCH_1)) 	// if switch is released it returns "1"
 			power_switch_msec_counter = 0;
 		// check if counter managed to reach 1
-		if (power_switch_msec_counter == 1) { //YL 15.8
+		if (power_switch_msec_counter == 1) { 	// YL 15.8
 				// raise flag indicating turn off request:
-				g_sleep_request = 1; //YL 15.8
+				g_sleep_request = 1; 			// YL 15.8
 			}
 	}
 
@@ -210,7 +227,29 @@ void __attribute__((__interrupt__, auto_psv, __shadow__)) _T4Interrupt(void)
 				break;
 		}
 	}
-
+	
+	// YL 23.10 ...
+	/*
+	// YL 12.9 ...
+	#if defined USBCOM && defined COMMUNICATION_PLUG
+	//===============
+	// USB PACKETS
+	//===============
+	// call USB_ReceiveData() if USBTransferOnePacket() was called
+	// at least MAX_USB_PACKETS_TO_HOST times
+	#if defined DEBUG_PRINT
+	if (g_usb_packets_to_host >= 3)
+		set_led(1, 2);
+	#endif
+	if (g_usb_packets_to_host >= MAX_USB_PACKETS_TO_HOST) {
+		g_usb_packets_to_host = 0;
+		USB_ReceiveData();
+	}
+	#endif // USBCOM, COMMUNICATION_PLUG
+	// ... YL 12.9
+	*/
+	// ... YL 23.10
+	
 	IFS1bits.T4IF = 0; // reset Timer4 interrupt flag and Return from ISR
 }
 

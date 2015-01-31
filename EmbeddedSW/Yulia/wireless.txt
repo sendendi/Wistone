@@ -1,0 +1,266 @@
+
+//22.10 Boaz:
+
+SYNC - in app cmds:
+
+* the assumption we use: the bottle-neck is the time that is needed to transmit
+the data, and not the time the data propagates
+* use timer4 to calculate time differences
+* find the place to add check - whether the command is one of the 2 following:
+	1. add: app sync ss time-lap||retransmit-counter||hop-counter
+	2. edit: app start ss ... retransmit-counter||hop-counter 
+	(to ease the parsing - put hop-counter in the same place in both cmds)
+and increment the counter accordingly 
+1. app sync ss hop-counter - measure the "quantum" = a duration of a single hop:
+- the plug sends the cmd to a distant stone (a distance of 4 hops),
+- meanwhile it measures the time that elapses between sending the cmd and till it returns back
+- the hops and retransmissions are calculated during the transmission,
+- the plug receives the cmd back and uses both counters to calculate the "quantum" -
+by subtracting the (retransmit-counter)x(constant retransmit duration) from 
+time difference that plug measured, and dividing the difference with hop-counter.
+* app sync should be used to calculate the hop-counter each sampling session
+* if hop duration is less than 100 msec (usec?) - it may be ignored;
+* measure average hop duration before the coding
+2. app start ss ... quantum time-lap||retransmit-counter||hop-counter - 
+add quantum and a counter of 3 concatenated fields, that are used to calculate the "phase":
+- time-lap - 16 bit, in msec
+- retransmit-counter - 8 bit, unit-less
+- hop-counter - 8 bit, unit-less (the quantum is measured in usec? - check this)
+* after the "phase" is calculated - it should be inserted to flash block-header
+* num2hex, hex2num - the phase counter is transmitted in a printable format:
+	1234,56,78 -> 0000_0111_0101_1011_1100_1101_0001_0101 = 075B,CD,15
+	32 bits of the counter are turned to 64 bits, since every character is represented
+	as 2 characters: every 4 bits become a byte that represents an hexadecimal digit
+	(0-9, A-F), and therefore is definitely printable; when the destination receives
+	the phase-counter - it should convert it to 32 bits before updating it, and 
+	convert it back to 64 bits before transmitting it.
+all the counters above should be updated in the following manner:
+- retransmit-counter - is incremented by the source whenever the message is re-transmitted 
+- hop-counter - is incremented by the destination when it receives the message successfully (including the CRC)
+the final destination of the message calculates the "phase" by summing the following elements:
+* time-lap
+* (retransmit-counter)x(constant retransmit duration)
+* (hop-counter)x(quantum)
+and uses it to update the flash-header; the "phase" units are msec.
+
+USB issues:
+- estimate the time duration the USB should be able to endure - measure the average
+time that the stone needs to transmit the samples that were collected during several
+minutes of SS
+
+Android:
+- find which Android phones (Samsung, HTC, Google) that can be connected via USB 
+to PIC24; maybe Mony already did the research - ask him! another option is to use
+a Bluetooth instead of the USB, but it is less efficient
+
+////////////////////////////////////////////////////////////////////////////////
+
+//17.8 Boaz
+
+=> summary:
+- the only possible topology with MRF49XA is star topology, in our case -
+  8 coordinators, with PAN-coordinator in the centre; therefore we have 2 hops max.
+- the changes that are needed:
+	- PAN-coordinator should have the highest EUI[0]; 
+	- the stone with EUI[0]=1 should start the network (whereas the plug is a leaf) 
+- the application (the plug is the last n-th stone):
+1. check connection - read something from each stone
+2. time sync <- how?
+3. 1..(n-1) app ss
+4. 1..(n-1) app ts
+5. get time from each stone, and set time if there is a drift
+6. 1..(n-1) salarm
+7. app shutdown, so only plug stays awake
+
+////////////////////////////////////////////////////////////////////////////////
+
+//21.7 Boaz
+
+T O D O:
+1) MACROs:
+	- EUI - change the size of permanent address from 4 to 2 bytes
+	- CONNECTION_SIZE - change from 2 to 10
+2) check - if the stone defines itself as a coordinator - can it also act as end-device?
+3) 	- use unicast only! broadcast commands should also be implemented via unicast;
+	- in addition - use unicast_address instead of unicast_connection 
+	(= use the EUI address of the source that expects the reply, instead of it's
+	index in the connection table)
+4) SAMPLING SESSION:
+	- unicast synchronization command to all the stones
+	- unicast SS command to all the stones
+	- unicast TS command to all the stones to collect the sampled data 
+	- unicast "go to sleep" command to all the stones
+5) the network:
+	- the plug is the PAN-coordinator, EUI_0 = 01;
+	- the EUI_0 of other stones: 02 - 08 
+	- only the plug starts the network, and therefore only the plug may become 
+	the PAN-coordinator; all other stones join the network that the plug has started 
+6) API: add the destination address to the first token of every command;
+	- for example: app start ts... -> 03app start ts...
+	- every destination address should have 2 digits 
+	- when parsing the command - keep the destination address in the global struct 
+	with the received message information 
+	- in GUI - use the original parsing code after skipping 2 first characters
+	of the command (= the destination address); display the skipped characters as
+	a part of the command's string
+	
+////////////////////////////////////////////////////////////////////////////////
+
+//21.5 Boaz
+
+- the plug will be the PAN coordinator
+- all stones will be coordinators
+- the plug will start the network (without search and join)
+- the stone will search (until a network is found) and establish
+
+S u m m a r y: 
+- "search connection": send beacon and construct table; then in "establish
+connection" - choose a connection from the table and connect to it. (check this,
+because only the coordinators can send beacon, so what do the non-coordinators
+when they search for connection? maybe they send out a request for a beacon instead?)
+when a connection is established - "open socket" is called.
+- meanwhile the network is smaller than 8 (max coordinators in MiWi), 
+so all the devices are coordinators.
+- 2 hops are relative to PAN coordinator (= the plug)
+- Time To Leave - the hops number in the beginning of a packet is decreased
+every time the packet is transmitted
+- first the PAN coordinator has to wake up, so it would be able to send a beacon
+to all the devices that request the beacon. if some remote non-coordinator (= X)
+is the first to wake up, it won't join the network before it recieves a beacon 
+directly from the PAN coordinator, or from some other coordinator (= Y) in between 
+(i.e PAN -- Y -- X), that is able to send a beacon to X only after it receives a 
+beacon from PAN coordinator and becomes a member of the network. 
+  
+
+T O D O:
+1) try "start connection" with energy scan - so the PAN coordinator will find 
+the most quiet channel, and all the other will join the PAN coordinator on this 
+channel (when the other search for the connection, they scan all channels, and
+they will receive a reply on a channel that PAN coordinator chose).
+2) bring back all the variables that Yossi and Amnon used in TxRxInit and in
+TxRxConnect
+3) add "destination address" and "source address" to TxBlock struct; 
+add "destination address" parameter to TxRxSendPacket and to 
+TxRxSendPacketWithConfirmation; for broadcast use FF as destination address.
+update TxRxTransmitBuffer - the function that prepares TxBlock (for 
+MiApp_UnicastConnection or Broadcast to send it out as part of message);
+inf is the first byte in AY TxBlock, and it contains the command type and it's
+serial number; next byte is a packet length in bytes; next byte is the block
+length; then comes the data; and the trailer is the last part of a message.
+the first parameter in AY MiApp_UnicastConnection is 0 (= the first index in 
+connection table, that has no meaning in P2P case); it has to be replaced with 
+destination address converted to real index in connection table.
+the first 4 bytes in TxBuffer are related to the source (AltAddress), the next 4 
+bytes are related to the destination (ShortAdderss). if a coordinator is the one 
+that has to send the packet, it then calls "route message", if it's a non-coordinator -
+it sends the message to it's parent (the only device it is connected to)
+
+T o   c o n c l u d e:
+- see if TxRxInit works, and that the stone and the plug both finish it;
+- use energy scan in TxRxInit and see if it works;
+- add destination and source address whenever it is needed (in receive message
+too - "source address" to send it up to application)
+- check: send message to address 2 (the stone) and receive an ack from it
+
+////////////////////////////////////////////////////////////////////////////////
+
+//11.5 Boaz
+
+1) priorities - try low priority for USB and high for TxRx;
+check - does low number mean low priority? - yes:
+
+G E N E R A L:
+- Peripheral and external interrupt sources can be programmed for levels 0-7, 
+  while CPU priority levels 8-15 are reserved for trap sources.
+
+U S B:
+- USB interrupt: Flag - IFS5<6>,
+				 Enable - IEC5<6>, 
+				 Priority - IPC21<10:8>,
+				 Vector Number - 86 (pic24f family page 80)
+- current USB interrupt priority levels:
+	- for USB_POLLING - the priority is set to 1 (_USB1IP);
+	- for USB_INTERRUPT (we use) - a default priority level is 4 (see *), 
+	and no assignment was made to IPC21<10:8> (=_USB1IP2/ 1/ 0)
+* according to interrupts manual: "At a device Reset, the IPCn registers are 
+initialized such that all user interrupt sources are assigned to priority level 4."
+so if USB is "user interrupt source" then it's priority is 4.
+
+T X R X:
+- External Interrupt 1 is used: Flag - IFS1<4> (= IFS1bits.INT1IF = RFIF),
+								Enable - IEC1<4> (= IEC1bits.INT1IE = RFIE),
+								Priority - IPC5<2:0>,
+								Vector Number - 20
+- Priority - IPC5<2:0>, probably refers to (_INT1IP2/ 1/ 0),
+  and it wasn't changed; the default priority level is probably 4.
+
+2) use "#ifdef USB_DEBUG_MODE" before any debug print (so it would be possible
+to easily cancel USB printing, to make sure it does not interrupt the wireless)
+
+3) make sure MiWi.c is identical to Microchip version, especially:
+MiApp_ProtocolInit; ROLE_FFD_END_DEVICE is commented in MiWiTasks();
+
+4) to make the connection easier - change CHANNEL_NUM from 3 to 1 (in MRF49XA)
+
+5) the connection process: when searching - the channels are being scanned for
+a beacon request (every channel scanning takes 1 sec; for faster connection - 
+try ScanDuration of 5 instead of 10); if there is a listener - it should return
+a beacon, and to be able to do so the listener should be:
+- a coordinator
+- RSF-enabled
+- not ROLE_FFD
+- a member of a network (in MiWi.c line ~1700; this condition isn't met in RFD example)
+if a beacon is returned - it means that an operating channel has been found.
+* the coordinator calls: start_connection, then search_connection and 
+then establish_connection, if a network was found. if not, continue to main loop
+* the non-coordinator calls: search_connection, until at least one channel was 
+found, and then establish_connection. if no channel found, stay in search
+(add debug printing after search_connection to see what channels had been found)  
+
+- the changes that have been done: EUI addresses as in RFD example
+
++ Idan - check salarm
+
+////////////////////////////////////////////////////////////////////////////////
+
+//25.4 Boaz
+
+-  all TxRx header files were checked (BM).
+-  TODO:
+1. in init_all, ask Yossi: why USBEnableInterrupts() is called for the plug,
+   and isn't called for the stone.
+2. use P2P to check if EUI_0 is read properly from the EEPROM.
+3. to activate the m_write to terminal when the system is initialized - call 
+   USB_ReceiveData() after all m_write commands; try to add a long delay after
+   init_all() calls display_welcome() and see if it still works.
+4. general C question: does "break" break only the innermost loop, or all
+   enclosing loops?
+5. init_all - try to skip (USBGetDeviceState() < CONFIGURED_STATE), to make sure
+   the plug doesn't get stuck there in endless loop.
+6. compare our ConfigApp.h to ConfigApp.h of MiWi Demo, try to use/cancel ENABLE_ED_SCAN.
+7. in Demo.c - both sizes start and search for connection (starting line 288);
+   copy this code to use the same concept in our project (contrary to asymmetry we have);
+   compare the transmitting (lines 512 - 546) and the receiving (580 - 601)
+   of a packet in Demo.c to the way it is done in our project (maybe there us a
+   difference in routing tables).
+8. find more references to MiWi.   
+   
+////////////////////////////////////////////////////////////////////////////////
+
+//13.4 Boaz
+
+- EUI_0: plug - 01, stone - 02 (in a network of plug and one stone)
+- Software CRC + LookUp Table
+
+- MAX_HOPS - to avoid never-ending travelling of the message in the network.
+- channel hopping - the sender and the receiver hop together to a quiet channel,
+  first the sender, and then the receiver (after it searches for the sender -
+  resyncConnection).
+- BROADCAST_RECORD_SIZE in ConfigMiWi.h - should be increased if the network is noisy.
+- CONNECTION_SIZE in ConfigApp.h - defines the number of the devices in the network.
+
+////////////////////////////////////////////////////////////////////////////////
+
+//1.4 Boaz
+- BAND_434, DATA_RATE_57600
+- no 802.15.4

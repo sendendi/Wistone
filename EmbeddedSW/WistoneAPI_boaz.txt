@@ -218,12 +218,12 @@ temperature sensor commands: <destination> temp <sub command> <optional paramete
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -	<destination> temp gtemp
 	- no parameters
-	- return temperature in Celcius from Temperature Sensor: <temp>
+	- return temperature in Celsius from Temperature Sensor: <temp>
 	- <destination> - 	the network address of the stone the command is sent to;
 						e.g 3 temp ... - to send temperature sensor command to stone #3
 	- <temp> - nn.n (e.g. 24.6)
 
-acceletometer sensor commands: <destination> accmtr <sub command> <optional parameters>
+accelerometer sensor commands: <destination> accmtr <sub command> <optional parameters>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -	<destination> accmtr config <option> <data> 
 	- configure the accelerometer data-rate/scaling/mode registers
@@ -257,7 +257,7 @@ Application commands: <destination> app <sub command> <optional parameters>
 		- SS: 	<destination> app start ss  <num of blocks> <start sector address> <combination mode> 
 		- TS: 	<destination> app start ts  <num of blocks> <start sector address> <communication>
 		- OST:	<destination - if supported> app start ost <num of blocks> <communication> <combination mode>
-	- start sampling/storing/transmiting according to selected mode for num_of_blocks x 0.5KB samples 
+	- start sampling/storing/transmitting according to selected mode for num_of_blocks x 0.5KB samples 
 	- <mode> = ss - Sample and Store mode for num_of_blocks x 0.5KB samples  
 	- <mode> = ts - Transmit Samples mode for num_of_blocks x 0.5KB samples
 	- <mode> = ost - Online Sample and Transmit mode for num_of_blocks x 0.5KB samples
@@ -278,7 +278,7 @@ Application commands: <destination> app <sub command> <optional parameters>
 			  if so - then the first header belongs to TS and the second one - to SS
 - 	<destination> app stop
 	- no parameters
-	- stop the current active mode (sampling/storing/transmiting), even if the needed (num_of_blocks x 0.5KB) samples weren't completed
+	- stop the current active mode (sampling/storing/transmitting), even if the needed (num_of_blocks x 0.5KB) samples weren't completed
 	- when done, returns: "stopped"
 - 	<destination> app sleep
 	- no parameters

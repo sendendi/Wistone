@@ -21,7 +21,7 @@
 #define EEPROM_DEVICE_ADDRESS   0x50					// 7bit address = 0b1010000 (1010 - control code, 000 - chip select) 
 #define NUM_OF_EEPROM_PAGES 	EEPROM_MEMORY_SIZE / EEPROM_PAGE_SIZE
 #define EEPROM_DEFAULT_VALUE	0x00
-#define MAX_SN 					100 					// maximum number of Wistones instances
+#define MAX_SN 					100 					// maximum number of Wistone instances
 #define SN_ADDRESS 				EEPROM_MEMORY_SIZE - 1	// last address in EEPROM address space
 #define ALARM_ADDRESS			EEPROM_MEMORY_SIZE - 2	// to indicate that the alarm was set
 #define EUI_0_ADDRESS			EEPROM_MEMORY_SIZE - 3	// YL 6.4 the first byte of 8-byte globally unique hardware identifier (for MiWi); in 32K EEPROM the EUI address is: 32765

@@ -545,11 +545,11 @@ TX_END_HERE:
 		// note:
 		// > PANID information - the transmitting side:
 		// 		1. MAC header: DestPANID from MAC_TRANS_PARAM:
-		// 			- MRF24 tranceives it, 
-		//			- MRF49 does not (in "IEEE_802_15_4-like" vesion too)
+		// 			- MRF24 transceives it, 
+		//			- MRF49 does not (in "IEEE_802_15_4-like" version too)
 		// 		2. MiWi header: PANID source and destination id-s from TxBuffer
-		//			- is tranceived in both cases (as MAC payload)
-		//	 in our "IEEE_802_15_4-like" vesion we use constant PANID (= MY_PAN_ID),
+		//			- is transceived in both cases (as MAC payload)
+		//	 in our "IEEE_802_15_4-like" version we use constant PANID (= MY_PAN_ID),
 		// 	 therefore our version does not support multiple PANs
 		// > PANID information - the receiving side:
 		//		1. MAC header: SourcePANID in MAC_RECEIVED_PACKET
@@ -580,10 +580,10 @@ TX_END_HERE:
      *      set the operating frequency of the RF transceiver. Valid channel
      *      number are from 0 to 31. For different frequency band, data rate
      *      and other RF settings, some channels from 0 to 31 might be
-     *      unavailable. Paramater offsetFreq is used to fine tune the center
+     *      unavailable. Parameter offsetFreq is used to fine tune the centre
      *      frequency across the frequency band. For transceivers that follow
      *      strict definition of channels, this parameter may be discarded.
-     *      The center frequency is calculated as 
+     *      The centre frequency is calculated as 
      *      (LowestFrequency + Channel * ChannelGap + offsetFreq)
      *
      * PreCondition:    
@@ -592,7 +592,7 @@ TX_END_HERE:
      * Parameters: 
      *      BYTE channel -  Channel number. Range from 0 to 31. Not all channels
      *                      are available under all conditions.
-     *      BYTE offsetFreq -   Offset frequency used to fine tune the center 
+     *      BYTE offsetFreq -   Offset frequency used to fine tune the centre 
      *                          frequency. May not apply to all RF transceivers
      *
      * Returns: 
@@ -600,7 +600,7 @@ TX_END_HERE:
      *
      * Example:
      *      <code>
-     *      // Set center frequency to be exactly channel 12
+     *      // Set centre frequency to be exactly channel 12
      *      MiMAC_SetChannel(12, 0);
      *      </code>
      *
@@ -616,7 +616,7 @@ TX_END_HERE:
         }
 
         RegisterSet(0xA000 + FREQ_START + ((WORD)channel * FREQ_STEP) + offsetFreq);
-        DelayMs(20);       // delay 20 ms to stablize the transceiver
+        DelayMs(20);       // delay 20 ms to stabilize the transceiver
         return TRUE;   
     }
     
@@ -659,7 +659,7 @@ TX_END_HERE:
         {
             return FALSE;
         }
-        RegisterSet(0x9800 | (((WORD)RF_DEV/15 - 1)<<4) | outputPower);    
+        RegisterSet(0x9800 | (((WORD)RF_DEV/15 - 1) << 4) | outputPower);    
         return TRUE;
     }
     
@@ -789,7 +789,7 @@ TX_END_HERE:
      *      MiMAC initialization has been done. 
      *
      * Parameters: 
-     *      MAC_TRANS_PARAM transParam -    The struture to configure the transmission way
+     *      MAC_TRANS_PARAM transParam -    The structure to configure the transmission way
      *      BYTE * MACPayload -             Pointer to the buffer of MAC payload
      *      BYTE MACPayloadLen -            The size of the MAC payload
      *

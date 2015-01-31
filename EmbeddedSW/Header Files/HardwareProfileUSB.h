@@ -53,12 +53,21 @@
     //  option carefully and determine which options are desired/required
     //  for your application.
 
-    //#define USE_SELF_POWER_SENSE_IO
-    #define tris_self_power     TRISAbits.TRISA2    // Input
-    #define self_power          1
-
-    //#define USE_USB_BUS_SENSE_IO
-    #define tris_usb_bus_sense  TRISBbits.TRISB5    // Input
+    // #define USE_SELF_POWER_SENSE_IO
+	// YL 12.9 ...
+	// was:
+    // #define tris_self_power  TRISAbits.TRISA2 	// Input
+    // #define self_power       1
+	#define TRIS_SELF_POWER     TRISAbits.TRISA2    // Input
+	#define SELF_POWER          1
+	// ... YL 12.9
+	
+    // #define USE_USB_BUS_SENSE_IO
+	// YL 12.9 ...
+	// was:
+    // #define tris_usb_bus_sense  	TRISBbits.TRISB5  	// Input
+	#define TRIS_USB_BUS_SENSE  	TRISBbits.TRISB5  	// Input
+	// ... YL 12.9
     #define USB_BUS_SENSE       U1OTGSTATbits.SESVD 
    
     //Uncomment this to make the output HEX of this project 
@@ -81,21 +90,23 @@
     /*******************************************************************/
 
     /** Board definition ***********************************************/
-    //These defintions will tell the main() function which board is
+    //These definitions will tell the main() function which board is
     //  currently selected.  This will allow the application to add
     //  the correct configuration bits as wells use the correct
-    //  initialization functions for the board.  These defitions are only
+    //  initialization functions for the board.  These definitions are only
     //  required in the stack provided demos.  They are not required in
     //  final application design.
-    #define DEMO_BOARD PIC24FJ256GB110_PIM
-    #define EXPLORER_16
-    #define PIC24FJ256GB110_PIM
+   
+	// YL 12.9 ...
+	// all the following MACROs aren't used
+	// #define DEMO_BOARD PIC24FJ256GB110_PIM
+    // #define EXPLORER_16
+    // #define PIC24FJ256GB110_PIM
+	// ... YL 12.9
     #define CLOCK_FREQ 20000000		//YL 11.8 was 32000000; the file was replaced
     
-
     /** I/O pin definitions ********************************************/
     #define INPUT_PIN 1
     #define OUTPUT_PIN 0
-
 
 #endif  //HARDWARE_PROFILE_USB_H

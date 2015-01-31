@@ -136,7 +136,7 @@ Description:
 
 #define USB_STALL_ENDPOINT              0x02
 
-//----- usb_config.h input defintions -----------------------------------------
+//----- usb_config.h input definitions -----------------------------------------
 #define USB_PULLUP_ENABLE               0x00
 //#define USB_PULLUP_DISABLE            0x00
 
@@ -334,7 +334,7 @@ typedef union _POINTER
 
     BYTE* bRam;                         // Ram byte pointer: 2 bytes pointer pointing
                                         // to 1 byte of data
-    WORD* wRam;                         // Ram word poitner: 2 bytes poitner pointing
+    WORD* wRam;                         // Ram word pointer: 2 bytes poitner pointing
                                         // to 2 bytes of data
 
     ROM BYTE* bRom;                     // Size depends on compiler setting
@@ -362,12 +362,12 @@ typedef union _POINTER
 
 //STALLIE, IDLEIE, TRNIE, and URSTIE are all enabled by default and are required
 #if defined(USB_INTERRUPT)
-    #define USBEnableInterrupts() {IEC5bits.USB1IE=1;}
+    #define USBEnableInterrupts() {IEC5bits.USB1IE = 1;}
 #else
     #define USBEnableInterrupts()
 #endif
 
-#define USBDisableInterrupts() {IEC5bits.USB1IE=0;}
+#define USBDisableInterrupts() {IEC5bits.USB1IE = 0;}
 #define USBInterruptFlag                IFS5bits.USB1IF
 
 

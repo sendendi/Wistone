@@ -125,7 +125,7 @@
     extern BYTE     AdditionalNodeID[];             // the additional information regarding the device
                                                     // that would like to share with the peer on the 
                                                     // other side of P2P connection. This information 
-                                                    // is applicaiton specific. 
+                                                    // is application specific. 
 
     BYTE    ActiveScanResultIndex;
     ACTIVE_SCAN_RESULT ActiveScanResults[ACTIVE_SCAN_RESULT_SIZE];  // The results for active scan, including
@@ -2099,7 +2099,7 @@ START_ASSOCIATION_RESPONSE:
 					// ... YL 3.9
 					
 					#if defined DEBUG_PRINT
-						m_write_debug("RM: return FALSE - 1");
+						//m_write_debug("RM: return FALSE - 1");
 					#endif					
                     return FALSE;
                 }
@@ -2133,7 +2133,7 @@ START_ASSOCIATION_RESPONSE:
                     {
                         RouterFailures[parentNode]++;
 						#if defined DEBUG_PRINT
-							m_write_debug("RM: return FALSE - 2");
+							//m_write_debug("RM: return FALSE - 2");
 						#endif
                         return FALSE;
                     }
@@ -2141,7 +2141,7 @@ START_ASSOCIATION_RESPONSE:
                     {
                         RouterFailures[parentNode] = 0;
 						#if defined DEBUG_PRINT
-							m_write_debug("RM: return TRUE - 3");
+							//m_write_debug("RM: return TRUE - 3");
 						#endif
                         return TRUE;
                     }
@@ -2151,7 +2151,7 @@ START_ASSOCIATION_RESPONSE:
 ROUTE_THROUGH_NEIGHBOR:
 
 			#if defined DEBUG_PRINT
-				m_write_debug("ROUTE_THROUGH_NEIGHBOR");
+				//m_write_debug("ROUTE_THROUGH_NEIGHBOR");
 			#endif
 			
             for(i = 0; i < 8; i++)
@@ -2194,7 +2194,7 @@ ROUTE_THROUGH_NEIGHBOR:
                             // YL 26.8 #endif
                         }   
 						#if defined DEBUG_PRINT
-							m_write_debug("RM: return FALSE - 4");
+							//m_write_debug("RM: return FALSE - 4");
 						#endif						
                         return FALSE;
                     }
@@ -2231,13 +2231,13 @@ ROUTE_THROUGH_NEIGHBOR:
                         {
                             RouterFailures[i]++;
 							#if defined DEBUG_PRINT
-								m_write_debug("RM: return FALSE - 5");
+								//m_write_debug("RM: return FALSE - 5");
 							#endif
                             return FALSE;
                         }
                         RouterFailures[i] = 0;
 						#if defined DEBUG_PRINT
-							m_write_debug("RM: return TRUE - 6");
+							//m_write_debug("RM: return TRUE - 6");
 						#endif						
                         return TRUE;
                     }
@@ -2247,7 +2247,7 @@ ROUTE_THROUGH_NEIGHBOR:
 ROUTE_THROUGH_TREE:
 
 			#if defined DEBUG_PRINT
-				m_write_debug("ROUTE_THROUGH_TREE");
+				//m_write_debug("ROUTE_THROUGH_TREE");
 			#endif
 			
             if( role != ROLE_PAN_COORDINATOR )
@@ -2327,13 +2327,13 @@ ROUTE_THROUGH_TREE:
                 {
                     RouterFailures[0]++;
 					#if defined DEBUG_PRINT
-						m_write_debug("RM: return FALSE - 7");
+						//m_write_debug("RM: return FALSE - 7");
 					#endif					
                     return FALSE;
                 }
                 RouterFailures[0] = 0;
 				#if defined DEBUG_PRINT
-					m_write_debug("RM: return TRUE - 8");
+					//m_write_debug("RM: return TRUE - 8");
 				#endif				
                 return TRUE;  
             }
@@ -2363,13 +2363,13 @@ ROUTE_THROUGH_TREE:
             {
                 RouterFailures[0]++;
 				#if defined DEBUG_PRINT
-					m_write_debug("RM: return FALSE - 9");
+					//m_write_debug("RM: return FALSE - 9");
 				#endif				
                 return FALSE;
             }
             RouterFailures[0] = 0;
 			#if defined DEBUG_PRINT
-				m_write_debug("RM: return FALSE - 10");
+				//m_write_debug("RM: return FALSE - 10");
 			#endif
             return TRUE; 
             
@@ -2409,7 +2409,10 @@ ROUTE_THROUGH_TREE:
         // YL 26.8 BOOL SendMACPacket(BYTE *Address, BYTE PacketType)
     // YL 26.8 #endif
     { 		
-        MTP.flags.Val = 0;
+		#if defined DEBUG_PRINT
+			//m_write_debug(" SendMACPacket ");
+		#endif        
+		MTP.flags.Val = 0;
         
         MTP.flags.bits.packetType = PacketType;
         if( Address == NULL )
@@ -3447,7 +3450,7 @@ NO_INDIRECT_MESSAGE:
         {
 		
 		#if defined DEBUG_PRINT
-			m_write_debug("SendBeacon");
+			//m_write_debug("SendBeacon");
 		#endif
 		
             BYTE i;
@@ -3459,7 +3462,7 @@ NO_INDIRECT_MESSAGE:
                 // YL 27.8 MiApp_WriteData(myShortAddress.v[0]);
                 // YL 27.8 MiApp_WriteData(myShortAddress.v[1]);
             // YL 27.8 #endif
-            MiApp_WriteData(0xFF);    //superframe specification (BO = 0xF, SO = 0xF)
+            MiApp_WriteData(0xFF);    // superframe specification (BO = 0xF, SO = 0xF)
     		MiApp_WriteData(MiWiCapacityInfo.Val);
             MiApp_WriteData(0x00);    // GTS
             MiApp_WriteData(0x00);    // Pending addresses
@@ -3565,7 +3568,7 @@ EndOfSearchLoop:
         
         if(handle != 0xFF)
         { 	
-            //isFamily = 1, RxOnWhenIdle = 1, Is a neighbor and not a network,
+            //isFamily = 1, RxOnWhenIdle = 1, Is a neighbour and not a network,
             //not a P2P connection, short and long addresses valid as well 
             //as the entire entry
             
@@ -4110,7 +4113,7 @@ void MiApp_ConnectionMode(INPUT BYTE Mode)
  *
  * Summary:
  *      This function perform an active scan to locate operating PANs in the
- *      neighborhood.
+ *      neighbourhood.
  *
  * Description:        
  *      This is the primary user interface function for the application layer to 
@@ -4257,6 +4260,10 @@ BYTE MiApp_SearchConnection(INPUT BYTE ScanDuration, INPUT DWORD ChannelMap)
  ******************************************************************************/  
 BYTE MiApp_EstablishConnection(INPUT BYTE ActiveScanIndex, INPUT BYTE Mode)
 {
+	#if defined DEBUG_PRINT
+		//m_write_debug(" MiApp_EstablishConnection ");
+	#endif
+	
     BYTE retry = CONNECTION_RETRY_TIMES;
     BYTE i;
     MIWI_TICK t1, t2;
@@ -4358,7 +4365,7 @@ BYTE MiApp_EstablishConnection(INPUT BYTE ActiveScanIndex, INPUT BYTE Mode)
         
         MiApp_SetChannel(ActiveScanResults[ActiveScanIndex].Channel); 
         
-		/*YL reset the address of the tranceiver
+		/*YL reset the address of the transceiver
 		[must?]*/
 		
         /* Program the PANID to the attempted network */
@@ -4455,7 +4462,7 @@ void MiApp_DiscardMessage(void)
  *                      secured before transmission.
  *
  * Returns: 
- *      A boolean to indicates if the broadcast procedure is succcessful.
+ *      A boolean to indicates if the broadcast procedure is successful.
  *
  * Example:
  *      <code>
@@ -4551,7 +4558,7 @@ BOOL MiApp_BroadcastPacket( INPUT BOOL SecEn )
  *                      secured before transmission.
  *
  * Returns: 
- *      A boolean to indicates if the unicast procedure is succcessful.
+ *      A boolean to indicates if the unicast procedure is successful.
  *
  * Example:
  *      <code>
@@ -4693,6 +4700,10 @@ BOOL MiApp_UnicastAddress(BYTE *DestAddress, BOOL PermanentAddr, BOOL SecEn)
 BOOL MiApp_UnicastAddress(BYTE *DestAddress, BOOL PermanentAddr, BOOL SecEn)
 {
 
+	#if defined DEBUG_PRINT
+		//m_write_debug(" MiApp_UnicastAddress ");
+	#endif 
+
     BYTE handle;
     BYTE i;
     BYTE MiWiFrameControl;
@@ -4800,7 +4811,7 @@ DIRECT_LONG_ADDRESS:
                         if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
                         {
 							#if defined DEBUG_PRINT
-								m_write_debug("UA: return TRUE - 2");
+								//m_write_debug("UA: return TRUE - 2");
 							#endif						
                             return TRUE;
                         }    
@@ -4809,14 +4820,14 @@ DIRECT_LONG_ADDRESS:
                         {
                             MiWiStateMachine.bits.MiWiAckInProgress = 0;
 							#if defined DEBUG_PRINT
-								m_write_debug("UA: return FALSE - 3");
+								//m_write_debug("UA: return FALSE - 3");
 							#endif
                             return FALSE;
                         }    
                     }    
                 }
 				#if defined DEBUG_PRINT
-					m_write_debug("UA: return TRUE - 4");
+					//m_write_debug("UA: return TRUE - 4");
 				#endif
                 return TRUE;
             #else
@@ -4854,7 +4865,7 @@ DIRECT_LONG_ADDRESS:
                 {
                     MiWiStateMachine.bits.MiWiAckInProgress = 0;
 					#if defined DEBUG_PRINT
-						m_write_debug("UA: return FALSE - 5");
+						//m_write_debug("UA: return FALSE - 5");
 					#endif					
                     return FALSE;
                 }    
@@ -4872,7 +4883,7 @@ DIRECT_LONG_ADDRESS:
                         if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
                         {
 							#if defined DEBUG_PRINT
-								m_write_debug("UA: return TRUE - 6");
+								//m_write_debug("UA: return TRUE - 6");
 							#endif						
                             return TRUE;
                         }    
@@ -4881,14 +4892,14 @@ DIRECT_LONG_ADDRESS:
                         {
                             MiWiStateMachine.bits.MiWiAckInProgress = 0;
 							#if defined DEBUG_PRINT
-								m_write_debug("UA: return FALSE - 7");
+								//m_write_debug("UA: return FALSE - 7");
 							#endif							
                             return FALSE;
                         }    
                     }    
                 }
 				#if defined DEBUG_PRINT
-					m_write_debug("UA: return TRUE - 8");
+					//m_write_debug("UA: return TRUE - 8");
 				#endif				
                 return TRUE;
             #endif
@@ -4917,7 +4928,7 @@ DIRECT_LONG_ADDRESS:
         {
             MiWiStateMachine.bits.MiWiAckInProgress = 0;
 			#if defined DEBUG_PRINT
-				m_write_debug("UA: return FALSE - 9");
+				//m_write_debug("UA: return FALSE - 9");
 			#endif
             return FALSE;
         }
@@ -4934,7 +4945,7 @@ DIRECT_LONG_ADDRESS:
                 if( MiWiStateMachine.bits.MiWiAckInProgress == 0 )
                 {
 					#if defined DEBUG_PRINT
-						m_write_debug("UA: return TRUE - 10");
+						//m_write_debug("UA: return TRUE - 10");
 					#endif
                     return TRUE;
                 }    
@@ -4943,14 +4954,14 @@ DIRECT_LONG_ADDRESS:
                 {
                     MiWiStateMachine.bits.MiWiAckInProgress = 0;
 					#if defined DEBUG_PRINT
-						m_write_debug("UA: return FALSE - 11");
+						//m_write_debug("UA: return FALSE - 11");
 					#endif
                     return FALSE;
                 }    
             }    
         }
 		#if defined DEBUG_PRINT
-			m_write_debug("UA: return TRUE - 12");
+			//m_write_debug("UA: return TRUE - 12");
 		#endif
         return TRUE;
     #else
@@ -5018,6 +5029,11 @@ BOOL MiApp_StartConnection(BYTE Mode, BYTE ScanDuration, DWORD ChannelMap)
 *******************************************************************************/
 BOOL MiApp_StartConnection(BYTE Mode, BYTE ScanDuration, DWORD ChannelMap) 
 {	
+
+	#if defined DEBUG_PRINT
+		//m_write_debug(" MiApp_StartConnection ");
+	#endif 
+	
     switch(Mode)
     {
         #if defined(NWK_ROLE_COORDINATOR)

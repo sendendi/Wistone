@@ -53,11 +53,11 @@
 
 /** DEFINITIONS ****************************************************/
 #define USB_EP0_BUFF_SIZE		8	// Valid Options: 8, 16, 32, or 64 bytes.
-								// Using larger options take more SRAM, but
-								// does not provide much advantage in most types
-								// of applications.  Exceptions to this, are applications
-								// that use EP0 IN or OUT for sending large amounts of
-								// application related data.
+									// Using larger options take more SRAM, but
+									// does not provide much advantage in most types
+									// of applications.  Exceptions to this, are applications
+									// that use EP0 IN or OUT for sending large amounts of
+									// application related data.
 									
 #define USB_MAX_NUM_INT     	2   // For tracking Alternate Setting	//AY 7.8
 
@@ -119,11 +119,11 @@
 
 #define USB_ENABLE_STATUS_STAGE_TIMEOUTS    //Comment this out to disable this feature.  
 
-//Section 9.2.6 of the USB 2.0 specifications indicate that:
+//Section 9.2.6 of the USB 2.0 specifications indicates that:
 //1.  Control transfers with no data stage: Status stage must complete within 
 //      50ms of the start of the control transfer.
 //2.  Control transfers with (IN) data stage: Status stage must complete within 
-//      50ms of sending the last IN data packet in fullfilment of the data stage.
+//      50ms of sending the last IN data packet in fulfilment of the data stage.
 //3.  Control transfers with (OUT) data stage: No specific status stage timing
 //      requirement.  However, the total time of the entire control transfer (ex:
 //      including the OUT data stage and IN status stage) must not exceed 5 seconds.
@@ -171,8 +171,8 @@
 #define CDC_DATA_OUT_EP_SIZE    64
 #define CDC_DATA_IN_EP_SIZE     64
 
-//#define USB_CDC_SUPPORT_ABSTRACT_CONTROL_MANAGEMENT_CAPABILITIES_D2 //Send_Break command
-#define USB_CDC_SUPPORT_ABSTRACT_CONTROL_MANAGEMENT_CAPABILITIES_D1 //Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, and Serial_State commands
+//#define USB_CDC_SUPPORT_ABSTRACT_CONTROL_MANAGEMENT_CAPABILITIES_D2 	// Send_Break command
+#define USB_CDC_SUPPORT_ABSTRACT_CONTROL_MANAGEMENT_CAPABILITIES_D1 	// Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, and Serial_State commands
 /** DEFINITIONS ****************************************************/
 
 #endif //USBCFG_H

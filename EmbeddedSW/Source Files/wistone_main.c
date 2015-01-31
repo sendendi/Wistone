@@ -31,7 +31,11 @@ Wisdom Stone - under road sensing system
  ver 1.06.0 date: 23.9.13 - P2P replaced with MiWi
 		- Initial MiWi version
 		- MiWi implementation by Yulia
-		- Debugged and working			
+		- Debugged and working
+ ver 1.07.0 date: 23.10.13 - Initial MiWi network topology printing added
+		- Initial network topology printing after the communication is established
+		- Added by Yulia
+		- Needs more debug		
 		
 ********************************************************************************
 	General:
@@ -41,18 +45,18 @@ this project can be compiled with two main compiler flags:
 - WISDOM_STONE
 - COMMUNICATION_PLUG
 
-other complilation flags:
+other compilation flags:
 - USBCOM - use USB as the wired communication channel
 - RS232  - use the UART as the wired communication channel
 
-WISDOM_STONE //YL editted the description
+WISDOM_STONE // YL edited the description
 ============
-the main process of the stone waits for a command to be recieved from: 
+the main process of the stone waits for a command to be received from: 
 - USB / UART, or 
 - RF TXRX (depends on the #define used)
 then the main calls the relevant function to handle the command.
 
-COMMUNICATION_PLUG //YL editted the description
+COMMUNICATION_PLUG //YL edited the description
 ==================
 the main process of the plug transmits:
 - commands and acknowledgements from the USB to the stone
@@ -84,7 +88,7 @@ _CONFIG2( PLL_96MHZ_ON & IESO_OFF & FCKSM_CSDCMD & POSCMOD_HS & OSCIOFNC_OFF & F
 
 /***** GLOBAL VARIABLES: ******************************************************/
 BYTE	g_sleep_request = 0;				// flag: "1" - need to goto_sleep
-char 	g_curr_msg[MAX_CMD_LEN]; 			// the message string recieved from USB port
+char 	g_curr_msg[MAX_CMD_LEN]; 			// the message string received from USB port
 BOOL	g_usb_connected; 					// YS 17.8 - was usb connected successfully
 
 //OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -146,14 +150,14 @@ int main(void) {
 *******************************************************************************/
 int main(void) {	  //YL 21.4 int main() instead of void main()
   
-    //YL 5.8 - moved: PPS_config(); to init_all 	//YS 17.8	// remappable pins configs 
+    // YL 5.8 - moved: PPS_config() to init_all 	// YS 17.8	// remappable pins configs 
 	init_all();	
 	
 	while (1) {
 #if defined (USBCOM)
 	USB_STATUS usbStatus = USB_ReceiveData();
 
-	//YL 4.8... the backup is next to main
+	// YL 4.8 ... the backup is next to main
 	if (usbStatus == USB_RECEIVED_DATA) {
 		// parse the data from USB, to see if the command is for the plug, 
 		// and if so - execute it; otherwise - we consider it "stone" command (including the case of illegal string) 
@@ -171,17 +175,17 @@ int main(void) {	  //YL 21.4 int main() instead of void main()
 			}
 		}
 	}
-	//...YL 4.8		
+	// ... YL 4.8		
 #endif // USBCOM
 	// YL handle the messages that the stone sends to the plug
-	TxRx_PeriodTasks();	 //YS 25.1													
+	TxRx_PeriodTasks();	 // YS 25.1													
 	}
-	//YL 5.8 commented: while (1);
-	return(0); //YL 21.4 added to avoid warning in case of void main()
+	// YL 5.8 commented: while (1);
+	return(0); // YL 21.4 added to avoid warning in case of void main()
 }
 #endif // COMMUNICATION_PLUG
 
-//YL 4.8 backup...
+// YL 4.8 backup ...
 // if (usbStatus == USB_RECEIVED_DATA) {
 	// strcpy(g_in_msg, g_curr_msg);
 	
@@ -198,5 +202,5 @@ int main(void) {	  //YL 21.4 int main() instead of void main()
 		// }
 	// }
 //}
-//...YL 4.8
+// ... YL 4.8
 
