@@ -99,7 +99,7 @@ void  __attribute__((interrupt, auto_psv)) _INT3Interrupt(void) { //YL 8.12 TODO
 		#error "CYCLIC_BUFFER_SIZE should be 2,4 or 8"
 	#endif
 
-	// update wptr cyclicly:
+	// update wptr cyclically:
 	g_ads1282_blk_buff_w_ptr = g_ads1282_blk_buff_w_ptr + 4; //sample size is 4 bytes
 	// check for block completion:
 	if ((g_ads1282_blk_buff_w_ptr & 0x01FF) >= (MAX_BLOCK_SIZE - 8)) {				//if reached max num of bytes in block	
@@ -115,7 +115,7 @@ void  __attribute__((interrupt, auto_psv)) _INT3Interrupt(void) { //YL 8.12 TODO
 
 /*******************************************************************************
 // init_ads1282()
-// initialize the ADS1282 and ints environment
+// initialize the ADS1282 and its environment
 // this is done on Wistone power-up sequence, when ADS1282 should be turned off.
 // therefore, we don't need to init its registers.
 // - check for presence (WHO_AM_I)
@@ -170,7 +170,7 @@ int init_ads1282(void) {
 // ads1282_active()
 // when received "app start" command, activate the ADS1282
 //
-// - check existance of required power sources: 5v, 12v, -12v
+// - check existence of required power sources: 5v, 12v, -12v
 // - configure internal registers for defaults
 // - enable INT3 ISR to handle sample reads
 // - init gobal variables
@@ -185,7 +185,7 @@ int ads1282_active(void)
 	// init global variables:
 	g_ads1282_blk_overflow_cntr = 0;
 	g_ads1282_blk_buff_w_ptr = 0;
-	// check the existance of the ADS1282 chip in the system;
+	// check the existence of the ADS1282 chip in the system;
 	// read ID register: RREG addr: 0, len: 1 
 	if (ads1282_reg_read("2000", reply) != 0)
 		return(err(ERR_ADS1282_UNKOWN_ID));
@@ -217,14 +217,14 @@ void ads1282_standby(void)
 /*******************************************************************************
 // ads1282_reg_write()
 // write byte sequence to ADS1282
-// the byte sequence contains: commad (+ data)
+// the byte sequence contains: command (+ data)
 // notes:
 // - a delay of 24 f_clk cycles (6 uSec) is required between each byte transaction
 // - sclk minimum cycle is 2 f_clk (0.5 uSec)
 // - ADS1282 samples the data at the rising edge of Sclk
 // input:
 // - string, null terminated - command (+ data) - HEX represented command bytes and data bytes.
-//		(normaly 2 bytes for command, and the rest of bytes for data, represented by x2 HEX characters)
+//		(normally 2 bytes for command, and the rest of bytes for data, represented by x2 HEX characters)
 // return:
 // -  0   - on success
 // - (-1) - on failure
@@ -310,8 +310,8 @@ int  ads1282_reg_read(char *command, char* reply)
 	if (ads1282_reg_write(command) != 0)
 		return(-1);
 
-	// now, we expect to read the replyed bytes, as we generate Sclk
-	// extruct the number of expected bytes in reply from the second command byte
+	// now, we expect to read the replied bytes, as we generate Sclk
+	// extract the number of expected bytes in reply from the second command byte
 	if ((command[2] >= 'a') && (command[2] <= 'f'))
 		MSnibble = (command[2] - 'a') << 4;
 	else if ((command[2] >= 'A') && (command[2] <= 'F'))

@@ -225,7 +225,7 @@ char*	skip_token(char *p);
 /*******************************************************************************
 * Function: 	
 *		tokenize()
-* Descrption:
+* Description:
 *		Split command into parsable tokens.
 * Parameters:
 *		msg - input message to split into tokens.
@@ -265,7 +265,7 @@ void tokenize(char *msg) {
 /*******************************************************************************
 * Function: 	
 *		skip_sep()
-* Descrption:
+* Description:
 *		Skip delimiters (' ', '\t', ',') between the tokens inside the message.
 * Parameters:
 *		p - a pointer to a string that needs to skip the delimiters 
@@ -281,7 +281,7 @@ char *skip_sep(char *p) {
 /*******************************************************************************
 * Function: 	
 *		skip_token()
-* Descrption:
+* Description:
 *		Skip tokens to a nearest delimiter inside the message (' ', '\t', ',')
 * Parameters:
 *		p - a pointer to a string that needs to skip the tokens 
@@ -301,7 +301,7 @@ char *skip_token(char *p) {
 /*******************************************************************************
 * Function: 	
 *		parse_long_num()
-* Descrption:
+* Description:
 *		Parse string to long number of 32 bits.
 * Parameters:
 *		str - input string.
@@ -335,7 +335,7 @@ long parse_long_num(char *str) {
 /*******************************************************************************
 * Function: 	
 *		parse_int_num()
-* Descrption:
+* Description:
 *		Parse string to int number of 16 bits.
 * Parameters:
 *		str - input string.
@@ -348,7 +348,7 @@ long parse_long_num(char *str) {
 * Side effects:
 *		None
 *******************************************************************************/
-int parse_int_num(char *str) { //YL 5.8 rewrited
+int parse_int_num(char *str) { //YL 5.8 rewritten
 
 	// YL 5.8 was: return (0xFFFF & parse_long_num(str));
 	
@@ -371,7 +371,7 @@ int parse_int_num(char *str) { //YL 5.8 rewrited
 /*******************************************************************************
 * Function: 	
 *		parse_byte_num()
-* Descrption:
+* Description:
 *		Parse string to byte number of 8 bits.
 * Parameters:
 *		str - input string.
@@ -387,7 +387,7 @@ int parse_int_num(char *str) { //YL 5.8 rewrited
 *		We return (-1) to indicate receiving invalid input,
 *		therefore - the return-type (which is int) need to be casted to BYTE 
 *******************************************************************************/
-int parse_byte_num(char *str) { //YL 5.8 rewrited
+int parse_byte_num(char *str) { //YL 5.8 rewritten
 	
 	int res = parse_int_num(str);
 	
@@ -408,7 +408,7 @@ int parse_byte_num(char *str) { //YL 5.8 rewrited
 /*******************************************************************************
 * Function: 	
 *		parse_name()
-* Descrption:
+* Description:
 *		Find a given string inside a list of strings.
 * Parameters:
 *		name - the string we are looking for
@@ -441,7 +441,7 @@ int parse_name(char *name, char **namelist, int listlen) {
 /*******************************************************************************
 * Function: 	
 *		parse_command()
-* Descrption:
+* Description:
 *		Look for the current command in the list of possible commands.
 * Parameters:
 *		name - the string we are looking for
@@ -458,7 +458,7 @@ int parse_command(char *name) {
 /*******************************************************************************
 * Function: 	
 *		parse_sub_command()
-* Descrption:
+* Description:
 *		Look for the current sub command in the list of possible sub commands.
 * Parameters:
 *		name - the string we are looking for
@@ -475,7 +475,7 @@ int parse_sub_command(char *name) {
 /*******************************************************************************
 * Function: 	
 *		parse_device()
-* Descrption:
+* Description:
 *		Look for the current device name in the list of possible devices.
 * Parameters:
 *		name - the string we are looking for
@@ -489,7 +489,7 @@ int parse_device(char *name) {
 	int res = parse_name(name, g_dev_names, N_DEVICES);
 
 	if (res < 0) {
-		err_clear(); // make sure following error superseed any prev one
+		err_clear(); // make sure following error superseded any prev one
 		return err(ERR_INVALID_DEVICE);
 	}
 	return res;
@@ -498,7 +498,7 @@ int parse_device(char *name) {
 /*******************************************************************************
 * Function: 	
 *		parse_mode()
-* Descrption:
+* Description:
 *		Look for the current mode name in the list of possible app modes.
 * Parameters:
 *		name - the string we are looking for
@@ -512,7 +512,7 @@ int parse_mode(char *name) {
 	int res = parse_name(name, g_mode_names, N_MODES);
 
 	if (res < 0) {
-		err_clear(); // make sure following error superseed any prev one
+		err_clear(); // make sure following error superseded any prev one
 		err(ERR_INVALID_MODE);
 	}
 	return res;
@@ -521,7 +521,7 @@ int parse_mode(char *name) {
 /*******************************************************************************
 * Function: 	
 *		parse_communication()
-* Descrption:
+* Description:
 *		look for the current communication type in the list of possible communication types 
 * Parameters:
 *		name - the string we are looking for
@@ -535,7 +535,7 @@ int parse_communication(char *name) {
 	int res = parse_name(name, g_comm_names, N_COMMUNICATIONS);
 
 	if (res < 0) {
-		err_clear(); // make sure following error superseed any prev one
+		err_clear(); // make sure following error superseded any prev one
 		err(ERR_INVALID_COMM);
 	}
 	return res;
@@ -544,7 +544,7 @@ int parse_communication(char *name) {
 /*******************************************************************************
 * Function: 	
 *		parse_sampler()
-* Descrption:
+* Description:
 *		Look for the current sampler in the list of possible app samplers.
 * Parameters:
 *		name - the string we are looking for
@@ -558,7 +558,7 @@ int parse_single_dual_mode(char *name) {
 	int res = parse_name(name, g_samp_names, N_SAMPLERS);
 
 	if (res < 0) {
-		err_clear(); // make sure following error superseed any prev one
+		err_clear(); // make sure following error superseded any prev one
 		err(ERR_INVALID_SAMP);
 	}
 	return res;
@@ -573,7 +573,7 @@ int parse_single_dual_mode(char *name) {
 /*******************************************************************************
 * Function: 	
 *		handle_plug_msg()
-* Descrption:
+* Description:
 *		Parse the message that USB sent to the plug:
 *		- performs some checks of input validity
 *		- parses global g_curr_msg and removes the prefix with 
@@ -607,7 +607,7 @@ int handle_plug_msg(void) {
 	if ((dest == PLUG_NWK_ADDR_EUI0) && (strcmp("reconnect", g_tokens[1]) != 0)) {		// so far - "reconnect" is the only plug command		
 		return cmd_error(ERR_UNKNOWN_CMD);
 	}
-	if ((strcmp("app", g_tokens[1]) == 0) && (strcmp("stop", g_tokens[2]) == 0)) {	// the command is "app stop"
+	if ((strcmp("app", g_tokens[1]) == 0) && (strcmp("stop", g_tokens[2]) == 0)) {		// the command is "app stop"
 		isAppStop = TRUE;
 	}
 
@@ -631,7 +631,7 @@ int handle_plug_msg(void) {
 /*******************************************************************************
 * Function: 	
 *		handle_msg()
-* Descrption:
+* Description:
 *		- break the message into its tokens
 *		- parse COMMAND (first token)
 *		- according to COMMAND, call the relevant function
@@ -739,7 +739,7 @@ int handle_msg(char *msg) {	// YL TODO - make sure the command is executed only 
 /*******************************************************************************
 * Function: 	
 *		handle_write()
-* Descrption:
+* Description:
 *		 if first token was WRITE, then handle WRITE command message:
 * 		- parse DEVICE
 * 		- parse ADDRESS
@@ -834,7 +834,7 @@ int handle_write(void) {
 /*******************************************************************************
 * Function: 	
 *		handle_read()
-* Descrption:
+* Description:
 *		 if first token was READ, then handle READ command message:
 * 		- parse DEVICE
 * 		- parse ADDRESS

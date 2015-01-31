@@ -87,7 +87,7 @@ Description:
          coding style
 
   2.6    Removed many of the device specific information to the
-         HAL layer files.  Moved many of the CH9 defintions to the
+         HAL layer files.  Moved many of the CH9 definitions to the
          CH9 file.
 
   2.6a   No Change
@@ -105,13 +105,11 @@ Description:
 
 ********************************************************************/
 
-//AY 7.8 the file was replaced
-
 #ifndef USBDEVICE_H
 #define USBDEVICE_H
 //DOM-IGNORE-END
 
-/** DEFINITIONS ****************************************************/
+/** DEFINITIONS ***************************************************************/
 
 //USB_HANDLE is a pointer to an entry in the BDT.  This pointer can be used
 //  to read the length of the last transfer, the status of the last transfer,
@@ -127,10 +125,10 @@ Description:
 #define USB_EP0_NO_OPTIONS     0x00     //no options set
 
 
-/********************************************************************
+/*******************************************************************************
  * Standard Request Codes
  * USB 2.0 Spec Ref Table 9-4
- *******************************************************************/
+ ******************************************************************************/
 
 /* USB Device States as returned by USBGetDeviceState().  Only the definitions
    for these states should be used.  The actual value for each state should
@@ -142,7 +140,7 @@ typedef enum
     the D+ or D- line.  */
     DETACHED_STATE 
     /*DOM-IGNORE-BEGIN*/    = 0x00                         /*DOM-IGNORE-END*/,
-    /* Attached is the state in which the device is attached ot the bus but the
+    /* Attached is the state in which the device is attached to the bus but the
     hub/port that it is attached to is not yet configured. */
     ATTACHED_STATE
     /*DOM-IGNORE-BEGIN*/    = 0x01                         /*DOM-IGNORE-END*/,
@@ -166,7 +164,7 @@ typedef enum
     ADDRESS_STATE
     /*DOM-IGNORE-BEGIN*/    = 0x10                         /*DOM-IGNORE-END*/,
     /* Configured is the state where the device has been fully enumerated and is
-    operating on the bus.  The device is now allowed to excute its application
+    operating on the bus.  The device is now allowed to execute its application
     specific tasks.  It is also allowed to increase its current consumption to the
     value specified in the configuration descriptor of the current configuration.
     */
@@ -187,7 +185,7 @@ typedef enum
 
     // An endpoint 0 request was received that the stack did not know how to
     // handle.  This is most often a request for one of the class drivers.  
-    // Please refer to the class driver documenation for information related
+    // Please refer to the class driver documentation for information related
     // to what to do if this request is received. (device)
     EVENT_EP0_REQUEST,
 
@@ -228,14 +226,14 @@ typedef enum
 } USB_DEVICE_STACK_EVENTS;
 
 
-/** Function Prototypes **********************************************/
+/** Function Prototypes *******************************************************/
 
 
 /******************************************************************************/
 /** External API Functions ****************************************************/
 /******************************************************************************/
 
-/**************************************************************************
+/*******************************************************************************
     Function:
         void USBDeviceInit(void)
     
@@ -257,11 +255,11 @@ typedef enum
     Remarks:
         None
                                                           
-  **************************************************************************/
+  *****************************************************************************/
 void USBDeviceInit(void);
 
 
-/**************************************************************************
+/*******************************************************************************
   Function:
         void USBDeviceTasks(void)
     
@@ -363,7 +361,7 @@ void USBDeviceInit(void);
     the USBDeviceAttach() and USBDeviceDetach() API documentation for additional 
     considerations.
                      
-  **************************************************************************/
+  *****************************************************************************/
 void USBDeviceTasks(void);
 
 
@@ -419,7 +417,7 @@ void USBDeviceTasks(void);
 void USBEnableEndpoint(BYTE ep, BYTE options);
 
 
-/*************************************************************************
+/*******************************************************************************
   Function:
     USB_HANDLE USBTransferOnePacket(BYTE ep, BYTE dir, BYTE* data, BYTE len)
     
@@ -451,7 +449,7 @@ void USBEnableEndpoint(BYTE ep, BYTE options);
 
     Typical Usage
     <code>
-    //make sure that the we are in the configured state
+    //make sure that we are in the configured state
     if(USBGetDeviceState() == CONFIGURED_STATE)
     {
         //make sure that the last transaction isn't busy by checking the handle
@@ -598,7 +596,7 @@ void USBCancelIO(BYTE endpoint);
     Remarks:
         If the application firmware calls USBDeviceDetach(), it is strongly
         recommended that the firmware wait at least >= 80ms before calling
-        USBDeviceAttach().  If the firmeware performs a soft detach, and then
+        USBDeviceAttach().  If the firmware performs a soft detach, and then
         re-attaches too soon (ex: after a few micro seconds for instance), some
         hosts may interpret this as an unexpected "glitch" rather than as a
         physical removal/re-attachment of the USB device.  In this case the host
@@ -607,7 +605,7 @@ void USBCancelIO(BYTE endpoint);
         detach/re-attach, it is recommended to make sure the device remains 
         detached long enough to mimic a real human controlled USB 
         unplug/re-attach event (ex: after calling USBDeviceDetach(), do not
-        call USBDeviceAttach() for at least 80+ms, preferrably longer.
+        call USBDeviceAttach() for at least 80+ms, preferably longer.
         
         Neither the USBDeviceDetach() or USBDeviceAttach() functions are blocking
         or take long to execute.  It is the application firmware's 
@@ -633,13 +631,13 @@ void USBCancelIO(BYTE endpoint);
         When using the USB_POLLING mode option, and the 
         "#define USE_USB_BUS_SENSE_IO" definition has been commented out, then 
         the USB stack assumes that it should always enable the USB module at 
-        pretty much all times.  Basically, anytime the application firmware 
+        pretty much all times.  Basically, any time the application firmware 
         calls USBDeviceTasks(), the firmware will automatically enable the USB 
         module.  This mode would typically be selected if the application was 
         designed to be a purely bus powered device.  In this case, the 
         application is powered from the +5V VBUS supply from the USB port, so 
         it is correct and sensible in this type of application to power up and 
-        turn on the USB module, at anytime that the microcontroller is 
+        turn on the USB module, at any time that the microcontroller is 
         powered (which implies the USB cable is attached and the host is also 
         powered).
 
@@ -675,7 +673,7 @@ void USBDeviceDetach(void);
     
     Summary:
         Checks if VBUS is present, and that the USB module is not already 
-        initalized, and if so, enables the USB module so as to signal device 
+        initialized, and if so, enables the USB module so as to signal device 
         attachment to the USB host.   
 
     Description:
@@ -793,7 +791,7 @@ void USBCtrlEPAllowDataStage(void);
            pending control transfer.  Therefore, the USB stack will not STALL
            when it reaches the data stage of the control transfer, even if the
            firmware has not (yet) called the USBEP0Receive() API function.  
-           However, the application firware must still (eventually, once it is 
+           However, the application firmware must still (eventually, once it is 
            ready) call one of the aforementioned API function.
            
            Example Usage:
@@ -873,7 +871,7 @@ extern volatile BOOL USBDeferOUTDataStagePackets;
             USB host, through EP0 using control transfers.  Now assume that this
             application wishes to do something time consuming with this data (ex:
             transmit it to and save it to an external EEPROM device, connected 
-            via SPI/I2C/etc.).  In this case, it would typically be desireable to
+            via SPI/I2C/etc.).  In this case, it would typically be desirable to
             defer allowing the USB status stage of the control transfer to complete,
             until after the data has been fully sent to the EEPROM device and saved.
             
@@ -995,7 +993,7 @@ BOOL USBOUTDataStageDeferred(void);
            pending control transfer.  Therefore, the USB stack will not STALL
            when it reaches the data stage of the control transfer, even if the
            firmware has not (yet) called the USBEP0SendRAMPtr() or 
-           USBEP0SendROMPtr() API function.  However, the application firware 
+           USBEP0SendROMPtr() API function.  However, the application firmware 
            must still (eventually, once it is ready) call one of the 
            aforementioned API functions.
            
@@ -1017,7 +1015,7 @@ BOOL USBOUTDataStageDeferred(void);
                 then the hardware will NAK the IN token packets sent by the
                 host, for the IN data stage.
            5.  Once the firmware is ready, and has successfully prepared the
-                data to be sent to the host in fulfillment of the control
+                data to be sent to the host in fulfilment of the control
                 transfer, it should then call USBEP0SendRAMPtr() or
                 USBEP0SendROMPtr(), to prepare the USB stack to know how many
                 bytes to send to the host, and from what source location.
@@ -1257,7 +1255,7 @@ USB_DEVICE_STATE USBGetDeviceState(void);
     currently suspended. When suspended, it will not be able to transfer data 
     over the bus.
     This function can be used by the application to skip over section of
-    code that do not need to exectute if the device is unable to send data
+    code that do not need to execute if the device is unable to send data
     over the bus.  This function can also be used to help determine when it is 
     legal to perform USB remote wakeup signalling, for devices supporting this
     feature.  
@@ -1351,7 +1349,7 @@ BOOL USBIsDeviceSuspended(void);
     <code>
     if((USBIsBusSuspended() == TRUE) && (USBGetRemoteWakeupStatus() == TRUE))
     {
-        //Check if some stimulus occured, which will be used as the wakeup source
+        //Check if some stimulus occurred, which will be used as the wakeup source
         if(sw3 == 0)
         {
             USBCBSendResume();  //Send the remote wakeup signalling to the host
@@ -1523,7 +1521,7 @@ WORD USBHandleGetAddr(USB_HANDLE);
         ping pong buffering will be used on application endpoints.
     PreCondition:
         Will return NULL if the USB device has not yet been configured/the 
-        endpoint specified has not yet been initalized by USBEnableEndpoint().
+        endpoint specified has not yet been initialized by USBEnableEndpoint().
     Parameters:
         BYTE ep_num - The endpoint number to get the handle for (valid 
             values are 1-15,  0 is not a valid input value for this API)
@@ -1535,7 +1533,7 @@ WORD USBHandleGetAddr(USB_HANDLE);
             given ep_num and ep_dir
     Remarks:
         This API is useful for initializing USB_HANDLEs during initialization of
-        the application firmware.  It is also useful when ping-pong bufferring is
+        the application firmware.  It is also useful when ping-pong buffering is
         enabled, and the application firmware wishes to arm both the even and odd
         BDTs for an endpoint simultaneously.  In this case, the application 
         firmware for sending data to the host would typically be something like 
@@ -1622,7 +1620,7 @@ USB_HANDLE USBGetNextHandle(BYTE ep_num, BYTE ep_dir);
     PreCondition:
         None
         
-    Paramters:
+    Parameters:
         options - the various options that you want
                   when sending the control data. Options are:
                        USB_EP0_ROM
@@ -1721,12 +1719,12 @@ void USBEP0SendROMPtr(BYTE* src, WORD size, BYTE Options);
     None
   Input:
     dest -        address of where the incoming data will go (make sure that this
-                  address is directly accessable by the USB module for parts with
+                  address is directly accessible by the USB module for parts with
                   dedicated USB RAM this address must be in that space)
-    size -        the size of the data being received (is almost always going tobe
-                  presented by the preceeding setup packet SetupPkt.wLength)
+    size -        the size of the data being received (is almost always going to
+                  be presented by the preceding setup packet SetupPkt.wLength)
     (*function) - a function that you want called once the data is received. If
-                  this is specificed as NULL then no function is called.
+                  this is specified as NULL then no function is called.
   Remarks:
     None                                                                    
   ***************************************************************************/
@@ -1900,8 +1898,8 @@ void *USBDeviceCBGetDescriptor (    UINT16 *length,
 #define DESC_CONFIG_DWORD(a) (a&0xFF),((a>>8)&0xFF),((a>>16)&0xFF),((a>>24)&0xFF)
 
 /* The DESC_CONFIG_BYTE() macro is implemented for convenience.  The 
-    DESC_CONFIG_BYTE() macro provides a consistant macro for use with a byte
-    when generating a configuratin descriptor when using either the 
+    DESC_CONFIG_BYTE() macro provides a consistent macro for use with a byte
+    when generating a configuration descriptor when using either the 
     DESC_CONFIG_WORD() or DESC_CONFIG_DWORD() macros.
 */
 #define DESC_CONFIG_BYTE(a) (a)
@@ -1941,7 +1939,7 @@ void *USBDeviceCBGetDescriptor (    UINT16 *length,
 #define CTRL_TRF_RETURN void
 #define CTRL_TRF_PARAMS void
 
-// Defintion of the PIPE structure
+// Definition of the PIPE structure
 //  This structure is used to keep track of data that is sent out
 //  of the stack automatically.
 typedef struct __attribute__ ((packed))

@@ -138,13 +138,13 @@
      *
      * Parameters:           
      *      BOOL bNetworkFreezer -  Network Freezer is a feature for Microchip proprietary
-     *                              protocol. When this feature is enbaled, all critical 
-     *                              network information can be saved in nonvotile memory,
+     *                              protocol. When this feature is enabled, all critical 
+     *                              network information can be saved in non-volatile memory,
      *                              so that after power cycle, the network can be restored 
      *                              to its original state before the power lost without 
      *                              any communication. When Network Freezer feature is enabled
      *                              and the input parameter of bNetworkFreezer is TRUE, the
-     *                              initialization process will restore the network paramaters.
+     *                              initialization process will restore the network parameters.
      *                  
      * Returns: 
      *      None
@@ -217,7 +217,7 @@
      *
      * Description:        
      *      This is the primary user interface function for the application layer to 
-     *      a PAN. Usually, this fucntion is called by the PAN Coordinator who is the
+     *      a PAN. Usually, this function is called by the PAN Coordinator who is the
      *      first in the PAN. The PAN Coordinator may start the PAN after a noise scan
      *      if specified in the input mode. 
      *
@@ -307,7 +307,7 @@
      *
      * Summary:
      *      This function perform an active scan to locate operating PANs in the
-     *      neighborhood.
+     *      neighbourhood.
      *
      * Description:        
      *      This is the primary user interface function for the application layer to 
@@ -465,7 +465,7 @@
      *                                              table.
      *                      * ENABLE_ACTIVE_SCAN_RSP    Enable response to active scan only
      *                      * DISABLE_ALL_CONN      Disable response to connection request, including
-     *                                              an acitve scan request.
+     *                                              an active scan request.
      *
      * Returns: 
      *      None
@@ -563,7 +563,7 @@
      *                      secured before transmission.
      *
      * Returns: 
-     *      A boolean to indicates if the broadcast procedure is succcessful.
+     *      A boolean to indicates if the broadcast procedure is successful.
      *
      * Example:
      *      <code>
@@ -601,7 +601,7 @@
      *                      secured before transmission.
      *
      * Returns: 
-     *      A boolean to indicates if the unicast procedure is succcessful.
+     *      A boolean to indicates if the unicast procedure is successful.
      *
      * Example:
      *      <code>
@@ -641,7 +641,7 @@
      *                      secured before transmission.
      *
      * Returns: 
-     *      A boolean to indicates if the unicast procedure is succcessful.
+     *      A boolean to indicates if the unicast procedure is successful.
      *
      * Example:
      *      <code>
@@ -706,7 +706,7 @@
      *      for the application. The function will call the protocol stack state machine
      *      to keep the stack running. It is expected that this function should be called
      *      periodically in the application. In case a message is available, all information
-     *      related to the recevied message will be stored in the global variable RxMessage
+     *      related to the received message will be stored in the global variable RxMessage
      *      in the format of RECEIVED_MESSAGE.
      *
      * PreCondition:    
@@ -905,7 +905,7 @@
      *      Transceiver has been initialized
      *
      * Parameters:      
-     *      DWORD ChannelMap -  The bit map of the candicate channels
+     *      DWORD ChannelMap -  The bit map of the candidate channels
      *                          which can be hopped to
      *                  
      * Returns: 
@@ -937,7 +937,7 @@
      *      lost connection. For a RFD device that goes to sleep periodically, it may not 
      *      receive the channel hopping command that is sent when it is sleep. The sleeping 
      *      RFD device depends on this function to hop to the channel that the rest of
-     *      the PAN has jumped to. This function call is usually triggered by continously 
+     *      the PAN has jumped to. This function call is usually triggered by continuously 
      *      communication failure with the peers.
      *
      * PreCondition:    

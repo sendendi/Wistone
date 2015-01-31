@@ -21,11 +21,14 @@ int 	cmd_error(int errid);
 void 	write_eol(void);
 void 	b_write(BYTE* block_buffer, int len);	
 void 	m_write(char *str);	
-void 	m_write_debug(char *str); //YL 20.4 added m_write_debug
 void 	PrintChar(BYTE toPrint);
 void 	PrintDec(BYTE toPrint);
 void 	ConsolePut(BYTE c);
 void 	blink_led();
-void	blink_buzz(); //YL 7.5
+void	blink_buzz(); // YL 7.5
+#if defined DEBUG_PRINT
+void 	m_write_debug(char *str); 	// YL 12.1 edited m_write_debug
+void	put_char_debug(void);
+#endif
 
 #endif //#ifndef __COMMAND_H__

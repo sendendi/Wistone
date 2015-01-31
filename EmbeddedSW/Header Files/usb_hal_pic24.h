@@ -14,7 +14,7 @@ Description:
     The USB related special function registers and bit names are generally very
     similar between the device families, but small differences in naming exist.
     
-    In order to make the same set of firmware work accross the device families,
+    In order to make the same set of firmware work across the device families,
     when modifying SFR contents, a slightly abstracted name is used, which is
     then "mapped" to the appropriate real name in the usb_hal_picxx.h header.
     
@@ -53,7 +53,7 @@ Description:
  This file defines the interface to the USB hardware abstraction layer.
 
  Filename:        usb_hal_pic24.h
- Dependancies:    none
+ Dependencies:    none
  Processor:       PIC24F USB Microcontrollers
  Hardware:        PIC24F USB Microcontrollers
  Compiler:        Microchip C30 (for PIC24)
@@ -86,7 +86,7 @@ Description:
  Change History:
   Rev    Description
   ----   -----------
-  2.6    Changed the inplementation of the interrupt clearing macro
+  2.6    Changed the implementation of the interrupt clearing macro
          to be more efficient. 
 
   2.6a   Added DisableNonZeroEndpoints() function 
@@ -121,7 +121,7 @@ Description:
 /****** Constant definitions *************************************************/
 /*****************************************************************************/
 
-//----- USBEnableEndpoint() input defintions ----------------------------------
+//----- USBEnableEndpoint() input definitions ----------------------------------
 #define USB_HANDSHAKE_ENABLED           0x01
 #define USB_HANDSHAKE_DISABLED          0x00
 
@@ -148,7 +148,7 @@ Description:
 
 #define USB_OTG_ENABLE                  0x04
 
-//----- Interrupt Flag definitions --------------------------------------------
+//----- Interrupt Flag definitions ---------------------------------------------
 #define USBTransactionCompleteIE        U1IEbits.TRNIE
 #define USBTransactionCompleteIF        U1IRbits.TRNIF
 #define USBTransactionCompleteIFReg     U1IR
@@ -194,7 +194,7 @@ Description:
 #define USBIDIFReg                      U1OTGIR
 #define USBIDIFBitNum                   7
 
-//----- Event call back defintions --------------------------------------------
+//----- Event call back definitions --------------------------------------------
 #if defined(USB_DISABLE_SOF_HANDLER)
     #define USB_SOF_INTERRUPT           0x00
 #else
@@ -206,14 +206,14 @@ Description:
     #define USB_ERROR_INTERRUPT         0x02
 #endif
 
-//----- USB module control bits -----------------------------------------------
+//----- USB module control bits ------------------------------------------------
 #define USBPingPongBufferReset          U1CONbits.PPBRST
 #define USBSE0Event                     U1CONbits.SE0
 #define USBSuspendControl               U1PWRCbits.USUSPEND
 #define USBPacketDisable                U1CONbits.PKTDIS
 #define USBResumeControl                U1CONbits.RESUME
 
-//----- BDnSTAT bit definitions -----------------------------------------------
+//----- BDnSTAT bit definitions ------------------------------------------------
 #define _BSTALL                         0x04        //Buffer Stall enable
 #define _DTSEN                          0x08        //Data Toggle Synch enable
 #define _DAT0                           0x00        //DATA0 packet expected next
@@ -242,8 +242,8 @@ Description:
 // Cfg Control pipe for this ep
 #define EP_CTRL                         0x0C        
 
-//----- Depricated defintions - will be removed at some point of time----------
-//--------- Depricated in v2.2
+//----- Deprecated definitions - will be removed at some point of time----------
+//--------- Deprecated in v2.2
 #define _LS                             0x00        // Use Low-Speed USB Mode
 #define _FS                             0x00        // Use Full-Speed USB Mode
 #define _TRINT                          0x00        // Use internal transceiver
@@ -334,7 +334,7 @@ typedef union _POINTER
 
     BYTE* bRam;                         // Ram byte pointer: 2 bytes pointer pointing
                                         // to 1 byte of data
-    WORD* wRam;                         // Ram word pointer: 2 bytes poitner pointing
+    WORD* wRam;                         // Ram word pointer: 2 bytes pointer pointing
                                         // to 2 bytes of data
 
     ROM BYTE* bRom;                     // Size depends on compiler setting
@@ -375,7 +375,7 @@ typedef union _POINTER
 #if (USB_PULLUP_OPTION == USB_PULLUP_ENABLE) || !defined(USB_PULLUP_OPTION)
     #define PullUpConfiguration() U1OTGCONbits.OTGEN = 0;
 #else
-    #define PullUpConfiguration() U1OTGCONbits.OTGEN = 1; U1OTGCON &= 0xFF0F;
+    #define PullUpConfiguration() U1OTGCONbits.OTGEN = 1; U1OTGCON &= 0xFF0F; // YL 3.11 full-speed device mode requires enabling the pull up on D+ (bit #7), low-speed requires enabling the pull up on D- (bit #6); remember - negative logic!  
 #endif
 
     #define SetConfigurationOptions()   {\
@@ -487,7 +487,7 @@ BOOL USBSleepOnSuspend(void);
         Clears all of the interrupts in the requested register
         
     Parameters:
-        register - the regsister that needs to be cleared.
+        register - the register that needs to be cleared.
         
     Return Values:
         None

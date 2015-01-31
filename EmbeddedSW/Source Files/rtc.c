@@ -50,7 +50,7 @@ int 	rtc_set_time_date(TimeAndDate* tad);
 int 	rtc_set_wakeup(BYTE delay);						//YL 16.9
 char* 	weekday_to_str(BYTE weekday);					//YL 21.8
 BOOL 	check_date(BYTE day, BYTE month, BYTE year);	//YL 27.8
-static 	void	f_write(char* str);						//YL 27.8
+static 	void	f_write(char* str, char** f_str);		//YL 29.12
 
 /*******************************************************************************
 // init_rtc()
@@ -247,21 +247,27 @@ char* weekday_to_str(BYTE weekday)	//YL 21.8
 // f_write()
 // formatted printing: add leading '0' if needed to output any number as 2 digit string 
 *******************************************************************************/
-static void f_write(char* str)  //YL 28.8
-{
+static void f_write(char* str, char** f_str)  // YL 29.12 for more effective wireless transmissions
+{	
 	int len = strlen(str);
 	if (len == 1) {
-		m_write("0");
-		m_write(str);
+		// was:
+		// m_write("0");
+		// m_write(str);
+		strcpy(*f_str, "0");
+		strcat(*f_str, str);
 	} else if (len == 2) {
-		m_write(str);
+		// was: m_write(str);
+		strcpy(*f_str, str);
 	} else
-		m_write("00");
+		// was: m_write("00");
+		strcpy(*f_str, "00");
+		// ... YL 29.12
 }
 
 /*******************************************************************************
 // check_date()
-// check whever day, month and year yield legal setting
+// check whether day, month and year yield legal setting
 *******************************************************************************/
 BOOL check_date(BYTE day, BYTE month, BYTE year)	//YL 27.8	
 {	
@@ -447,30 +453,61 @@ int handle_rtc(int sub_cmd)
 	TimeAndDate tad;
 	Alarm alm;
 	int res = 0;
-			
+	
+	// YL 29.12 ... added f_str, ptr_f_str and data_to_print for more effective wireless transmissions
+	char f_str[10];
+	char* ptr_f_str = f_str;
+	char data_to_print[40];	
+	
 	// dispatch to the relevant sub command function according to sub command
 	switch (sub_cmd) {
 	case SUB_CMD_GTIME:
-		res = rtc_get_time_date(&tad);	
-		m_write("Wistone TIME: "); 				//YL 11.8 instead sprintf 
-		f_write(byte_to_str(tad.time.hour));
-		m_write(":");
-		f_write(byte_to_str(tad.time.minute));
-		m_write(":");
-		f_write(byte_to_str(tad.time.second));
+		res = rtc_get_time_date(&tad);
+		// was: 
+		// m_write("Wistone TIME: "); 				
+		// f_write(byte_to_str(tad.time.hour));
+		// m_write(":");
+		// f_write(byte_to_str(tad.time.minute));
+		// m_write(":");
+		// f_write(byte_to_str(tad.time.second));
+		strcpy(data_to_print, "Wistone TIME: ");
+		f_write(byte_to_str(tad.time.hour), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		strcat(data_to_print, ":");
+		f_write(byte_to_str(tad.time.minute), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		strcat(data_to_print, ":");
+		f_write(byte_to_str(tad.time.second), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		m_write(data_to_print);
+		// ... YL 29.12
 		write_eol();
 	break;
 		
-	case SUB_CMD_GDATE:
-		res = rtc_get_time_date(&tad); 	
-		m_write("Wistone DATE: ");				//YL 11.8 instead sprintf 
-		f_write(byte_to_str(tad.date.day));
-		m_write("/");
-		f_write(byte_to_str(tad.date.month));
-		m_write("/");
-		f_write(byte_to_str(tad.date.year));
-		m_write(" - ");
-		m_write(weekday_to_str(tad.weekday));		
+	case SUB_CMD_GDATE:	
+		res = rtc_get_time_date(&tad);
+		// was:
+		// m_write("Wistone DATE: ");				 
+		// f_write(byte_to_str(tad.date.day));
+		// m_write("/");
+		// f_write(byte_to_str(tad.date.month));
+		// m_write("/");
+		// f_write(byte_to_str(tad.date.year));
+		// m_write(" - ");
+		// m_write(weekday_to_str(tad.weekday));
+		strcpy(data_to_print, "Wistone DATE: ");
+		f_write(byte_to_str(tad.date.day), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		strcat(data_to_print, "/");	
+		f_write(byte_to_str(tad.date.month), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		strcat(data_to_print, "/");
+		f_write(byte_to_str(tad.date.year), (&ptr_f_str));
+		strcat(data_to_print, ptr_f_str);
+		strcat(data_to_print, " - ");
+		strcat(data_to_print, weekday_to_str(tad.weekday));
+		m_write(data_to_print);		
+		// ... YL 29.12
 		write_eol();
 	break;
 		

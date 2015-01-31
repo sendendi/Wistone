@@ -428,7 +428,7 @@ typedef union
 /****** Event callback enabling/disabling macros ********************
     This section of code is used to disable specific USB events that may not be
     desired by the user.  This can save code size and increase throughput and
-    decrease CPU utiliazation.
+    decrease CPU utilization.
 ********************************************************************/
 #if defined USB_DISABLE_SUSPEND_HANDLER
     #define USB_SUSPEND_HANDLER(event,pointer,size) 
@@ -465,9 +465,9 @@ typedef union
 #endif
 
 #if defined USB_DISABLE_NONSTANDARD_EP0_REQUEST_HANDLER 
-    #define USB_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)                 
+    #define USB_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)    // YL 4.11 in v2011-10-05  #define USB_DISABLE_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)             
 #else
-    #define USB_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)       USER_USB_CALLBACK_EVENT_HANDLER(event,pointer,size)
+    #define USB_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)       USER_USB_CALLBACK_EVENT_HANDLER(event,pointer,size)	// YL 4.11 in v2011-10-05 #define USB_DISABLE_NONSTANDARD_EP0_REQUEST_HANDLER(event,pointer,size)       USER_USB_CALLBACK_EVENT_HANDLER(event,pointer,size)
 #endif
 
 #if defined USB_DISABLE_SET_DESCRIPTOR_HANDLER 

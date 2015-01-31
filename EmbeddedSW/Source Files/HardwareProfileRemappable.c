@@ -44,8 +44,8 @@ void PPS_mrf24_config(void);
 //************************************************************
 void PPS_config(){
 
-	analog_init();				// init the analog inputs, all the rest are digital
-
+	analog_init(); // init the analogue inputs, all the rest are digital
+	
 	// Unlock Registers
 	asm volatile ( "MOV #OSCCON, w1 \n"
 	"MOV #0x46, w2 \n"
@@ -82,7 +82,7 @@ void PPS_config(){
 //************************************************************
 // Function PPS_uart2_config()
 //************************************************************
-void PPS_uart2_config(void){
+void PPS_uart2_config(void) {
 	// Configure Input Functions (Table 9-1))
 	RPINR19bits.U2RXR = 10;			// Assign U2RX To Pin RP0
 	RPINR19bits.U2CTSR = 32;		// Assign U2CTS To Pin RP1
@@ -117,19 +117,19 @@ void PPS_flash_config(void) {
 // Function PPS_mrf49_config()
 // make sure we unlock the pins mapping before
 //************************************************************
-void PPS_mrf49_config(void){
+void PPS_mrf49_config(void) {
 
 #if defined (EXPLORER16)
 	// Input functions			
 	//***************************
 	// Assign SDI1 to Pin RPI43 = RD14
 	//***************************
-	RPINR22bits.SDI2R = 43;	 //.43. represents RPI43
+	RPINR22bits.SDI2R = 43;	 	//.43. represents RPI43
 
 	//*********************************************
 	// Assign External Interrupt 1 to Pin RPI33 = RE8	
 	//*********************************************
-	RPINR0bits.INT1R = 33;	 //.23 represents RP23	
+	RPINR0bits.INT1R = 33;	 	//.23. represents RP23	
 
 	// Output functions			
 	//***************************
@@ -151,28 +151,28 @@ void PPS_mrf49_config(void){
 	//***************************
 	// Assign SDI2 to Pin RPI43 = RD14
 	//***************************
-	RPINR22bits.SDI2R = 27;      	// SC changed to RP27, was RPINR22bits.SDI2R = 43;
+	RPINR22bits.SDI2R = 27;     // SC changed to RP27, was RPINR22bits.SDI2R = 43;
 
 	//*********************************************
 	// Assign External Interrupt 1 to Pin RP11 = RD0	
 	//*********************************************
-	RPINR0bits.INT1R = 11;       	// SC changed to RP11 and commented, was RPINR0bits.INT1R = 33;	 
+	RPINR0bits.INT1R = 11;      // SC changed to RP11 and commented, was RPINR0bits.INT1R = 33;	 
 
 	// Output functions			
 	//***************************
 	// Assign SDO2 to Pin RP15 = RF8
 	//***************************
-	RPOR8bits.RP16R = 10;          	// SC changed to RP16, was RPOR7bits.RP15R = 10; //.10. represents function SDO2
+	RPOR8bits.RP16R = 10;       // SC changed to RP16, was RPOR7bits.RP15R = 10; //.10. represents function SDO2
 
 	//***************************
 	// Assign SCK1OUT to Pin RP0 = RB0
 	//***************************
-	RPOR9bits.RP18R = 11;        	// SC changed to RP18, was RPOR0bits.RP0R = 11;  //.11. represents function SCK2OUT
+	RPOR9bits.RP18R = 11;       // SC changed to RP18, was RPOR0bits.RP0R = 11;  //.11. represents function SCK2OUT
 
 	//***************************
 	// Assign SS2OUT to Pin RP13 = RB2	
 	//***************************
-	//RPOR6bits.RP13R = 12; 		//.12. represents function SS2OUT // SC void SS2OUT for debug
+	//RPOR6bits.RP13R = 12; 	//.12. represents function SS2OUT // SC void SS2OUT for debug
 #endif // #if defined (EXPLORER16)
 }
 
@@ -187,12 +187,12 @@ void PPS_mrf24_config(void){
 	//*********************************************
 	// Assign SDI1 to Pin RP4 = RD9
 	//*********************************************
-	//RPINR22bits.SDI2R = 4;	 //.4. represents RP4 - SC void for debug
+	//RPINR22bits.SDI2R = 4;	//.4. represents RP4 - SC void for debug
 	
 	//*********************************************
 	// Assign External Interrupt 1 to Pin RP23 = RD2	
 	//*********************************************
-	RPINR0bits.INT1R = 23;	 //.23. represents RP23	
+	RPINR0bits.INT1R = 23;	 	//.23. represents RP23	
 	
 	
 	// Output functions
@@ -216,14 +216,14 @@ void PPS_mrf24_config(void){
 // Function PPS_accmtr_config()
 // map the interrupt pin received from the accelerometer
 //************************************************************
-void PPS_accmtr_config(void){	
+void PPS_accmtr_config(void) {	
 
 #if defined (EXPLORER16)
 	// Assign External Interrupt 2 to Pin RP30 = RF2	
-	RPINR1bits.INT2R = 30;	 //.30 represents RP30	
+	RPINR1bits.INT2R = 30;	 	//.30. represents RP30	
 #elif defined (WISTONE_BOARD)
 	// Assign External Interrupt 2 to Pin RP13 = RB2	
-	RPINR1bits.INT2R = 13;	 //.13 represents RP13	
+	RPINR1bits.INT2R = 13;	 	//.13. represents RP13	
 #endif // #if defined (EXPLORER16)
 }
 
@@ -231,12 +231,12 @@ void PPS_accmtr_config(void){
 // Function PPS_ads1282_config()
 // map the interrupt pin for DRDY received from the ADS1282
 //************************************************************
-void PPS_ads1282_config(void){	
+void PPS_ads1282_config(void) {	
 
 #if defined (EXPLORER16)
 #elif defined (WISTONE_BOARD)
 	// Assign External Interrupt 3 to Pin RP12
-	RPINR1bits.INT3R = 12;	 // 12 represents RP12	
+	RPINR1bits.INT3R = 12;	 	// .12. represents RP12	
 #endif // #if defined (EXPLORER16)
 }
 
@@ -244,9 +244,9 @@ void PPS_ads1282_config(void){
 // Function led_and_switch_init()
 // map the LEDs and switches for the Explorer board
 //************************************************************
-void led_and_switch_init(void){
+void led_and_switch_init(void) {
 	// set I/O ports
-#if defined (EXPLORER16) //YL 12.8 - added the ifdef on button trises (?)
+#if defined (EXPLORER16) // YL 12.8 - added the ifdef on button trises (?)
 	BUTTON_1_TRIS = 1;
 	BUTTON_2_TRIS = 1;
 	BUTTON_3_TRIS = 1;

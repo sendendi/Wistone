@@ -60,7 +60,7 @@
     /*********************************************************************/
     //#define BAND_915  
     //#define BAND_868
-    #define BAND_434 //MC #define BAND_915
+    #define BAND_434 	// MC #define BAND_915
     
     
     /*********************************************************************/
@@ -73,7 +73,7 @@
     //#define DATA_RATE_9600
     //#define DATA_RATE_19200
     //#define DATA_RATE_38400
-    #define DATA_RATE_57600 //MC #define DATA_RATE_9600
+    #define DATA_RATE_57600 	// MC #define DATA_RATE_9600
     //#define DATA_RATE_115200
     
     
@@ -110,7 +110,7 @@
     
     
     /*********************************************************************/
-    // ENABLE_CCA enables MRF49XA to perform Clear Channel Assessement
+    // ENABLE_CCA enables MRF49XA to perform Clear Channel Assessment
     // before transmitting data in MiMAC layer. 
     /*********************************************************************/            
 	#define ENABLE_CCA
@@ -122,7 +122,6 @@
     // when such acknowledgement is requested by the packet sender.
     /*********************************************************************/
 	#define ENABLE_ACK
-	
     
     /*********************************************************************/
     // ENABLE_RETRANSMISSION enables MRF49XA to retransmit the packet
@@ -130,7 +129,9 @@
     // acknowledgement packet is not received by the sender in predefined
     // time period.
     /*********************************************************************/
+	//#if !defined DEBUG_PRINT // YL 25.12 remove later!
 	#define ENABLE_RETRANSMISSION
+	//#endif
 
 
     /*********************************************************************/
@@ -141,7 +142,7 @@
     // that supports this feature.
 	// YL 13.4(BM) - should be commented
     /*********************************************************************/
-	//#define INFER_DEST_ADDRESS //YL 27.7 - do we use CRC16?
+	//#define INFER_DEST_ADDRESS 
     
     
     /*********************************************************************/
@@ -168,7 +169,7 @@
     // if a proper acknowledgement packet is not received in predefined 
     // time period, if ENABLE_RETRANSMISSION is defined.
     /*********************************************************************/
-	#define RETRANSMISSION_TIMES    5 //MC #define RETRANSMISSION_TIMES    3
+	#define RETRANSMISSION_TIMES    5 	// MC #define RETRANSMISSION_TIMES    3
     
     
     /*********************************************************************/
@@ -223,7 +224,7 @@
     // structure can be stored to avoid duplicate packet to the protocol
     // layer.
     /*********************************************************************/
-    #define ACK_INFO_SIZE           25 //MC #define ACK_INFO_SIZE           5
+    #define ACK_INFO_SIZE           25 	// MC #define ACK_INFO_SIZE           5
 
 
     /***********************************************************************/

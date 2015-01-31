@@ -77,7 +77,7 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
  Change History:
   Rev    Description
   ----   -----------
-  2.6    Moved many of the CH9 defintions from the device stack files
+  2.6    Moved many of the CH9 definitions from the device stack files
          into this file.
 ********************************************************************/
 //DOM-IGNORE-END
@@ -152,7 +152,7 @@ typedef struct __attribute__ ((packed)) _USB_CONFIGURATION_DESCRIPTOR
 // Attributes bits
 #define USB_CFG_DSC_REQUIRED     0x80                       // Required attribute
 #define USB_CFG_DSC_SELF_PWR    (0x40|USB_CFG_DSC_REQUIRED) // Device is self powered.
-#define USB_CFG_DSC_REM_WAKE    (0x20|USB_CFG_DSC_REQUIRED) // Device can request remote wakup
+#define USB_CFG_DSC_REM_WAKE    (0x20|USB_CFG_DSC_REQUIRED) // Device can request remote wakeup
 
 
 // *****************************************************************************
@@ -187,7 +187,7 @@ typedef struct __attribute__ ((packed)) _USB_ENDPOINT_DESCRIPTOR
 {
     BYTE bLength;               // Length of this descriptor.
     BYTE bDescriptorType;       // ENDPOINT descriptor type (USB_DESCRIPTOR_ENDPOINT).
-    BYTE bEndpointAddress;      // Endpoint address. Bit 7 indicates direction (0=OUT, 1=IN).
+    BYTE bEndpointAddress;      // Endpoint address. Bit 7 indicates direction (0 = OUT, 1 = IN).
     BYTE bmAttributes;          // Endpoint transfer type.
     WORD wMaxPacketSize;        // Maximum packet size.
     BYTE bInterval;             // Polling interval in frames.
@@ -204,12 +204,12 @@ typedef struct __attribute__ ((packed)) _USB_ENDPOINT_DESCRIPTOR
 // ******************************************************************
 
 // Section: Transfer Types
-#define EP_ATTR_CONTROL     (0<<0)  // Endoint used for control transfers
+#define EP_ATTR_CONTROL     (0<<0)  // Endpoint used for control transfers
 #define EP_ATTR_ISOCH       (1<<0)  // Endpoint used for isochronous transfers
 #define EP_ATTR_BULK        (2<<0)  // Endpoint used for bulk transfers
 #define EP_ATTR_INTR        (3<<0)  // Endpoint used for interrupt transfers
 
-// Section: Synchronization Types (for isochronous enpoints)
+// Section: Synchronization Types (for isochronous endpoints)
 #define EP_ATTR_NO_SYNC     (0<<2)  // No Synchronization
 #define EP_ATTR_ASYNC       (1<<2)  // Asynchronous
 #define EP_ATTR_ADAPT       (2<<2)  // Adaptive synchronization
@@ -261,7 +261,7 @@ typedef struct __attribute__ ((packed)) _USB_OTG_DESCRIPTOR
 // ******************************************************************
 // This structure describes the USB string descriptor.  The string
 // descriptor provides user-readable information about various aspects of
-// the device.  The first string desriptor (string descriptor zero (0)),
+// the device.  The first string descriptor (string descriptor zero (0)),
 // provides a list of the number of languages supported by the set of
 // string descriptors for this device instead of an actual string.
 //
@@ -364,7 +364,7 @@ typedef union __attribute__ ((packed))
         unsigned :8;
         unsigned :8;
         BYTE bDscIndex;         //For Configuration and String DSC Only
-        BYTE bDescriptorType;          //Device,Configuration,String
+        BYTE bDescriptorType;   //Device,Configuration,String
         WORD wLangID;           //Language ID
         unsigned :8;
         unsigned :8;
@@ -384,8 +384,8 @@ typedef union __attribute__ ((packed))
     {
         unsigned :8;
         unsigned :8;
-        BYTE bConfigurationValue;         //Configuration Value 0-255
-        BYTE bCfgRSD;           //Must equal zero (Reserved)
+        BYTE bConfigurationValue;    //Configuration Value 0-255
+        BYTE bCfgRSD;          		 //Must equal zero (Reserved)
         unsigned :8;
         unsigned :8;
         unsigned :8;
@@ -536,7 +536,6 @@ typedef union __attribute__ ((packed))
 #define USB_FEATURE_DEVICE_REMOTE_WAKEUP        1       // Device recipient
 #define USB_FEATURE_TEST_MODE                   2       // Device recipient
 
-
 // Section: USB Class Code Definitions
 #define USB_HUB_CLASSCODE                       0x09    //  Class code for a hub.
 
@@ -590,9 +589,9 @@ This is used in the descriptors.
 #define _ISO        0x01            //Isochronous Transfer
 #define _BULK       0x02            //Bulk Transfer
 
-#define _INTERRUPT        0x03            //Interrupt Transfer
+#define _INTERRUPT        0x03            	//Interrupt Transfer
 #if defined(__18CXX) || defined(__C30__)
-    #define _INT        0x03            //Interrupt Transfer
+    #define _INT        0x03            	//Interrupt Transfer
 #endif
 
 /* Isochronous Endpoint Synchronization Type */

@@ -24,6 +24,7 @@ handle read and write, write msgs to terminal, etc.
 
 /***** INCLUDE FILES: *********************************************************/
 #include <string.h>						//YL 6.8 to use strlen\cmp\cpy
+#include "command.h"					//Application
 #include "error.h"						//Application
 #include "parser.h"						//Application
 #include "system.h"						//Application
@@ -46,7 +47,7 @@ handle read and write, write msgs to terminal, etc.
 /***** GLOBAL VARIABLES: ******************************************************/
 char		*g_tokens[MAX_TOKENS];				// array holding pointers to the tokens (each ended by '\0') 
 int			g_ntokens; 							// number of tokens in current message
-char		g_in_msg[MAX_CMD_LEN]; 				// global string holding the recieved message, copied from g_curr_msg
+char		g_in_msg[MAX_CMD_LEN]; 				// global string holding the received message, copied from g_curr_msg
 CommTypes 	g_usb_or_wireless_print;			// indicate where to send the response to. updated according to where we received the message from
 BYTE 		g_character_array[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'}; // used for USB send HEX numbers //YL 8.12
 BYTE 		g_is_cmd_received;
@@ -72,7 +73,7 @@ int exec_message_command(void)
 	static BYTE boot_cmd_addr = 0;
 		
 #ifdef USBCOM 					
-	USB_STATUS status = USB_ReceiveData(); 			// periodic USB tasks and check for incoming data
+	USB_STATUS status = USB_ReceiveDataFromHost(); 	// periodic USB tasks and check for incoming data
 	if (status == USB_RECEIVED_DATA) {				// indicates there is a message in the USB
 		g_usb_or_wireless_print = COMM_USB;
 		// After getting the message, handle the message
@@ -96,7 +97,7 @@ int exec_message_command(void)
 			// YL 16.8 ...
 			// Reset(); meanwhile reconnect doesn't work
 			// ... YL 16.8
-		}	
+		}
 		handle_msg(g_in_msg);
 	}
 	if (g_rtc_wakeup == TRUE && g_boot_seq_pause == FALSE) {	//YL 18.9
@@ -159,44 +160,15 @@ void write_eol(void)
 // given a block of data with "len" chars
 // write it, char by char, to the output channel (USB/UART). 
 *******************************************************************************/
-char num2char_2(unsigned int num)	//AY 7.8
-{
-	switch(num){
-		case 0:	return '0';
-		case 1:	return '1';
-		case 2:	return '2';
-		case 3: return '3';
-		case 4:	return '4';
-		case 5: return '5';
-		case 6: return '6';
-		case 7:	return '7';	
-		case 8:	return '8';
-		case 9: return '9';	
-	}
-	return NULL;
-}
-
-void our_num2str_2(char *str, char num)	//AY 7.8
-{	
-	unsigned char temp_num = (unsigned char)num;
-	unsigned int temp = 0;
-	int i;
-	for (i = 0; i <= 2;  i++){
-		temp = temp_num % 10;
-		str[2 - i] = num2char_2(temp) ;
-		temp_num = temp_num / 10;
-	} 
-}
-
-void b_write(BYTE * block_buffer, int len) {	
-
+void b_write(BYTE* block_buffer, int len) 
+{		
 #ifdef RS232COM
 	int i = 0;
 	for (; i < len; i++)
 		rs232_putc(block_buffer[i]);
 #elif defined USBCOM
-	USB_WriteData(block_buffer,len); //YS ~10.10 no need for 4 byte conversion	
-#endif //RS232COM
+	USB_WriteData(block_buffer, len); // YS ~10.10 no need for 4 byte conversion
+#endif // RS232COM
 }
 
 /*******************************************************************************
@@ -205,12 +177,12 @@ void b_write(BYTE * block_buffer, int len) {
 // - wired USB/UART print
 // - wireless MRF print 
 *******************************************************************************/
-void m_write(char *str)	//AY 7.8
+void m_write(char *str)	// AY 7.8
 {
 	WORD strLength = strlen(str); 
 
 #if defined WISDOM_STONE	
-	if ((g_usb_or_wireless_print == COMM_USB) && (g_usb_connected == TRUE)) { //YS 17.8
+	if ((g_usb_or_wireless_print == COMM_USB) && (g_usb_connected == TRUE)) { // YS 17.8
 	#if defined RS232COM
 		char *p = str;
 		while ((*p) != '\0') {
@@ -219,7 +191,7 @@ void m_write(char *str)	//AY 7.8
 		}
 	#elif defined USBCOM
 		USB_WriteData((BYTE*)str, strLength); // YL 14.4 added casting to avoid signedness warning
-	#endif //RS232COM
+	#endif // RS232COM, USBCOM
 	}	
 	else if (g_usb_or_wireless_print == COMM_WIRELESS) {
 		DelayMs(20);	
@@ -236,45 +208,67 @@ void m_write(char *str)	//AY 7.8
 	}
 	#elif defined USBCOM
 	USB_WriteData((BYTE*)str, strLength); // YL 14.4 added casting to avoid signedness warning
-	#endif //RS232COM
-#endif //WISDOM_STONE
+	#endif // RS232COM, USBCOM
+#endif // WISDOM_STONE
 }
+
+#if defined DEBUG_PRINT	// YL 12.1
+	
+	#define DEBUG_BUFFER_LEN 400
+
+	char 	debug_buffer[DEBUG_BUFFER_LEN];
+	int		write_index = 0;
+	int 	read_index = 0;
 
 /******************************************************************************
 // void m_write_debug(char *str) 
 // save g_usb_or_wireless_print and assign USB to it, use m_write to print the str 
 ******************************************************************************/	
-void m_write_debug(char *str) {	//YL 20.4 added m_write_debug
+void m_write_debug(char *str) 	
+{	
+	int len = strlen(str);
+	int i = 0;
 	
-	CommTypes dest_backup = g_usb_or_wireless_print;
-	g_usb_or_wireless_print = COMM_USB;		
-	// YL 25.8 ...
-	if (strcmp(str, "0") == 0) {
-		m_write("O");
+	for ( ; i < len; i++) {
+		debug_buffer[(write_index++) % DEBUG_BUFFER_LEN] = str[i];
 	}
-	else {
-		m_write(str);
-	}
-	// ... YL 25.8
-	// YL 12.9 USB_ReceiveData(); //YL 2.5 to make sure the printing works in init stage too
-	write_eol();
-	g_usb_or_wireless_print = dest_backup;
 }
+
+void put_char_debug(void)
+{	
+	char char_to_print[2] = "_";
+	static int i = 0;
+	
+	if (i == 10) {
+		if (read_index != write_index) {	
+			CommTypes dest_backup = g_usb_or_wireless_print;
+			g_usb_or_wireless_print = COMM_USB;	
+			char_to_print[0] = debug_buffer[(read_index++) % DEBUG_BUFFER_LEN];
+			m_write(char_to_print);
+			g_usb_or_wireless_print = dest_backup;
+		}
+		i = 0;
+	}
+	i++;
+}
+
+#endif // DEBUG_PRINT
 
 /*******************************************************************************
 // blink_led() - for debug
 *******************************************************************************/
-void blink_led() {
+void blink_led() 
+{
 	set_led(1, LED_2); //blink LED#2
-	DelayMs(2000); 
+	DelayMs(40); 
 	set_led(0, LED_2);
-	DelayMs(2000);
 }
 
 /*******************************************************************************
 // blink_buzz() - for debug
 *******************************************************************************/
-void blink_buzz(void) { //YL 7.5
+void blink_buzz(void)  //YL 7.5
+{
 	#if defined (WISDOM_STONE)
 		play_buzzer(1);	
 	#elif defined (COMMUNICATION_PLUG)
@@ -295,8 +289,7 @@ void blink_buzz(void) { //YL 7.5
 		    PRINT_VAR = toPrint;
 		    toPrint = (toPrint >> 4) & 0x0F;
 		    USB_WriteData(&g_character_array[toPrint], 1);
-		    toPrint = (PRINT_VAR) & 0x0F;
-			
+		    toPrint = (PRINT_VAR) & 0x0F;			
 		    USB_WriteData(&g_character_array[toPrint], 1);
 		}
 	#endif

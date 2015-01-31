@@ -1,4 +1,806 @@
 
+12.1:
+
+- record phase-counter
+- add refresh screen to main;
+- if the ISR changes some value - all external functions may only read the value,
+and vice versa
+
+////////////////////////////////////////////////////////////////////////////////
+
+29.12:
+
+- note that when there are communication disruptions - the USB splits the message
+because it waits some time, and if nothing arrives - it writes what it got so far 
+and a prompt.
+
+- improve printing performance by strcat (including write_eol)
+
+////////////////////////////////////////////////////////////////////////////////
+
+25.12:
+
+- still it isn't clear why for some other lengths of TX_BUFFER_SIZE
+the connection is worse, or isn't established at all
+
+TODO:
+1. phase counter
+2. expand the network, and check the broadcast and retransmissions before moving 
+to connection disruptions
+3. connection disruptions: -> later
+- in USB: need to figure out proper indication for it + treatment => TODO later
+- in wireless: 
+ ^ for the plug - the indication is the failure to send command
+ ^ for the stones - it is the failure to respond on exec_message_command 
+in wireless mode 
+* does MiWi have something to offer? 
+- ClearNetworkTable, MiApp_RemoveConnection, OpenSocket, MiApp_ResyncConnection
+- also check what is the mechanism channel hopping is based on (for some useful ideas)
+* another aspect - the stones that failed to wake up, or dropped out of the network
+should be able to wake up at the next session (without receiving the swakeup/salarm
+from the plug) 
+* it is VERY IMPORTANT to find out whether treating the connection 
+disruptions may be local, or should the whole network be reset
+* usually we would like to do refresh when: 
+- the plug isn't able to send the command:
+	- in the real application the plug broadcasts all the commands, so we can count
+	consecutive failures, and to restart the whole network when the counter reaches some
+	predefined number, or fails to contact some coordinator (meaning we also loose
+	the leaves that are attached to it). the same thing may be done for unicast 
+	(display some message to inform the user)
+- the command has reached the destination, but the plug fails to receive the reply 
+on this command due to failure in retransmissions or due to problems in printing the TS data
+(keep in mind that in the real application - the data would be printed to some file, 
+and it should be faster than printings to the terminal); in this case we usually
+loose the connection with the destined stone; therefore - if possible - the best 
+thing is to do local reconnect
+* a-whole-network-reset - in case the problem is in the plug (and it cannot reconnect locally),
+or there is a problem with some coordinator, the stones that cannot be reached should
+do a reset and go to start connection until someone connects them (on the other hand -
+how can we know that? this reset should be initiated by the stone, so it must be somehow aware
+of that it is stuck);  the plug should broadcast reconnect command to all the stones in
+the network to make sure they all know when to enter start connection (the plug can send 
+some count-down counter) (on the other hand - they can enter it immediately, and stay there
+without some time constraint); in case the description above is possible - we probably don't
+have a problem because if some coordinator stones weren't reset\got reconnect command
+soon enough - they won't be able to send/receive beacon, because the should run 
+start_connection for it, and they cannot leave start_connection before the PAN coordinator
+joins the network and send them a beacon.
+
+////////////////////////////////////////////////////////////////////////////////
+
+24.12:
+
+=> after the phase-counter was uncommented - there was wireless connection,
+but very slow and corrupted
+
+- after decreasing TX_BUFFER_SIZE - the printing is smooth (contrary to bursty),
+but still the first header block in TS isn't always printed (not even after 
+adding 500 Ms delay after send_start_block);
+TODO: the printing should be resumed in case of connection disruption 
+
+meanwhile - take care of the counter:
+- check the following assumptions:
+1. when the device isn't the final destination (but just a route station) -
+is the message forwarded to it's application layer (so the counter can be updated
+by it)? -> probably not!!
+there is addition in RouteMessage, but it probably does NOT cover all the cases!!
+
+2. we need the counter only in case of Application Command (TXRX_TYPE_COMMAND),
+which is a case of MiWi Data (PACKET_TYPE_DATA); the assumption is that all 
+Application Commands are one-packet long (in case of longer commands - the calculation
+isn't correct because only the first packet contains Application header)
+
+3. timer4 granularity: we probably need accuracy of us, so the frequency 
+of timer4 should be increased, and all the maintenance (led, buzzer, battery) -
+take place only once a while. + should timer4 get the highest priority? 
+(only the MRF has a higher priority, and there is no need to change that if it's
+ISR is very short - make sure this is the situation)
+
+////////////////////////////////////////////////////////////////////////////////
+
+23.12:
+
+=> IMPORTANT: now we don't have to treat OST, so maybe some parameters may be changed
+(like increasing DATA_RATE)
+
+1. transceiver parameters; -> ConfigMRF49XA + check the web
+
+2. decrease TX_BUFFER_SIZE + TS of 40 blocks: 
+	^ decreasing TX_BUFFER_SIZE to 50 (RX_BUFFER_SIZE was 60) resulted in more smooth
+printing, but the first block (header block) was sometimes skipped; the rest were printed!
+	^ TX_BUFFER_SIZE = RX_BUFFER_SIZE = 50: looked the same as the previous case
+	^ TX_BUFFER_SIZE = RX_BUFFER_SIZE = 40: less smooth and more blocks were skipped
+	^ TX_BUFFER_SIZE = RX_BUFFER_SIZE = 54: the connection wasn't established! why?
+	
+3. adding delays? - tried to add DelayMs in the beginning of MiMAC_SendPacket;
+during TS of 40 blocks:  
+	for delay of 20Ms - nothing was printed
+	for delay of 2Ms and of 5Ms - some blocks were skipped as before
+4. maybe the reason for skipping are certain characters?	
+
+ ConfigMRF49XA: 
+- #define DATA_RATE - increasing DATA_RATE to 115200 didn't change the way TS ran
+- #define RETRANSMISSION_TIMES - the leds were off during TS of 40 blocks
+- #define MAX_ALLOWED_TX_FAILURE - the leds were off during TS of 40 blocks
+- #define BANK_SIZE - during TS of 40 blocks the leds were off, so probably BANK_SIZE
+is big enough (though the led blinked at init stage) 
+
+also checked:
+ 
+- MiMAC_ReceivedPacket - 4 places of return FALSE, checked all excluding the last one;
+only the first causes a problem - i.e if( ReceivedBankIndex != 0xFF ): a single blink in the stone, 
+and multiple blinks in the plug (the printings were resumed when the led was on);
+there was no blinking when idle, so it looks like real problem;
+it looks like the previous packet was discarded too late
+
+- MiMAC_SendPacket - 1 place of return FALSE => (MACPayloadLen > TX_BUFFER_SIZE) is not the problem
+=> how come we don't send anything which is too long, but in the ISR we receive too long packets 
+(or even if we don't send anything)
+
+- ISR: PacketLen >= RX_PACKET_SIZE - the leds went on and off when stone/plug were idle,
+and during the TS;
+PacketLen should be max 69 bytes: 
+	6B of MAC header (flags + seq num + dest addr + source addr)
+	62B of MAC payload:
+			60B of MiWi header + App header (presents only in first packet) + App payload
+			2B of CRC
+	1B for TxPacketLen (which is the first sent byte after 2 sync bytes),
+and RX_PACKET_SIZE is 80B long; so why the leds aren't off?
+
+////////////////////////////////////////////////////////////////////////////////
+
+22.12:
+
+- delays
+- change TX_RX_TYPE: 0, 1, 2 -> 1, 4, 7 => probably not a good idea because 
+wrong identification means corrupted data
+- Numbe%$%%^&$^^r -> only in the first header block, not the one stored in the flash;
+this happens because the first is parsed by SS, and the second by TS
+
+////////////////////////////////////////////////////////////////////////////////
+
+20.12:
+
+- check the counter mechanism
+- non coordinator
+- check the communication with at least 2 stones
+- retransmissions
+- header block in TS: check start block
+- broadcast
+- PAN_COORDINATOR migration (w eeprom 32765 1 if ... - enable a few central 
+stones to become PAN coordinators for instance - in case multiple wake-ups without
+joining the network; what will happen if the original coordinator comes back to life?
+it is possible to enumerate the PAN_COORDINATORs to avoid ambiguity;
+another option is that the GUI will control the situation when PAN_COORDINATOR
+is lost)
+- check the GUI 
+- android
+- try int4
+
+////////////////////////////////////////////////////////////////////////////////
+
+15.12:
+
+- app.c: m_write("TSCOMPLETED: completed transmitting the requested num of blocks");
+- command.c: m_TxRx_write((BYTE*)str); 
+- TxRx.c: TxRx_SendPacketWithConfirmation(str, commandLen, TXRX_TYPE_COMMAND); 
+		  TxRx_SendPacket(data, dataLen, bType);
+		  TxRx_TransmitBuffer();
+		  MiApp_UnicastAddress()
+* when the data is received - the plug uses m_write to print it; m_write calls USB_WriteData((BYTE*)str, strLength);		  
+		  
+- app.c: TxRx_SendData(g_accmtr_blk_buff, MAX_BLOCK_SIZE);
+- TxRx.c: TxRx_SendPacketWithConfirmation(samples_block, TX_message_length, TXRX_TYPE_DATA);
+		  TxRx_SendPacket(data, dataLen, bType);
+		  TxRx_TransmitBuffer();
+		  MiApp_UnicastAddress()
+* when the data is received - the plug uses b_write to print it; b_write calls USB_WriteData(block_buffer, len);
+
+=> checking the payload should be easier when the printings are done in MiWi.c;
+maybe b_write is not necessary
+
+////////////////////////////////////////////////////////////////////////////////
+
+14.12:
+
+- only the long messages are disrupted; maybe all the changes were bearable only 
+as long as the message is short; therefore - need only find what goes wrong 
+(prior to trying to change buffer sizes)
+
+- after increasing TX_BUFFER_SIZE SSCOMPLETED message isn't splat and is printed
+normally; in TS mode nothing is printed; keep in mind that this was a problem
+from the beginning (before adding phase information) -> need to check why 
+splitting isn't done properly (USB isn't the problem, or at least - not the only 
+problem); yet - it isn't clear why shortening TX_BUFFER_SIZE resulted in routing 
+failure
+
+the message consists of: 
+	MAC header || MiWi header || Application header || Application payload
+	=> MiMAC_SendPacket(MTP, TxBuffer, TxData)
+- MAC header - is sent via MTP
+- [MiWi header || Application header || Application payload] - is sent via TxBuffer;
+  TxBuffer starts with [MiWi header], and then, at PAYLOAD_START starts 
+  [Application header] followed by [Application payload]; 
+  TxData is the index within TxBuffer;
+
+1. MAC header - (filled by MiMAC_SendPacket) - with MAC source and destination addresses
+2. MiWi header - 11 bytes at least (filled by MiApp_UnicastAddress) - with hops, MiWi source and destination addresses
+3. Application header - 7 bytes at least (filled by TxRx_TransmitBuffer) 
+4. Application payload - (filled by TxRx_TransmitBuffer); 
+
+* when the message is too long - only the first part has application header
+
+#if (TX_BUFFER_SIZE+MIWI_HEADER_LEN) > 110
+	BYTE TxBuffer[110];
+#else
+	BYTE TxBuffer[TX_BUFFER_SIZE+MIWI_HEADER_LEN];
+#endif
+
+MIWI_HEADER_LEN = 11
+TX_BUFFER_SIZE = 60
+=> TxBuffer[71]
+
+maybe the problem is that MiMAC_SendPacket needs to treat the first part and the
+rest of the message in a different manner
+NOTE: if (message_counter == TX_BUFFER_SIZE) in TxRx_TransmitBuffer
+
+////////////////////////////////////////////////////////////////////////////////
+
+13.12:
+
+TODO: did i mess with priorities? - probably not
+
+////////////////////////////////////////////////////////////////////////////////
+
+12.12:
+
+- maybe adding all the additional information causes the problem - TX_BUFFER_SIZE
+
+Plug - send command: TxRx_SendCommand -> TxRx_SendPacketWithConfirmation(TXRX_TYPE_COMMAND) -> ...
+
+TODO:
+- why when TX_BUFFER_SIZE is smaller the plug fails to send the command?
+- remove handling USB from ISR of timer4  
+
+////////////////////////////////////////////////////////////////////////////////
+
+9.12
+
+- find out why nothing is printed (buffer overflow?) + remove m_write from the interrupt
+- try to switch to USB OTG
+
+- when using wireless communication - does the device wait until all the data 
+is received and then prints it, or is it done simultaneously?
+
+////////////////////////////////////////////////////////////////////////////////
+
+6.12:
+
+- USB_ProcessIn: 
+	every device allocates USB Buffers to communicate with the USB;
+	- rxBuffer stores the host_to_device data (the PC is the host anyway)
+	- txBuffer stores the device_to_host data (the device is the plug, or the stone in debug mode) -> should be bigger, because the device should send samples' blocks to the host
+	The plug calls USB_ReceiveDataFromHost and it activates USB_ProcessIn to copy
+	bulks of max 40B from "numBytesRead"B in rxBuffer into g_curr_msg, 
+	and when END_OF_COMMAND is reached - the command is fully received.
+	Then the plug calls USB_WriteData to copy the command into txBuffer
+	(so the host will display it in the terminal), and then USB_WriteSingleBuffer
+	is called; it activates USB_ProcessOut which sends the data (max 40B at time) to the terminal.
+- Stone: TxRx_SendData is used in TS to send the samples;
+  Plug: b_write is used to print the samples
+  
+- Stone: m_write is used to send "SS/TS COMPLETED", it calls m_TxRx_write, and it sends it as TXRX_TYPE_COMMAND;
+- Plug: calls TxRx_PeriodTasks every main loop iteration, it calls TxRx_PlugHandler,
+  and it uses m_write to display the message to the terminal
+  
+  do we still need both - b_write and m_write? 
+  (both just call USB_WriteData, no conversions are involved)
+  
+  tried to decrease USB_BUFFER_SIZE; it didn't help (though short strings are printed);
+  maybe should also try to change USB_TX/RX_BUFFER_SIZE
+  
+////////////////////////////////////////////////////////////////////////////////
+
+22.11:
+
+meanwhile only: plug + 1 stone:
+- analog - trace all changes
+- nothing is printed when ss/ts + header printings
+- check the counter mechanism
+- non coordinator
+
+A N A L O G:
+- gpower activates handle_get_power_status; timer4 interrupt measures the status
+	- maybe the setting is anyhow overridden?
+
+////////////////////////////////////////////////////////////////////////////////
+
+21.11:
+
+- for 2 stones and a plug: 
+	even when the USB is connected to the plug only - the terminal gets stuck
+	(there is no such a problem when plug + stone only)
+- check timer4 interrupt
+- analog
+
+////////////////////////////////////////////////////////////////////////////////
+
+ALWAYS TRUE:
+
+note the following when running the software:
+- system.c: init_accmtr();
+- TxRx.h: MAX_NWK_SIZE
+- ConfigApp.h: NWK_ROLE_COORDINATOR, CONNECTION_SIZE
+- USB is handled in timer4 ISR only if defined DEBUG_PRINT 
+(otherwise it should only be done for COMMUNICATION_PLUG) 
+- if nothing is printed - maybe TX_BUFFER_SIZE is too small
+
+////////////////////////////////////////////////////////////////////////////////
+
+8.11:
+
+- compared to 10.2.2013, changed and commented when needed
+- the changes:
+	accmtr: int accmtr_active(void);
+	app: 	#if defined ENABLE_RETRANSMISSION in TS
+			strcat(g_accmtr_blk_buff, uint_to_str((unsigned int)accmtr_reg_read(XYZ_DATA_CFG)));
+	misc_c: char* uint_to_str(unsigned int num); + all functions
+	parser: BYTE parse_byte_num(char *str);
+			parse_int_num + all over
+	TxRx: 	printTopology - does it end? for 2 components - it does; what happens for more?
+			TxRx_printError(status); -> TxRx_PrintError(status);
+	command.c: USB_WriteData((BYTE*)str, strLength); // YL 14.4 added casting to avoid signedness warning
+	eeprom.c: device_write_i2c_ert(device_addr, 3, (BYTE*)data_to_write, I2C_WRITE)){ // YL 14.4 added casting to avoid signedness warning
+	error.c: err_clear();
+	flash: 	BYTE buff[FLASH_SECTOR_SZ] = {0};
+			m_write((char*)buff);	// YL 14.4 added casting to avoid signedness warning
+	i2c: PLUG/STONE
+	wistone_main.c: pps_config
+	
+focus on:
+- misc_c: char* uint_to_str(unsigned int num);
+- TxRx: printTopology
+- analog.c: what is needed?
+- is 0 printed by 10.2.2013 version? 
+- find what are block sizes that are printed, add delays
+- note that the keyboard input is ignored, but the printings continue -> check the web!!!
+	
+////////////////////////////////////////////////////////////////////////////////
+
+7.11:
+
+- increase the priority of timer4 interrupt - increasing USB priority didn't help -> but maybe because of COMMUNICATION_PLUG
+- trace the mechanism of passing the cmd to the device
+- analogue
+- web?
+- compare to 10.2.2013
+- check TXRX error messages
+- probably && defined COMMUNICATION_PLUG messed the things up
+
+////////////////////////////////////////////////////////////////////////////////
+
+5.11:
+
+note that:
+
+1. massive printings to the terminal are expected only in 2 cases:
+- print topology
+- print ts,
+and in both cases - there is no risk of loosing data;
+therefore - USB priority may be increased
+
+2. USB TX buffers should be able to contain more data than RX buffers 
+(that should only be sufficient for API cmds)
+
+3. in usb_function_cdc.h it is written that: CDCTxService() must be called 
+periodically to keep sending blocks of data to the host. CDCTxService() is 
+indeed called periodically in ProcessIO, but USB_ReceiveData (the function
+that initiates this call) calls ProcessIO with USB_PROCESS_IN parameter,
+which results in frequent activation of getsUSBUSART (host_to_device), and
+not of putUSBUSART (device_to_host) 
+
+////////////////////////////////////////////////////////////////////////////////
+
+4.11:
+
+1. USB - review the files to see the changes, and see if some definitions may be 
+changed; pay attention to ISR definitions;
+try to increase timer4 frequency/USB priority to 5
+
+comparison between USB of 4.11 to Application Libraries v2011-12-05:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- No Peers (only in our version):
+usb_config.h -> pay attention - summarizes some defines + compare to original version (usb_config_boaz.h) 
+usb_descriptors.c - compare to usb_descriptors_boaz.c
+wistone_usb.h - compare to usb_main_boaz.h
+wistone_usb.c - compare to usb_main_boaz.c
+
++ check header files and files with no peers:
+	- wistone_usb.h/c and usb_main_boaz.h/c are different!
+	- usb_descriptors.c and usb_descriptors_boaz.c are identical (except for pragma - alignment?)
+	- usb_config.h and usb_config_boaz.h are a bit different
+
+--------------------------------------------------------------------------------
+					|	4.11				|	v2011-12-05
+--------------------------------------------------------------------------------			
+usb.h				|	same				|	same			
+usb_ch9.h
+usb_common.h
+usb_device.h
+usb_function_cdc.h
+usb_hal.h
+usb_hal_pic24.h
+usb_hal_pic24.c
+--------------------------------------------------------------------------------
+usb_device_local.h 	| USB_NONSTANDARD_EP0_REQUEST_HANDLER 					| USB_DISABLE_NONSTANDARD_EP0_REQUEST_HANDLER
+--------------------------------------------------------------------------------
+usb_device.c		| 2.9d  Added build option for disabling DTS checking 	| 
+					| + my changes (g_usb_packets_to_host)					|
+--------------------------------------------------------------------------------
+usb_fuction_cdc.c	| RFIE - added by AY  									|
+--------------------------------------------------------------------------------
+
+* all the changes in files who have peers don't seem to be significant (just check RFIE)
+
+TODO:
+
+1. check the definitions in the (almost) identical files:
+	+ usb_fuction_cdc.c:
+		- pay attention to baud rate + events!
+	+ especially the definitions in the header files (no need to check the source files)
+2. check the files with no peers:
+	+ wistone_usb.h/c (usb_main_boaz.h/c are different)
+	+ usb_config.h (usb_config_boaz.h is a bit different)
+3. RFIE: do we need it in wistone_usb.c and in usb_fuction_cdc.c?
+
+1. potentially useful definitions in the header files with peers:
+- usb.h: 
+	- none
+	- the file only includes usb_device.h
+- usb_ch9.h:
+	- none
+	- the file deals with USB Descriptors and with Endpoint Attributes
+- usb_common.h:
+	- none
+	- USB_EVENT + USB_EVENT_HANDLER + Error Code Values + Return values
+- usb_device.h: 
+	- none
+	- various useful functions like USBDeviceInit()
+	  and MACROs like USBGetDeviceState() + USB_DEVICE_STATE;
+	  USBDeviceTasks - in "USB_INTERRUPT" mode only needs to be called 
+	  from the interrupt context
+- usb_function_cdc.h:
+	- CDCSetBaudRate - 19200? maybe Baud Rate was defined in GUI?
+	- some functions/MACROs don't seem to be used except for:
+		- USBUSARTIsTxTrfReady
+		- CDCInitEP
+		- USBCheckCDCRequest
+		- getsUSBUSART
+		- putUSBUSART (not putsUSBUSART, putrsUSBUSART)
+		- CDCTxService
+- usb_hal.h:
+	- doesn't seem to be useful
+- usb_hal_pic24.h:
+	- useful functions:
+		- USBClearInterruptRegister
+		- USBClearInterruptFlag
+	- and MACROs:
+		- USBInterruptFlag
+		- USBEnableInterrupts, USBMaskInterrupts
+		- USB_PULLUP_ENABLE
+		- USB_FULL_SPEED
+		- USBTransactionCompleteIF, USBIdleIF
+- usb_device_local.h:
+	- USB_PING_PONG__FULL_PING_PONG
+2. files without peers:
+- usb_config.h:
+	- useful MACROs:
+		- USB_PING_PONG__FULL_PING_PONG
+		- USB_INTERRUPT
+		- USB_PULLUP_OPTION USB_PULLUP_ENABLE
+		- USB_FULL_SPEED
+	- isn't used (probably): USB_ENABLE_STATUS_STAGE_TIMEOUTS, USB_STATUS_STAGE_TIMEOUT	
+- wistone_usb.h, wistone_usb.c - added comments in the files
+	
+USB Interrupt: 
+- void __attribute__((interrupt,auto_psv)) _USB1Interrupt() in usb_device.c (and not USBDeviceTasks?)
+  (maybe higher frequency/priority is needed?)
+  
+for EVENTS check:
+- usb_fuction_cdc.c
+- wistone_usb.c
+- usb_device.c
+	
+Focus on:
+- usb_function_cdc.h, usb_hal_pic24.h;
+- wistone_usb.c: read the documentation of all the functions involved in the following:
+	- USB_ProcessIn - has to be rewritten anyway 
+	- USB_ProcessOut
+	- USB_WriteData
+	- USB_ReceiveData
+	* consider changing buffer sizes; on the other hand - this data is 
+	supplied by the host, so this is not the problematic case;
+	however - USB_WriteData does all the printing to the terminal,
+	so it's efficiency may be crucial 
+	* ISR - what defines the frequency? the priority?
+	
+////////////////////////////////////////////////////////////////////////////////
+
+3.11:
+
+1. ResyncConnection - leave for later, but may use ack as indication; problem - 
+even if we know where the problem is we can't make the device reconnect;
+therefore the device must initiate the reconnection by itself -> keep_alive 
+when idle;
++ keep_alive between the coordinators only (every coordinator sends message
+to it's parent), and first sync the rtc (so resync would be synchronised)
+
+2. USB - find the interrupt; consider changing the priority dynamically
+
+////////////////////////////////////////////////////////////////////////////////
+
+1.11:
+
+phase-counter in routed messages:
+- insert code to MiWi, or
+- pass commands to the application (more complicated, and involves code addition
+to MiWi too) 
+
+////////////////////////////////////////////////////////////////////////////////
+
+31.10:
+
+led_buzzer - define phase-counter in the ISR - to be incremented each interrupt call;
+note that mrf49 has higher interrupt priority; in case this matters - can timer4
+priority be increased?
+
+broadcast: 
+~~~~~~~~~~
+the counters of the plug:
+1. broadcast-counter - starts ticking when the broadcast begins, and keeps ticking
+until the broadcast ends; incremented by timer4.
+2. phase-counter - starts ticking each broadcast iteration, and is initialized with
+broadcast-counter value; incremented by timer4; keeps ticking until the message is 
+successfully transmitted (+ refresh)
+
+the stones have only phase-counter
+
+plug -> end-device1: "end-device1 app start ss ..."
+
+plug -> end-device1: transmit cmd 
+		=> in TxRx_SendCommand initialize phase-counter with broadcast-counter
+end-device1 -> plug: receive cmd
+end-device1 -> plug: transmit ack
+plug -> end-device1: receive ack
+
+////////////////////////////////////////////////////////////////////////////////
+
+30.10:
+
+plug -> stone1 -> stone2: "2 app start ss ..."
+
+plug -> stone1: transmit cmd
+stone1 -> plug: receive cmd
+stone1 -> plug: transmit ack
+plug -> stone1: receive ack
+
+stone1 -> stone2: transmit cmd
+stone2 -> stone1: receive cmd 
+check - do we need to count ack? we do, if ack is retransmitted in case of failure
+(although there is no ack on ack...)
+
+delay count:
+plug <-> stone1: 
+plug: 
+TxRx_SendCommand -> 
+	TxRx_SendPacketWithConfirmation -> 
+		TxRx_SendPacket, bType = TXRX_TYPE_COMMAND, until TIMEOUT_RESENDING_PACKET:
+			TxRx_SendPacket -> status = TxRx_TransmitBuffer: (1)
+				TxRx_TransmitBuffer -> MiApp_UnicastAddress (*) RETRANSMISSION_TIMES and until TIMEOUT_RESENDING_PACKET
+					MiApp_UnicastAddress, PermanentAddr = TRUE -> MiMAC_SendPacket (no RouteMessage because plug is a leaf, and until receiving the ack?)
+						MiMAC_SendPacket -> 
+			(1) TxRx_SendPacket, ENABLE_BLOCK_ACK, status = TxRx_ReceivePacket(): the plug waits for ack
+
+(*) MiWi header - 11B, app header - 7B, data - "2 app start ...", trailer - 4B => if (data + trailer) is shorter than 60B - one MiApp_UnicastAddress is enough	
+			
+note that:
+1. when "2 app start ss ..." is sent - the stones are "idle"
+2. it is possible to count the delays or to use timer4
+3. some of the functions may be interrupted, and it is important not to count overlaps	
+4. the resolution of RTC is seconds, while we are counting ms...
+5. data sampling rate we use is 400 Hz -> so every 2.5 ms we have one sample ready
+(i.e. one sample of 6 bytes, or just 1 byte?)
+6. for higher accuracy - the rate of timer4 may be increased.
+7. check the interrupt priorities - what may delay timer4 and when (the stones
+are idle when ss and when sync)
+=> only mrf49 may interrupt timer4: IPC5 (mrf49) > IPC6 (timer4) > IPC7 (accmtr) > IPC20 (USB)
+
+may expand "TxRx_SendCommand" in broadcast case - if "ss" - use some template
+- with constant time field (is reading the time fast enough? problem: the resolution
+of RTC; we may count ms separately; may also implement independent counter mechanism,
+and use it when needed) => separate mechanism is better + it is better to use timer4
+instead of counting events; may define some global variable that timer4 updates every
+2.5 ms; we need 2 counters, both should have 2 bytes (one is not enough)
+1. static - the counter that is updated only by the plug, as long as the broadcast lasts
+2. dynamic - is transmitted between the stones, and is initialized by the static 
+counter every broadcast iteration (in TxRx_SendCommand)
+
+another issue - is it better to add special fields to commands that need phase
+information, or add phase to every packet - as part of the header (and therefore
+the location is constant anyway; the addition of 2 bytes isn't significant for 
+small cmds, but maybe when samples are sent - it is different). constant location
+makes it easier to refresh the counter. 
+- TxRx_SendCommand clears the counter, and timer4 increments it; 
+- TxRx_TransmitBuffer reads the value - or even MiMAC_SendPacket
+- TxPacket refreshes it every retransmission
+- successful MiMAC_ReceivedPacket clears (or initializes with 2 ms) the receiver's counter,
+and after the parsing - it would be added to the received value.
+
+////////////////////////////////////////////////////////////////////////////////
+
+29.10:
+
+- do transmission and retransmission have to be treated separately? 
+[for instance - is crc checked only after receiving the entire data,
+or in portions - so all the following data is discarded when mismatch is found] 
+- is "quantum" constant? if so - sync is only needed to avoid drift,
+i.e. we don't need sync to measure quantum duration each session; we only need this
+when sending salarm - to make sure the time is accurate, and fix it if 
+it's not [we may also set time according to the time the plug measures without 
+checking it first]
+- note that the transceiver receives the length of the data it needs to send,
+and therefore the transmission time depends on this length -> check the code
+of MRF49XA
+- note also that the only cmds that need to "tick" are 
+"app start ss" and "app sync" (i.e. - short cmds - for transmitting and for receiving)
+=> maybe it's better to set the time as part of "app start ss", and therefore
+"app sync" isn't necessary? 
+** keeping "phase" information in order to sync the stones with the plug later 
+(in a separate cmd, that follows "app start ss") won't work, because in spite of
+ tree topology - the amount of the retransmissions when these cmds are sent may vary. 
+** the advantage of merging sync with "app ss" is measuring the phase only once;
+the disadvantage is the dependence... 
+
+the original plan was:
+1. check connection - read something from each stone
+2. time sync <- how?
+3. 1..(n-1) app ss
+4. 1..(n-1) app ts
+5. get time from each stone, and set time if there is a drift
+6. 1..(n-1) salarm
+7. app shutdown, so only plug stays awake
+
+in light of a few changes the plan is:
+1. print topology - which also checks the connection
+2. 1..(n-1) app ss + time sync 
+(so each session the plug fixes the time without checking it first;
+this means the plug needs to send out it's time when app ss is given)
+3. 1..(n-1) app ts
+4. 1..(n-1) salarm (no need to time sync)
+5. app shutdown, so only plug stays awake
+(if this plan will be placed in a boot table of the plug, then it's better to 
+shut it down too; a more reasonable option is that this plan is actually a 
+script that is periodically sent by the GUI) 
+
+* when packet is transmitted - MRF49XA uses TxPacket (inside the code there are
+delays of a few ms); when the packet is received - an interrupt _INT1Interrupt is used; 
+therefore - we may count how many times TxPacket was called to estimate the 
+transmission time, but we (probably) can't do the same with _INT1Interrupt 
+(however note that there is a delay of a few ms in the interrupt code too) 
+=> maybe we only need to count the delays (SPI timing diagram shows minimal
+times in ns; is this also the unit of the typical timing?)
+* make sure there are no other delays in MiWi/TxRx (in MiWi.c we have MiWi_TickGet - 
+read all related code lines)
+
+////////////////////////////////////////////////////////////////////////////////
+
+#include "usb_config.h"     // Must be defined by the application
+#include "usb_common.h"     // Common USB library definitions
+#include "usb_ch9.h"        // USB device framework definitions
+#include "usb_device.h"  	// USB Device abstraction layer interface
+#include "usb_hal.h"     	// Hardware Abstraction Layer interface
+
+wistone_main includes:
+1. "usb.h" (only includes the necessary files)							
+2. "wistone_usb.h" (the application level)
+
+wistone_usb:
+- USB_ReceiveData should be called every main loop iteration; it calls:
+- ProcessIO - maintains sending and receiving packets; it also calls:
+	- USB_ProcessIn, USB_ProcessOut - pay attention to the buffers.
+	- CDCTxService:
+		- should be called once per Main Program loop
+		- handles device-to-host transaction(s)
++ ISR JUMP TABLE
+
+- usb_device.h:
+	- USBDeviceTasks should be called from the interrupt context (this is ISR name):
+		- should be called at least once every 1.8ms during the USB enumeration process;
+		after it is complete (USBGetDeviceState() returns CONFIGURED_STATE)
+		USBDeviceTasks() handler may be called the faster of:
+			- either once every 9.8 ms
+			- or as often as needed to make sure that the hardware USTAT FIFO never gets full, see USBTransferOnePacket
+		see the inline code comments near the top of usb_device.c for more details 
+		about minimum timing requirements when calling USBDeviceTasks().
+		- the tasks of USBDeviceTasks:
+		Task A: Service USB Activity Interrupt
+		Task B: Service USB Bus Reset Interrupt
+		Task C: Service other USB interrupts
+		Task D: Servicing USB Transaction Complete Interrupt
+		
+- usb_config.h:
+	#define USB_PING_PONG_MODE USB_PING_PONG__FULL_PING_PONG (for much more relaxed timing requirements)
+	#define USB_INTERRUPT
+	- probably isn't used:
+	#define USB_ENABLE_STATUS_STAGE_TIMEOUTS
+	#define USB_STATUS_STAGE_TIMEOUT
+
+list of interrupts + frequencies:
+
+. USB interrupt priority:
+	set by _USB1IP (= USB1IP0/1/2) when USB_POLLING, so in USB_INTERRUPT 
+	there is a default priority - 4
+- from HardwareProfileRemappable:
+	. accmtr:
+		RPINR1bits.INT2R = 13 - External Interrupt 2, RP13 = RB2
+		can be set by _INT2IP(= INT2IP0/1/2, IPC7); default priority is used 
+		trigger: FIFO_FILL - 21 samples (x 6 = 126 bytes) at sampling rate of 100/200/400 Hz;
+		21 x 1/400 = 0.0525 s
+	. mrf49:
+		RPINR0bits.INT1R = 11 - External Interrupt 1, RP11 = RD0
+		can be set by _INT1IP(= INT1IP0/1/2, IPC5); default priority is used 
+		trigger: the transmitter receives a samples' block of 512 bytes whenever 
+		one is ready, and sends it in portions of ~60 bytes 
+		- BAND_434, DATA_RATE_57600
+	. timer4: maintenance for ADC, power LED, buzzer
+		400Hz - set by OpenTimer4 when period = TIMER_4_PERIOD is assigned to PR4 in PR register 
+		ConfigIntTimer4 isn't used, so IPC6bits.T4IP is set to default priority - 4
+		trigger: constant ticking (accuracy isn't critical)
+natural priorities (conflict resolution in case of identical user-defined priorities): 
+NOTE: interrupt sources with a smaller IVT address have a higher natural order priority.
+IPC5 (mrf49) > IPC6 (timer4) > IPC7 (accmtr) > IPC20 (USB), while mrf49 has the highest priority
+(5,6, 7 and 20 are numbers of the registers, and their order is the same as natural priority order)
+
+note: by default all the user ISR are preemptive, so the CPU treats the highest
+priority interrupt before it resumes treating the rest.
+
+=> mind the following:
+- increasing the USB priority to 5 may cause buffer overflows - it depends on
+how often the USB interrupt occurs, and how long it lasts.
+- if USB_ReceiveData() is called from the interrupt of timer4 (once a few mSec),
+then mrf49 still has higher priority, and probably the problem would not be solved
+because the wireless is more likely to cause it (than the accmtr/timer that did not change); 
+on the other hand - the interrupt will happen during MiWiTasks and other MiWi functions
+that may be longer then their analogues in P2P (the mrf49 ISR lasts approximately the
+same time period)
+- should find out what is the "keep alive" signal that USB expects for; is it
+directly related to USB_ReceiveData()? is the problem the absence of "keep alive" signal,
+or FIFO overflow? maybe increasing the FIFO is possible? or decreasing timer4 frequency?
+- maybe USB_ENABLE_STATUS_STAGE_TIMEOUTS should be commented?
+- if USB_ReceiveData() is called from the interrupt of timer4 then check whether the 
+USB is attached/initialized/... to avoid stuck;  may also count the times 
+USBTransferOnePacket() is called (it sends and receives data), and if it was called twice - 
+set a global flag that will indicate that USB_ReceiveData() should be called next time
+the interrupt of timer4 happens (it won't be called until the USB is initialized); 
+do we need separate flags for IN and OUT transactions?
++ comment all unnecessary calls;
+
+see usb.c for details on USB_ReceiveData():
+The USBDeviceTasks() function is responsible for popping entries off the USTAT FIFO.  
+If the FIFO ever gets full, then no further USB transactions are allowed to occur, 
+until the firmware pops entries off the FIFO. In practice, this means the firmware
+should call USBDeviceTasks() at a rate at least as fast as once every three times the 
+USBTransferOnePacket() function is called.
+
+look for: ping pong buffers (USB_NEXT_EP0_OUT_PING_PONG, USTAT_EP0_IN, USTAT_EP0_OUT, USTAT_EP0_OUT_EVEN),
+when a successful transaction is completed on EP0, USBCtrlEPService is called.
+
+try the following:
+- read wistone_usb, app (ts)
+- change USB priority
+
+////////////////////////////////////////////////////////////////////////////////
 
 . short address - sockets? -> the sockets use short address;
 . CRC inferred destination -> on the other hand the network is flooded(?)
@@ -7,7 +809,7 @@
 
 A S K:
 
-1. cleanup of unrelevant MiWi.c code lines (security, sleep,...)
+1. cleanup of irrelevant MiWi.c code lines (security, sleep,...)
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -99,7 +901,7 @@ stone code:---------------------------------------------------------------------
 - TxRx_ReceiveMessage: no change
 	- MiApp_MessageAvailable
 	- TxRx_ReceivePacketHeader, blockType = cmd, fills rxBlock (the cmd is copied to rxBlock.blockBuffer), (FALSE -> isHeader)
-		- extruct source_nwk_addr (<- who wants to know?) into global dest_nwk_addr
+		- extract source_nwk_addr (<- who wants to know?) into global dest_nwk_addr
 	- MiApp_DiscardMessage
 - TxRx_PeriodTasks:
 	- calls TxRx_WistoneHandler

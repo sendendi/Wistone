@@ -104,14 +104,14 @@
                 BYTE        broadcast       : 1;        // 1: broadcast, 0: unicast
                 BYTE        secEn           : 1;        // 1: secure the MAC payload, 0: send plain text
                 BYTE        repeat          : 1;        // 1: allow repeaters to forward the message, 0: send message directly
-                BYTE        ackReq          : 1;        // 1: acknowledgement required, 0: no acknowldgement
+                BYTE        ackReq          : 1;        // 1: acknowledgement required, 0: no acknowledgement
                 BYTE        destPrsnt       : 1;        // 1: destination address in the packet, 0: destination address not in the packet
                 BYTE        sourcePrsnt     : 1;        // 1: source address in the packet, 0: source address not in the packet
             } bits;
         } flags;
         
-        BYTE        *DestAddress;           // destination address
-        // YL 26.8 #if defined(IEEE_802_15_4)
+        BYTE        *DestAddress;           // destination address 
+        // YL 26.8 #if defined(IEEE_802_15_4) - the following fields were added to MAC_TRANS_PARAM so it would be possible to use short address with non-IEEE_802_15_4 transceiver (MRF49XA in our case)
 			BOOL		altDestAddr;        // use the alternative network address as destination in the packet
             BOOL		altSrcAddr;         // use the alternative network address as source in the packet
             WORD_VAL    DestPANID;          // PAN identifier of the destination
@@ -140,7 +140,7 @@
                 BYTE    broadcast       :1;             // 1: broadcast, 0: unicast
                 BYTE    secEn           :1;             // 1: secure the MAC payload, 0: send plain text
                 BYTE    repeat          :1;             // 1: allow repeaters to forward the message, 0: send message directly
-                BYTE    ackReq          :1;             // 1: acknowledgement required, 0: no acknowldgement
+                BYTE    ackReq          :1;             // 1: acknowledgement required, 0: no acknowledgement
                 BYTE    destPrsnt       :1;             // 1: destination address in the packet, 0: destination address not in the packet
                 BYTE    sourcePrsnt     :1;             // 1: source address in the packet, 0: source address not in the packet
             } bits;
@@ -151,7 +151,7 @@
         BYTE        PayloadLen;                         // Payload size
         BYTE        RSSIValue;                          // RSSI value for the received packet
         BYTE        LQIValue;                           // LQI value for the received packet
-        // YL 26.8 #if defined(IEEE_802_15_4)
+        // YL 26.8 #if defined(IEEE_802_15_4)  - the following fields were added to MAC_RECEIVED_PACKET so it would be possible to use short address with non-IEEE_802_15_4 transceiver (MRF49XA in our case)
             BOOL        altSourceAddress;               // Source address is the alternative network address
             WORD_VAL    SourcePANID;                    // PAN ID of the sender
         // YL 26.8 #endif
@@ -194,10 +194,10 @@
      *      set the operating frequency of the RF transceiver. Valid channel
      *      number are from 0 to 31. For different frequency band, data rate
      *      and other RF settings, some channels from 0 to 31 might be
-     *      unavailable. Paramater offsetFreq is used to fine tune the center
+     *      unavailable. Parameter offsetFreq is used to fine tune the centre
      *      frequency across the frequency band. For transceivers that follow
      *      strict definition of channels, this parameter may be discarded.
-     *      The center frequency is calculated as 
+     *      The centre frequency is calculated as 
      *      (LowestFrequency + Channel * ChannelGap + offsetFreq)
      *
      * PreCondition:    
@@ -206,7 +206,7 @@
      * Parameters: 
      *      BYTE channel -  Channel number. Range from 0 to 31. Not all channels
      *                      are available under all conditions.
-     *      BYTE offsetFreq -   Offset frequency used to fine tune the center 
+     *      BYTE offsetFreq -   Offset frequency used to fine tune the centre 
      *                          frequency. May not apply to all RF transceivers
      *
      * Returns: 
@@ -214,7 +214,7 @@
      *
      * Example:
      *      <code>
-     *      // Set center frequency to be exactly channel 12
+     *      // Set centre frequency to be exactly channel 12
      *      MiMAC_SetChannel(12, 0);
      *      </code>
      *
@@ -503,7 +503,7 @@
      *                          * POWER_STATE_DEEP_SLEEP RF transceiver deep sleep mode.
      *                          * POWER_STATE_OPERATE RF transceiver operating mode.
      * Returns: 
-     *      A boolean to indicate if chaning power state of RF transceiver is successful.
+     *      A boolean to indicate if changing power state of RF transceiver is successful.
      *
      * Example:
      *      <code>

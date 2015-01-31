@@ -122,29 +122,39 @@ void  __attribute__((interrupt, auto_psv)) _INT2Interrupt(void) {
 	for (i = 0; i < (ACCMTR_SAMP_SIZE * numOfSamplesAvailable) - 1; i++) {
 		g_accmtr_blk_buff[g_accmtr_blk_buff_w_ptr] = in_byte_i2c_accmtr(0);
 		g_accmtr_blk_buff_w_ptr++;												// increment the g_accmtr_blk_buff position by 1
-		if ((g_accmtr_blk_buff_w_ptr & 0x01FF) == (MAX_BLOCK_SIZE - 8)) {		// check if reach slightly before end of block (512 byte); writing 'x' to last 2 bytes
+		// YL 9.12 ... was: 
+		// if ((g_accmtr_blk_buff_w_ptr & 0x01FF) == (MAX_BLOCK_SIZE - 8)) {	// check if reach slightly before end of block (512 byte); writing 'x' to last 2 bytes
+		// ... YL 9.12
+		if ((g_accmtr_blk_buff_w_ptr & 0x01FF) == (LAST_DATA_BYTE + 1)) {		// check if last data byte was written; block tail starts with [RETRY | HW_OVERFLOW | SW_OVERFLOW] counters and is padded with 'x'
 			blockNum = ((g_accmtr_blk_buff_w_ptr & (0xFE00)) >> 9);				// dividing g_accmtr_blk_buff_w_ptr by 512; blockNum indicates what buffer was filled
 			g_accmtr_is_blk_rdy[blockNum] = 1;									// notify that block[blockNum] was filled and ready to be sent through usb/wireless, or saved to flash
-			g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_overflow_cntr;		// put in the 505 place of the current block the overflow status
-			g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_blk_overflow_cntr; 	// put in the 506 place of the current block the overflow cyclic buffer status
+			// YL 9.12 ... was:
+			// g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_overflow_cntr;		// put in the 505 place of the current block the overflow status
+			// g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_blk_overflow_cntr; 	// put in the 506 place of the current block the overflow cyclic buffer status			
+			// ... YL 9.12
+			g_accmtr_blk_buff[HW_OVERFLOW_LOCATION] = g_accmtr_overflow_cntr;		// the accelerometer overflow status	
+			g_accmtr_blk_buff[SW_OVERFLOW_LOCATION] = g_accmtr_blk_overflow_cntr; 	// the cyclic buffer overflow status
 			g_accmtr_overflow_cntr = 0;
 			g_accmtr_blk_overflow_cntr = 0;
-			g_accmtr_blk_buff_w_ptr = ((g_accmtr_blk_buff_w_ptr + 6) & (CYCLIC_BLOCK_MASK));	// put the buffer pointer to the next block
+			// YL 9.12 ... was:
+			// g_accmtr_blk_buff_w_ptr = ((g_accmtr_blk_buff_w_ptr + 6) & (CYCLIC_BLOCK_MASK));	// put the buffer pointer to the next block
+			// ... YL 9.12
+			g_accmtr_blk_buff_w_ptr = ((g_accmtr_blk_buff_w_ptr + BLOCK_TAIL_SIZE) & (CYCLIC_BLOCK_MASK));	// put the buffer pointer to the next block
 		}
 	}
 	
-	// read the last byte separately in order to stop I2C:
+	// read the last byte separately in order to stop I2C: // YL 9.12 same changes as above
 	g_accmtr_blk_buff[g_accmtr_blk_buff_w_ptr] = in_byte_i2c_accmtr(1);						
 	stop_i2c_accmtr();
 	g_accmtr_blk_buff_w_ptr++;																
-	if ((g_accmtr_blk_buff_w_ptr & 0x01FF) == (MAX_BLOCK_SIZE - 8)) {						
+	if ((g_accmtr_blk_buff_w_ptr & 0x01FF) == (LAST_DATA_BYTE + 1)) {						
 		blockNum = ((g_accmtr_blk_buff_w_ptr & (0xFE00)) >> 9);								
 		g_accmtr_is_blk_rdy[blockNum] = 1; 													
-		g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_overflow_cntr; 				
-		g_accmtr_blk_buff[++g_accmtr_blk_buff_w_ptr] = g_accmtr_blk_overflow_cntr; 			
+		g_accmtr_blk_buff[HW_OVERFLOW_LOCATION] = g_accmtr_overflow_cntr; 				
+		g_accmtr_blk_buff[SW_OVERFLOW_LOCATION] = g_accmtr_blk_overflow_cntr; 			
 		g_accmtr_overflow_cntr = 0;
 		g_accmtr_blk_overflow_cntr = 0;
-		g_accmtr_blk_buff_w_ptr = ((g_accmtr_blk_buff_w_ptr + 6) & (CYCLIC_BLOCK_MASK));	
+		g_accmtr_blk_buff_w_ptr = ((g_accmtr_blk_buff_w_ptr + BLOCK_TAIL_SIZE) & (CYCLIC_BLOCK_MASK));	
 	}
 		
 	// unmask PIC accelerometer interrupt:
@@ -166,7 +176,7 @@ void init_accmtr() {
 	BYTE 	i;
 	int 	check = accmtr_reg_read(WHO_AM_I_REG);	
 
-	// check for Accelerometer component existence:
+	// check for Accelerometer component existence: // YL 9.12  NOTE - despite the following lines - the program gets stuck if the accelerometer isn't assembled
 	if (check != (0x00FF & MMA8451_Q)) {
 		err(ERR_ACCMTR_UNKNOWN_ID);
 		return;
@@ -206,7 +216,7 @@ void init_accmtr() {
 																	// 1 -  interrupt is routed to INT1 pin (0 - interrupt is routed to INT2 pin)
 	
 	// clear "double buffers" between accelerometer and TxRx (for OST only):
-	for (i = 0; i < CYCLIC_BUFFER_SIZE ; i++){
+	for (i = 0; i < CYCLIC_BUFFER_SIZE ; i++) {
 		g_accmtr_is_blk_rdy[i] = 0;
 	}
 }
@@ -255,7 +265,7 @@ int accmtr_active() {
 	unsigned int	i;
 	int 			res;	
 	BYTE 			curr_setting;
-	// YL 14.9 ... added to avoid preceding if accelerometer isn't assembled
+	// YL 14.9 ... added to avoid preceding if accelerometer isn't assembled; NOTE - despite the following lines - the program gets stuck if the accelerometer isn't assembled
 	int 			check = accmtr_reg_read(WHO_AM_I_REG);	
 
 	// check for accelerometer component existence:

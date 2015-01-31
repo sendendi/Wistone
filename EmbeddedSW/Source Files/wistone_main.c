@@ -35,6 +35,10 @@ Wisdom Stone - under road sensing system
  ver 1.07.0 date: 23.10.13 - Initial MiWi network topology printing added
 		- Initial network topology printing after the communication is established
 		- Added by Yulia
+		- Needs more debug
+ ver 1.08.0 date: 23.2.14 - Synchronization mechanism between the stones added
+		- Synchronization mechanism between the stones' measurements in a sampling session  
+		- Added by Yulia
 		- Needs more debug		
 		
 ********************************************************************************
@@ -122,10 +126,13 @@ int main(void) {
 			handle_OST();
 	
 		exec_message_command();			// execute commands received from: USB/RX/Boot
-#ifdef LCD_INSTALLED
-		refresh_screen(); 				// periodically, copy screen 4 x 16 memory buffer to LCD
-		//DelayMs(1);					// to be used only when nothing is activated except for the LCD
-#endif // LCD_INSTALLED	
+		#ifdef LCD_INSTALLED
+			refresh_screen(); 			// periodically, copy screen 4 x 16 memory buffer to LCD
+			//DelayMs(1);				// to be used only when nothing is activated except for the LCD
+		#endif // LCD_INSTALLED	
+		#ifdef DEBUG_PRINT	// YL 12.1
+			put_char_debug();
+		#endif // DEBUG_PRINT		
 	}
 	prepare_for_shutdown();				// actions needed before going to sleep
 	return(0);							// should never get here...
@@ -150,35 +157,35 @@ int main(void) {
 *******************************************************************************/
 int main(void) {	  //YL 21.4 int main() instead of void main()
   
-    // YL 5.8 - moved: PPS_config() to init_all 	// YS 17.8	// remappable pins configs 
+    // YL 5.8 - moved: PPS_config() to init_all 	// YS 17.8	// remappable pins configs
 	init_all();	
 	
 	while (1) {
-#if defined (USBCOM)
-	USB_STATUS usbStatus = USB_ReceiveData();
+	#if defined (USBCOM)
+		USB_STATUS usbStatus = USB_ReceiveDataFromHost();
 
-	// YL 4.8 ... the backup is next to main
-	if (usbStatus == USB_RECEIVED_DATA) {
-		// parse the data from USB, to see if the command is for the plug, 
-		// and if so - execute it; otherwise - we consider it "stone" command (including the case of illegal string) 
-		BOOL isPlugCommand = TxRx_ExecuteIfPlugCommand();
-		if (isPlugCommand == FALSE) {
-			// send the command to the stone
-			while (TxRx_SendCommand((BYTE*)g_curr_msg) != TXRX_NO_ERROR) {
-				// keep calling TxRx_Init(TRUE) 
-				// (to reset the network without resetting the data counters) 
-				// as long as TxRx_SendCommand fails to transmit the command to the stone
-				
-				// YL 16.8 ... meanwhile reconnect doesn't work
-				// TxRx_Init(TRUE);
-				// ... YL 16.8
+		// YL 4.8 ... the backup is next to main
+		if (usbStatus == USB_RECEIVED_DATA) {
+			// parse the data from USB, to see if the command is for the plug, 
+			// and if so - execute it; otherwise - we consider it "stone" command (including the case of illegal string) 
+			BOOL isPlugCommand = TxRx_ExecuteIfPlugCommand();
+			if (isPlugCommand == FALSE) {
+				// send the command to the stone
+				while (TxRx_SendCommand((BYTE*)g_curr_msg) != TXRX_NO_ERROR) {
+					// keep calling TxRx_Init(TRUE) 
+					// (to reset the network without resetting the data counters) 
+					// as long as TxRx_SendCommand fails to transmit the command to the stone
+					// YL 3.11 TxRx_Init(TRUE); 12.12 NOTE that the Starter STONE must call TxRx_Init too simultaneously
+				}
 			}
 		}
-	}
-	// ... YL 4.8		
-#endif // USBCOM
+		// ... YL 4.8		
+	#endif // USBCOM
 	// YL handle the messages that the stone sends to the plug
-	TxRx_PeriodTasks();	 // YS 25.1													
+	TxRx_PeriodTasks();	// YS 25.1
+	#ifdef DEBUG_PRINT	// YL 12.1
+		put_char_debug();
+	#endif // DEBUG_PRINT	
 	}
 	// YL 5.8 commented: while (1);
 	return(0); // YL 21.4 added to avoid warning in case of void main()

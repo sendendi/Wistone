@@ -18,11 +18,11 @@ analog.c - handle internal ADC
 	General:
 	========
 this file contains function for operating internal ADC.
-- inititialize the ADC after power up
+- initialize the ADC after power up
 - get sample from ADC, when needed
 
-Battey and Charging status
-==========================
+Battery and Charging status
+===========================
 - we use the single LED we have to indicate both charge and battery level status.
 - Charging:
 	- when we detect that charge is on, we blink the LED with double blinks or triple blinks according to status
@@ -33,7 +33,7 @@ Battey and Charging status
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
-#include "adc.h"
+// YL 25.1 #include "adc.h" probably isn't used
 #include "system.h"
 #include "error.h"			// Application
 #include "p24FJ256GB110.h"	// Common
@@ -45,16 +45,16 @@ Battey and Charging status
 * Description:
 *		initialize the internal ADC:
 *		 - prepare for sampling
-* in Wistone we have two optional analog sources:
+* in Wistone we have two optional analogue sources:
 *	 - AN12 - Microphone - not supported at this stage
 *	 - AN10 - Battery level
 *******************************************************************************/
 void analog_init(void) {
 
 	// Configure adc controls:
-	AD1CON1	= 0x0000; 		// Sample when SAMP=1, convert when SAMP = 0	
+	AD1CON1	= 0x0000; 		// Sample when SAMP = 1, convert when SAMP = 0	
 	AD1CON2 = 0x0000; 		// No channel scan, always use MUX-A
-	AD1CON3 = 0x0000; 		// No timers set
+	AD1CON3 = 0x0A0A; 		// No timers set // YL 6.11 was: 0x0000, changed after comparison to 10.2.12 version
 	AD1PCFGL = 0xFBFF;		// Set all pins to digital, except for AN10
 	AD1CON1bits.ADON = 1; 	// Turn ADC ON
 }
@@ -78,7 +78,7 @@ void analog_init(void) {
 /*******************************************************************************/
 int detect_analog_input(int adc_stage) {
 	
-	static int	last_vbat_level = 0;
+	static unsigned int	last_vbat_level = 500; // YL 6.11 was: 0, changed after comparison to 10.2.12 version
 
 	// set ADC parameters:
 	AD1CHS  = 0x0A0A;	// select the channel AN10 for both MUX-A and MUX-B
@@ -86,21 +86,27 @@ int detect_analog_input(int adc_stage) {
 
 	// this section determines what action to take according to entry number:
 	switch (adc_stage) {
-	case SAMPLE_STAGE:				// first enrty, sample
-		AD1CON1bits.SAMP = 1;
-		break;
-	case CONVERT_STAGE:				// second enrty, convert
-		AD1CON1bits.SAMP = 0; 	
-		break;
-	case UPDATE_STAGE:				// third enrty, global variables update
-		// read the ADC value value:
-		g_vbat_level = ADC1BUF0;
-		// "low pass filter" the value, to avoid changing due to momentary changes (alpha factor):
-		g_vbat_level = ((g_vbat_level * (int)4) + (last_vbat_level * (int)6)) / (int)10;
-		last_vbat_level = g_vbat_level;
-		break;
-	default:
-		return(1);
+		case SAMPLE_STAGE:				// first entry, sample
+			AD1CON1bits.SAMP = 1;
+			break;
+		case CONVERT_STAGE:				// second entry, convert
+			AD1CON1bits.SAMP = 0; 	
+			break;
+		case UPDATE_STAGE:				// third entry, global variables update
+			// read the ADC value:
+			// YL 22.11 ...
+			// was: g_vbat_level = (unsigned int)ADC1BUF0; 	// YL 6.11 added casting after comparison to 10.2.12 version
+			g_vbat_level = ADC1BUF0;
+			// ... YL 22.11		
+			// "low pass filter" the value, to avoid changing due to momentary changes (alpha factor):
+			// YL 22.11 ... was:
+			// g_vbat_level = ((g_vbat_level * (unsigned int)4) + (last_vbat_level * (unsigned int)6)) / (unsigned int)10;	// YL 6.11 changed casting from int to unsigned int after comparison to 10.2.12 version
+			g_vbat_level = ((g_vbat_level * 4) + (last_vbat_level * 6)) / 10;	
+			// ... YL 22.11
+			last_vbat_level = g_vbat_level;
+			break;
+		default:
+			return(1);
 	}
 	return (0);
 }

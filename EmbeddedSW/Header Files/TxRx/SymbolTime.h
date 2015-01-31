@@ -37,7 +37,7 @@
 *********************************************************************
 * File Description:
 *
-*  This file provides access to all of the time managment functions
+*  This file provides access to all of the time management functions
 *   as well as calculating the timer scaling settings required for
 *   accurate symbol time measurement
 *
@@ -216,7 +216,14 @@ typedef union _MIWI_TICK
 void InitSymbolTimer(void);
 MIWI_TICK MiWi_TickGet(void);
 
+// YL 5.11 ... added aliases to use SymbolTime.h in non-MiWi context too
+#define TICK 		MIWI_TICK
+#define TickGet() 	MiWi_TickGet()
+#define TickGetDiff	MiWi_TickGetDiff
+// ... YL 5.11
+
 /************************ VARIABLES ********************************/
 
 extern volatile BYTE timerExtension1,timerExtension2;
+
 #endif

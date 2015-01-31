@@ -101,13 +101,13 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 #define USB_MEMORY_ALLOCATION_ERROR             0x05    // Out of dynamic memory.
 #define USB_UNKNOWN_DEVICE                      0x06    // Device with specified address is not attached.
 #define USB_CANNOT_ENUMERATE                    0x07    // Cannot enumerate the attached device.
-#define USB_EVENT_QUEUE_FULL                    0x08    // Event queue was full when an event occured.
+#define USB_EVENT_QUEUE_FULL                    0x08    // Event queue was full when an event occurred.
 #define USB_ENDPOINT_BUSY                       0x10    // Endpoint is currently processing a transaction.
 #define USB_ENDPOINT_STALLED                    0x11    // Endpoint is currently stalled. User must clear the condition.
 #define USB_ENDPOINT_ERROR                      0x12    // Will need more than this eventually
 #define USB_ENDPOINT_ERROR_ILLEGAL_PID          0x13    // Illegal PID received.
 #define USB_ENDPOINT_NOT_FOUND                  0x14    // Requested endpoint does not exist on device.
-#define USB_ENDPOINT_ILLEGAL_DIRECTION          0x15    // Reads must be performe on IN endpoints, writes on OUT endpoints.
+#define USB_ENDPOINT_ILLEGAL_DIRECTION          0x15    // Reads must be performed on IN endpoints, writes on OUT endpoints.
 //#define USB_ENDPOINT_TRANSACTION_IN_PROGRESS    0x16
 #define USB_ENDPOINT_NAK_TIMEOUT                0x17    // Too many NAK's occurred while waiting for the current transaction.
 #define USB_ENDPOINT_ILLEGAL_TYPE               0x18    // Transfer type must match endpoint description.
@@ -243,7 +243,7 @@ prototype of the USB_CLIENT_EVENT_HANDLER data type, when an event occurs.
 
 typedef enum
 {
-    // No event occured (NULL event)
+    // No event occurred (NULL event)
     EVENT_NONE = 0,
 
     EVENT_DEVICE_STACK_BASE = 1,
@@ -253,7 +253,7 @@ typedef enum
     // A USB hub has been attached.  Hub support is not currently available.
     EVENT_HUB_ATTACH,           
     
-    // A stall has occured.  This event is not used by the Host stack.
+    // A stall has occurred.  This event is not used by the Host stack.
     EVENT_STALL,                  
     
     // VBus SRP Pulse, (VBus > 2.0v),  Data: BYTE Port Number (For future support)
@@ -349,7 +349,7 @@ typedef enum
     // looking through configuration descriptors; the driver selected at the device 
     // level cannot be overridden, since there shouldn't be any other options to 
     // choose from.
-    EVENT_OVERRIDE_CLIENT_DRIVER_SELECTION,	//AY 7.8
+    EVENT_OVERRIDE_CLIENT_DRIVER_SELECTION,	// AY 7.8
 
     // In host mode, this event is thrown for every millisecond that passes.  Like all
     // events, this is thrown from the USBHostTasks() or USBTasks() routine so its
@@ -388,7 +388,7 @@ typedef enum
 /* EVENT_TRANSFER Data
 
 This data structure is passed to the appropriate layer's
-USB_EVENT_HANDLER when an EVT_XFER event has occured, indicating
+USB_EVENT_HANDLER when an EVT_XFER event has occurred, indicating
 that a transfer has completed on the USB.  It provides the endpoint,
 direction, and actual size of the transfer.
  */
@@ -407,7 +407,7 @@ typedef struct _transfer_event_data
 
 This data structure is passed to the appropriate layer's
 USB_EVENT_HANDLER when an EVENT_VBUS_REQUEST_POWER or EVENT_VBUS_RELEASE_POWER
-event has occured, indicating that a change in Vbus power is being requested.
+event has occurred, indicating that a change in Vbus power is being requested.
 */
 
 typedef struct _vbus_power_data
@@ -422,7 +422,7 @@ typedef struct _vbus_power_data
 This data structure is passed to the application layer when a client driver is
 select, in case multiple client drivers can support a particular device.
 */
-typedef struct _override_client_driver_data	//AY 7.8
+typedef struct _override_client_driver_data	// AY 7.8
 {        
     WORD idVendor;              
     WORD idProduct;             
@@ -468,8 +468,8 @@ stalled (ie. bit 0 = EP0, bit 1 = EP1, etc.)
         USBInitialize must have been called to initialize the USB SW
         Stack.
         
-    Paramters:
-        USB_EVENT event   - Identifies the bus event that occured
+    Parameters:
+        USB_EVENT event   - Identifies the bus event that occurred
         void *data        - Pointer to event-specific data
         unsigned int size - Size of the event-specific data
         
@@ -589,7 +589,7 @@ typedef BOOL (*USB_EVENT_HANDLER) ( USB_EVENT event, void *data, unsigned int si
     #endif
 #endif
 
-#define USB_PING_PONG__NO_PING_PONG         0x00    //0b00
+#define USB_PING_PONG__NO_PING_PONG         0x00    //0b00 // YL 4.11 these MACROs are aliased, and FULL_PING_PONG is chosen
 #define USB_PING_PONG__EP0_OUT_ONLY         0x01    //0b01
 #define USB_PING_PONG__FULL_PING_PONG       0x02    //0b10
 #define USB_PING_PONG__ALL_BUT_EP0          0x03    //0b11

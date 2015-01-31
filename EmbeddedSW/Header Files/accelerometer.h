@@ -5,12 +5,18 @@
 #include "GenericTypeDefs.h" 
 
 /***** DEFINE: ****************************************************************/
-#define ACCMTR_DEVICE_ADDRESS_RD 	0b00111001 		//7bit address: device address - 001110; SA0 - 0
-#define ACCMTR_DEVICE_ADDRESS_WR 	0b00111000 		//7bit address: device address - 001110; SA0 - 0
-#define ACCMTR_DEVICE_ADDRESS		0b0011100  		//7bit address: device address - 001110; SA0 - 0
-#define MMA8451_Q					0x1A			//accelerometer id
-#define ACCMTR_SAMP_SIZE			6	    		//in bytes
-
+#define ACCMTR_DEVICE_ADDRESS_RD 	0b00111001 		// 7bit address: device address - 001110; SA0 - 0
+#define ACCMTR_DEVICE_ADDRESS_WR 	0b00111000 		// 7bit address: device address - 001110; SA0 - 0
+#define ACCMTR_DEVICE_ADDRESS		0b0011100  		// 7bit address: device address - 001110; SA0 - 0
+#define MMA8451_Q					0x1A			// accelerometer id
+#define ACCMTR_SAMP_SIZE			6	    		// bytes
+// YL 9.12 ... added MACROs to replace magic numbers
+#define BLOCK_TAIL_SIZE			8					// bytes
+#define LAST_DATA_BYTE			((MAX_BLOCK_SIZE - BLOCK_TAIL_SIZE) - 1) // in block
+#define RETRY_COUNTER_LOCATION	(LAST_DATA_BYTE + 1) // in block
+#define HW_OVERFLOW_LOCATION	(LAST_DATA_BYTE + 2) // in block
+#define SW_OVERFLOW_LOCATION	(LAST_DATA_BYTE + 3) // in block
+// ... YL 9.12
 #define ACC_IE 					IEC1bits.INT2IE		// accelerometer PIC interrupt enable bit
 #define ACC_IF					IFS1bits.INT2IF		// accelerometer PIC interrupt flag - IFS<11> 
 //Accelerometer registers:

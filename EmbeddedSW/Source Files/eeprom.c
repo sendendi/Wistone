@@ -235,10 +235,18 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 		while (k < EEPROM_PAGE_SIZE) {						//display all non-blank character sequences in current eeprom page, use "; " to separate the sequences //YL 10.10
 			while (data_to_read[k] == '\0' && k < EEPROM_PAGE_SIZE) 	//display non-blank character sequence
 				k++;
+			// YL 29.12 ... added data_to_print for more effective wireless transmissions
+			char data_to_print[EEPROM_PAGE_SIZE + 1];
 			if (k < EEPROM_PAGE_SIZE) {
-				m_write(&data_to_read[k]); 				
-				k += strlen(&data_to_read[k]); 	
-				m_write("; ");	
+				// was:
+				//m_write(&data_to_read[k]); 				
+				//k += strlen(&data_to_read[k]); 	
+				//m_write("; ");
+				strcpy(data_to_print, &data_to_read[k]);
+				strcat(data_to_print, "; ");
+				m_write(data_to_print);
+				k += strlen(&data_to_read[k]);
+				// ... YL 29.12
 			}
 		}
 		addr += EEPROM_PAGE_SIZE;							//the new address to continue reading from after reading a block of EEPROM_PAGE_SIZE (64 bytes)
@@ -251,7 +259,7 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 #endif //EEPROM_128K
 		i--;
 	} 
-	if (j) {												//display the remainig bytes (less than EEPROM_PAGE_SIZE)
+	if (j) {												//display the remaining bytes (less than EEPROM_PAGE_SIZE)
 		// first, write the address we would like to start read from
 		if (device_write_i2c_ert(device_addr, 2, (BYTE*)data_to_write, I2C_READ)) // YL 14.4 added casting to avoid signedness warning
 			return err(ERR_EEPROM_READ_N_BYTES);				
@@ -263,10 +271,18 @@ int eeprom_read_n_bytes(long addr, char* data_to_read, int len)	 //YL 17.9 no le
 		while (k < j) {										//display all non-blank character sequences in current eeprom page, use "; " to separate the sequences //YL 10.10	
 			while (data_to_read[k] == '\0' && k < j)		//display non-blank character sequence
 				k++;
+			// YL 29.12 ... added data_to_print for more effective wireless transmissions
+			char data_to_print[EEPROM_PAGE_SIZE + 1];				
 			if (k < j) {
-				m_write(&data_to_read[k]);				
-				k += strlen(&data_to_read[k]); 
-				m_write("; ");								
+				// was:
+				//m_write(&data_to_read[k]);				
+				//k += strlen(&data_to_read[k]); 
+				//m_write("; ");
+				strcpy(data_to_print, &data_to_read[k]);
+				strcat(data_to_print, "; ");
+				m_write(data_to_print);
+				k += strlen(&data_to_read[k]);
+				// ... YL 29.12				
 			}
 		}
 	}
@@ -294,7 +310,7 @@ int eeprom_boot_set(BYTE entry, char* dat)	 //YL 17.9
 // eeprom_boot_get()
 // read boot cmd from specified cmd table entry (which needs to be converted to 
 // address within the EEPROM) into global g_curr_boot_cmd string 
-// if boot cmd's lenght is 0 - the entry is empty
+// if boot cmd's length is 0 - the entry is empty
 *******************************************************************************/
 int eeprom_boot_get(BYTE entry)	//YL 17.9
 {
@@ -316,7 +332,7 @@ char* get_string(void)		//YL 19.9
 {
 	int i = 0, j = 0;
 	
-	g_eeprom_buffer[0] = '\0';									//initialze eeprom buffer as empty string
+	g_eeprom_buffer[0] = '\0';									//initialize eeprom buffer as empty string
 	if (parse_long_num(g_tokens[2]) == -1) 						//third parameter is not a number
 		return g_eeprom_buffer;									//return an empty string
 	
@@ -337,9 +353,9 @@ char* get_string(void)		//YL 19.9
 		while ((g_in_msg[i] == ' ') || (g_in_msg[i] == '\t')) 	//skip the spaces until the first non-white character of the remaining g_in_msg 
 			i++;
 		j = strlen(g_in_msg + i);
-		if (j > EEPROM_PAGE_SIZE - 3) {							//in case the remainig g_in_msg is longer than 61 bytes
-			m_write("note: only first 61 bytes are written");	//warning
-			write_eol();
+		if (j > EEPROM_PAGE_SIZE - 3) {							//in case the remaining g_in_msg is longer than 61 bytes
+			m_write("note: only first 61 bytes are written");	//warning 
+			write_eol(); 
 			g_in_msg[i + (EEPROM_PAGE_SIZE - 3)] = '\0';		//take only the first 61 bytes of it, append '\0' as #62 bit (2 additional bytes are for address within the EEPROM that would be added later)
 		}
 		else {

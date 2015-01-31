@@ -22,8 +22,8 @@ This file contains several utility functions like byte to string converter.
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
-#include "error.h"			//Application
-#include "misc_c.h"			//Common
+#include "error.h"			// Application
+#include "misc_c.h"			// Common
 
 
 /*******************************************************************************
@@ -53,11 +53,11 @@ BYTE int_to_byte(int num) 	//YL 27.8 //NOTE positive/negative
 *******************************************************************************/
 char *long_to_str(long num)
 {
-	static char buf[12];	//MAX_NUM is 2147483647 - 10 digits; another 2 chars - for sign and null.
+	static char buf[12];	// MAX_NUM is 2147483647 - 10 digits; another 2 chars - for sign and null.
 	char *p;
 	long sign = num;
 	
-	buf[11] = 0;			//end of string
+	buf[11] = 0;			// end of string
 	p = buf + 11;
 	do {
 		p--;
@@ -97,7 +97,7 @@ char* char_to_str(char num)  //YL 30.8
 
 char* byte_to_str(BYTE num)
 {
-	static char buf[4];	//MAX_NUM is 255 - 3 digits; another char is for null.
+	static char buf[4];	// MAX_NUM is 255 - 3 digits; another char is for null.
 	char *p;
 		
 	buf[3] = 0;	//'\0'?

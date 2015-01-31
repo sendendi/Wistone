@@ -86,7 +86,7 @@
  Change History:
   Rev    Description
   ----   -----------
-  2.3    Decricated the mUSBUSARTIsTxTrfReady() macro.  It is 
+  2.3    Deprecated the mUSBUSARTIsTxTrfReady() macro.  It is 
          replaced by the USBUSARTIsTxTrfReady() function.
 
   2.6    Minor definition changes
@@ -98,8 +98,6 @@
          notifications over the CDC interrupt endpoint.
 
 ********************************************************************/
-
-//AY 7.8
 
 #ifndef CDC_H
 #define CDC_H
@@ -164,7 +162,7 @@
 #define DSC_FN_HEADER               0x00
 #define DSC_FN_CALL_MGT             0x01
 #define DSC_FN_ACM                  0x02    // ACM - Abstract Control Management
-#define DSC_FN_DLM                  0x03    // DLM - Direct Line Managment
+#define DSC_FN_DLM                  0x03    // DLM - Direct Line Management
 #define DSC_FN_TELEPHONE_RINGER     0x04
 #define DSC_FN_RPT_CAPABILITIES     0x05
 #define DSC_FN_UNION                0x06
@@ -480,7 +478,7 @@
         void mUSBUSARTTxRam(BYTE *pData, BYTE len)
     
     Description:
-        Depricated in MCHPFSUSB v2.3.  This macro has been replaced by 
+        Deprecated in MCHPFSUSB v2.3.  This macro has been replaced by 
         USBUSARTIsTxTrfReady().
  *****************************************************************************/
 #define mUSBUSARTIsTxTrfReady()     USBUSARTIsTxTrfReady()
@@ -513,7 +511,7 @@
         The USB stack should have reached the CONFIGURED_STATE prior
         to calling this API function for the first time.
         
-    Paramters:
+    Parameters:
         pDdata  : Pointer to the starting location of data bytes
         len     : Number of bytes to be transferred
         
@@ -741,8 +739,8 @@ BYTE getsUSBUSART(char *buffer, BYTE len);
 		
   Summary:
     putUSBUSART writes an array of data to the USB. Use this version, is
-    capable of transferring 0x00 (what is typically a NULL character in any of
-    the string transfer functions).
+    capable of transferring 0x00 (what is typically a NULL character 
+	in any of the string transfer functions).
 
   Description:
     putUSBUSART writes an array of data to the USB. Use this version, is

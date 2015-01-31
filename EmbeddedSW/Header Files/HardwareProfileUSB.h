@@ -42,7 +42,7 @@
 #define HARDWARE_PROFILE_USB_H
 
     /*******************************************************************/
-    /******** USB stack hardware selection options *********************/
+    /************* USB stack hardware selection options ****************/
     /*******************************************************************/
     //This section is the set of definitions required by the MCHPFSUSB
     //  framework.  These definitions tell the firmware what mode it is
@@ -84,7 +84,7 @@
     /*******************************************************************/
     /*******************************************************************/
     /*******************************************************************/
-    /******** Application specific definitions *************************/
+    /***************** Application specific definitions ****************/
     /*******************************************************************/
     /*******************************************************************/
     /*******************************************************************/
@@ -103,10 +103,10 @@
     // #define EXPLORER_16
     // #define PIC24FJ256GB110_PIM
 	// ... YL 12.9
-    #define CLOCK_FREQ 20000000		//YL 11.8 was 32000000; the file was replaced
-    
+    #define CLOCK_FREQ 20000000		// YL 11.8 was 32000000; the file was replaced
+	    
     /** I/O pin definitions ********************************************/
-    #define INPUT_PIN 1
-    #define OUTPUT_PIN 0
-
+    #define INPUT_PIN 	1
+    #define OUTPUT_PIN 	0
+		
 #endif  //HARDWARE_PROFILE_USB_H

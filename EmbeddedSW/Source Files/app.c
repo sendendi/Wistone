@@ -111,14 +111,21 @@ void init_block_buffers(){
 	}
 	// clear block buffer data, and trailer:
 	for (i = 0; i < CYCLIC_BUFFER_SIZE; i++) {
-		for (j = (MAX_BLOCK_SIZE - 8); j < MAX_BLOCK_SIZE; j++) {	
+		// YL 9.12 was: for (j = (MAX_BLOCK_SIZE - 8); j < MAX_BLOCK_SIZE; j++) {	
+		for (j = (LAST_DATA_BYTE + 1); j < MAX_BLOCK_SIZE; j++) {	
 			g_accmtr_blk_buff[(i * MAX_BLOCK_SIZE) + j] = 'x'; 		// pad the buffers with 'x'-s.
 			g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + j] = 'x';
 		}
+		// YL 9.12 ... was:
 		g_accmtr_blk_buff[(i * MAX_BLOCK_SIZE) + 505] = 0;			// place zero where we save the overflow counters
 		g_accmtr_blk_buff[(i * MAX_BLOCK_SIZE) + 506] = 0;
 		g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + 505] = 0;
-		g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + 506] = 0;
+		g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + 506] = 0;	
+		// ... YL 9.12
+		g_accmtr_blk_buff[(i * MAX_BLOCK_SIZE) + HW_OVERFLOW_LOCATION] = 0;			// place zero where we save the overflow counters
+		g_accmtr_blk_buff[(i * MAX_BLOCK_SIZE) + SW_OVERFLOW_LOCATION] = 0;
+		g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + HW_OVERFLOW_LOCATION] = 0;
+		g_ads1282_blk_buff[(i * MAX_BLOCK_SIZE) + SW_OVERFLOW_LOCATION] = 0;
 	}
 	// cyclic pointers for the next block to print:
 	g_accmtr_next_printed_blk = 0;
@@ -151,8 +158,9 @@ void handle_SS(void)
 		g_accmtr_sector_addr_ptr++;
 		// check if completed requested number of blocks:
 		g_accmtr_num_of_blocks--;
-		if (g_accmtr_num_of_blocks <= 0)
+		if (g_accmtr_num_of_blocks <= 0) {
 			handle_application_stop();
+		}
 	}
 }	
 
@@ -162,7 +170,7 @@ void handle_SS(void)
 // read and transmit samples stored in FLASH.
 *******************************************************************************/
 void handle_TS(void)
-{ 
+{ 	
 	int				i, res = 0;
 	static BOOL		toggleTS = TRUE; 											// toggle reading and transmitting each main iteration
 	TXRX_ERRORS		status;
@@ -181,15 +189,15 @@ void handle_TS(void)
 	}
 	else {
 		if (g_communication == COMM_WIRELESS) {	
-			// YL 2.9 ... added #ifdef
+			// YL 9.12 ... added #ifdef + replaced 504 with RETRY_COUNTER_LOCATION
 			// was:
 			// g_accmtr_blk_buff[504] = blockTryTxCounter;
 			// blockTryTxCounter = 0; //YS 25.1
 			#if defined ENABLE_RETRANSMISSION
-				g_accmtr_blk_buff[504] = blockTryTxCounter;						// put the number of transmission needed in the previous block..
+				g_accmtr_blk_buff[RETRY_COUNTER_LOCATION] = blockTryTxCounter;	// put the number of transmission needed in the previous block
 				blockTryTxCounter = 0; //YS 25.1
 			#endif
-			// ... YL 2.9
+			// ... YL 9.12
 			
 			status = TxRx_SendData(g_accmtr_blk_buff, MAX_BLOCK_SIZE);
 			while (status != TXRX_NO_ERROR) { // YS 17.11
@@ -203,8 +211,9 @@ void handle_TS(void)
 			b_write(g_accmtr_blk_buff, MAX_BLOCK_SIZE);				
 		g_num_of_blocks--;
 	}
-	if (g_num_of_blocks <= 0)
-		handle_application_stop();
+	if (g_num_of_blocks <= 0) {
+		handle_application_stop();		
+	}
 	toggleTS = !toggleTS;	
 }
 
@@ -221,59 +230,59 @@ void handle_OST(void)
 	TXRX_ERRORS		status;
 	
 	// go over all the ADC blocks that are in the cyclic buffer, starting from the g_accmtr_next_printed_blk.
-	while (g_ads1282_is_blk_rdy[g_ads1282_next_printed_blk] == 1) { 														// if the next_block is filled by the sampler, then it is ready to be saved to the flash.
-		if (g_communication == COMM_WIRELESS) {																				// if the destination of the sending is wireless
-			// YL 2.9 ... added #ifdef
+	while (g_ads1282_is_blk_rdy[g_ads1282_next_printed_blk] == 1) { 															// if the next_block is filled by the sampler, then it is ready to be saved to the flash.
+		if (g_communication == COMM_WIRELESS) {																					// if the destination of the sending is wireless
+			// YL 9.12 ... added #ifdef + replaced 504 with RETRY_COUNTER_LOCATION
 			// was:
-			// g_ads1282_blk_buff[(g_ads1282_next_printed_blk * MAX_BLOCK_SIZE) + 504] = blockTryTxCounter;					// put the number of transmission needed in the previous block..
+			// g_ads1282_blk_buff[(g_ads1282_next_printed_blk * MAX_BLOCK_SIZE) + 504] = blockTryTxCounter;						// put the number of transmission needed in the previous block..
 			// blockTryTxCounter = 0; 	// YS 25.1
 			#if defined ENABLE_RETRANSMISSION
-				g_ads1282_blk_buff[(g_ads1282_next_printed_blk * MAX_BLOCK_SIZE) + 504] = blockTryTxCounter;				// put the number of transmission needed in the previous block..
+				g_ads1282_blk_buff[(g_ads1282_next_printed_blk * MAX_BLOCK_SIZE) + RETRY_COUNTER_LOCATION] = blockTryTxCounter;	// put the number of transmission needed in the previous block..
 				blockTryTxCounter = 0; 	// YS 25.1
 			#endif
-			// ... YL 2.9 
-			status = TxRx_SendData(&g_ads1282_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);		// send the data through the wireless.
+			// ... YL 9.12
+			status = TxRx_SendData(&g_ads1282_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);			// send the data through the wireless.
 			while (status != TXRX_NO_ERROR) {
 				TxRx_PrintError(status);
 				//TxRx_Init(TRUE); 	//YS 5.10 //YS 17.11
-				status = TxRx_SendData(&g_accmtr_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);	// YS 17.11
+				status = TxRx_SendData(&g_accmtr_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);		// YS 17.11
 			}
 			//YS 25.1
 		}		
-		else{ //COMM_USB
-			b_write(&g_ads1282_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);						// else print it through the usb.
+		else { 
+			b_write(&g_ads1282_blk_buff[g_ads1282_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);							// else print it through the usb.
 		}
 		g_ads1282_is_blk_rdy[g_ads1282_next_printed_blk] = 0;
-		g_ads1282_next_printed_blk = (g_ads1282_next_printed_blk + 1) % (CYCLIC_BUFFER_SIZE);								// g_ads1282_next_printed_blk points to the next block..
+		g_ads1282_next_printed_blk = (g_ads1282_next_printed_blk + 1) % (CYCLIC_BUFFER_SIZE);									// g_ads1282_next_printed_blk points to the next block..
 	}
 	
 	// go over Accmtr blocks:
-	while (g_accmtr_is_blk_rdy[g_accmtr_next_printed_blk] == 1) { 															// if the next_block is filled by the sampler, then it is ready to be saved to the flash.
-		if (g_communication == COMM_WIRELESS) {																				// if the destination of the sending is wireless
-			// YL 2.9 ... added #ifdef
+	while (g_accmtr_is_blk_rdy[g_accmtr_next_printed_blk] == 1) { 																// if the next_block is filled by the sampler, then it is ready to be saved to the flash.
+		if (g_communication == COMM_WIRELESS) {																					// if the destination of the sending is wireless
+			// YL 9.12 ... added #ifdef + replaced 504 with RETRY_COUNTER_LOCATION
 			// was: 
 			// g_accmtr_blk_buff[(g_accmtr_next_printed_blk * MAX_BLOCK_SIZE) + 504] = blockTryTxCounter;
 			// blockTryTxCounter = 0; 	// YS 25.1
 			#if defined ENABLE_RETRANSMISSION
-				g_accmtr_blk_buff[(g_accmtr_next_printed_blk * MAX_BLOCK_SIZE) + 504] = blockTryTxCounter;					// put the number of transmission needed in the previous block..
+				g_accmtr_blk_buff[(g_accmtr_next_printed_blk * MAX_BLOCK_SIZE) + RETRY_COUNTER_LOCATION] = blockTryTxCounter;	// put the number of transmission needed in the previous block..
 				blockTryTxCounter = 0; 	// YS 25.1
 			#endif
-			// ... YL 2.9
-			status = TxRx_SendData(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);			// send the data through the wireless.
-			while (status != TXRX_NO_ERROR) { // YS 17.11
+			// ... YL 9.12
+			status = TxRx_SendData(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);				// send the data through the wireless.
+			while (status != TXRX_NO_ERROR) { 	// YS 17.11
 				TxRx_PrintError(status);
-				//TxRx_Init(TRUE); 	// YS 5.10 // YS 17.11
-				status = TxRx_SendData(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);		// YS 17.11
+				//TxRx_Init(TRUE); 	// YS 5.10 	// YS 17.11
+				status = TxRx_SendData(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);			// YS 17.11
 			}
 			//YS 25.1
 		}		
-		else {//COMM_USB
-			b_write(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);						// else print it through the usb.
+		else {
+			b_write(&g_accmtr_blk_buff[g_accmtr_next_printed_blk * MAX_BLOCK_SIZE], MAX_BLOCK_SIZE);							// else print it through the usb.
 		}
 		g_accmtr_num_of_blocks--;
 		g_accmtr_is_blk_rdy[g_accmtr_next_printed_blk] = 0;
-		g_accmtr_next_printed_blk = (g_accmtr_next_printed_blk + 1) % (CYCLIC_BUFFER_SIZE);									// g_accmtr_next_printed_blk points to the next block..
-		if(g_accmtr_num_of_blocks <= 0) {																					// if we sampled the amount of blocks needed, then stop the sampler and go to IDLE mode.
+		g_accmtr_next_printed_blk = (g_accmtr_next_printed_blk + 1) % (CYCLIC_BUFFER_SIZE);										// g_accmtr_next_printed_blk points to the next block..
+		if(g_accmtr_num_of_blocks <= 0) {																						// if we sampled the amount of blocks needed, then stop the sampler and go to IDLE mode.
 			handle_application_stop();
 			return;
 		}
@@ -347,7 +356,7 @@ int handle_active_mode(void)
 	default:
 		break; // should not get here...
 	}	
-	// sanity checks:
+	// input checks:
 	if ((g_start_sector_addr < 0) || (g_num_of_blocks <= 0) || ((g_communication < 0) && (g_mode != MODE_SS)) || (g_single_dual_mode < 0)) {
 		g_mode = MODE_IDLE;	//default
 		return(err(ERR_INVALID_PARAM));
@@ -364,7 +373,7 @@ int handle_active_mode(void)
 *******************************************************************************/
 int handle_application_start(void)	
 {
-	send_start_block();				// we generate a single header block even when dual mode is used
+	send_start_block();		// we generate a single header block even when dual mode is used
 	if (g_mode == MODE_SS || g_mode == MODE_OST) {
 		if (sampler_start() != 0)
 			return(-1);
@@ -380,14 +389,14 @@ void handle_application_stop(void)
 {
 	if (g_mode == MODE_SS || g_mode == MODE_OST)
 		sampler_stop();
-	
+		
 	write_eol();
 	switch (g_mode) {
 		case MODE_SS:
-			m_write ("SSCOMPLETED: completed storing the requested num of blocks");
+			m_write ("SSCOMPLETED: completed storing the requested num of blocks");			
 			break;
 		case MODE_TS:
-			m_write ("TSCOMPLETED: completed transmitting the requested num of blocks");
+			m_write ("TSCOMPLETED: completed transmitting the requested num of blocks");				
 			break;
 		case MODE_OST:
 			m_write	("OSTCOMPLETED: completed transmitting the requested num of blocks");
@@ -420,7 +429,7 @@ void handle_application_stop(void)
 *	   None.
 *
 ******************************************************************************/
-void handle_application_sleep() { //YL handle_application_sleep isn't used meanwhile; check g_in_msg before using the function
+void handle_application_sleep() { // YL handle_application_sleep isn't used meanwhile; check g_in_msg before using the function
 	TXRX_ERRORS TxRxStatus;
 
 	m_write("Going to sleep...\r\n");
@@ -465,9 +474,15 @@ void send_start_block(void)
 
 	// generate header block with the information about the coming session:
 	// YL 14.4 - added casting to all following strcpy and strcat to avoid signedness warning
-	strcpy((char*)g_accmtr_blk_buff, "HEADER-BLOCK: ");							// title - should not change it, since receiver looks for it
+	strcpy((char*)g_accmtr_blk_buff, "HEADER-BLOCK: ");							// title - should not change it, since the receiver looks for it
 	strcat((char*)g_accmtr_blk_buff, " <> Start Sector: ");
-	strcat((char*)g_accmtr_blk_buff, long_to_str(g_accmtr_sector_addr_ptr));
+	// YL 22.12 ...
+	// was: strcat((char*)g_accmtr_blk_buff, long_to_str(g_accmtr_sector_addr_ptr));
+	if (g_mode == MODE_SS) 
+		strcat((char*)g_accmtr_blk_buff, long_to_str(g_accmtr_sector_addr_ptr));
+	else if (g_mode == MODE_TS)	
+		strcat((char*)g_accmtr_blk_buff, long_to_str(g_sector_addr_ptr));
+	// ... YL 22.12
 	strcat((char*)g_accmtr_blk_buff, " <> Number of Blocks: ");
 	strcat((char*)g_accmtr_blk_buff, long_to_str(g_num_of_blocks));
 	strcat((char*)g_accmtr_blk_buff, " <> Active Sensors: ");
@@ -512,7 +527,6 @@ void send_start_block(void)
 // sampler_start()
 *******************************************************************************/
 int sampler_start(void) {	
-	accmtr_active();
 	// YL 14.9 ... added meanwhile because MMA8451_Q must be assembled
 	// was: accmtr_active();
 	if (accmtr_active() != 0)

@@ -1,4 +1,347 @@
 
+12.2:
+
+directories:
+12.2: 11.2 continued
+
+********************************************************************************
+
+11.2:
+
+directories:
+11.2: 13.1 continued; catch up
+HW		EUI
+5		1
+7		2
+9		3
+
+11.2B is a backup (without pickit)
+
+********************************************************************************
+
+13.1:
+
+directories:
+13.1: 12.1 continued; field test
+
+********************************************************************************
+
+12.1:
+
+directories:
+12.1: 11.1 continued; phase-counter - record the timer
+
+********************************************************************************
+
+11.1:
+
+directories:
+11.1: 9.1 continued; phase-counter - record the timer <- not finished
+is the reading always atomic?
+
+********************************************************************************
+
+9.1:
+
+directories:
+9.1: 29.12 continued; phase-counter - record the timer
+
+********************************************************************************
+
+29.12:
+
+directories:
+29.12: 26.12B continued; phase-counter 
+
+********************************************************************************
+
+26.12:
+
+directories:
+26.12: 25.12 continued; phase-counter <- dead end
+
+26.12B: 25.12 continued -> need to find how to give more time to transactions
+
+********************************************************************************
+
+25.12:
+
+directories:
+25.12: 24.12 continued; phase-counter
+
+* #define ENABLE_RETRANSMISSION in ConfigMRF49XA.h <- commented!
+* #define ENABLE_TXRX_ACK <- commented!
+********************************************************************************
+
+24.12:
+
+directories:
+24.12: 23.12 continued; try to bring back the time counter;
+didn't check the correctness, but the counter causes slow down in wireless 
+communication; to find the reason - uncomment most of it 
+
+********************************************************************************
+
+23.12:
+
+directories:
+23.12: 22.12C continued; transceiver parameters + try to decrease TX_BLOCK_BUFFER
+
+********************************************************************************
+
+22.12:
+
+directories:
+22.12: 21.12 continued; tracing TxRx_SendData; - most samples' blocks are printed now
+22.12B: 22.12 continued: 
+removed most of comments (that mark changes and additions) from TxRx.h + c 
+
+NOTE: some blocks are skipped (usually the first header block) -
+use led to find out what is the problem (the printings probably aren't effective);
+
+22.12C: 22.12B continued - the skipped blocks
+
+********************************************************************************
+
+21.12:
+
+directories:
+21.12: 20.12 continued; tracing TxRx_SendData
+
+********************************************************************************
+
+20.12:
+
+directories:
+20.12: 19.12 continued; tracing TxRx_SendData
+
+********************************************************************************
+
+19.12:
+
+directories:
+19.12: 18.12 continued; tracing TxRx_SendData
+
+-> we don't reach b_write; we reach m_write, but it can't handle printing the samples?
+
+********************************************************************************
+
+18.12:
+
+directories:
+18.12: 16.12 continued (not 16.12B); - tracing TxRx_SendData
+
+********************************************************************************
+
+16.12:
+
+directories:
+16.12: 15.12 continued;
+
+16.12B: 16.12 continued - started rearranging TxRx.h + TxRx.c, but didn't finish
+
+********************************************************************************
+
+15.12:
+
+directories:
+15.12: 14.12 continued;
+
+commented all the additions that are related to phase
+
+********************************************************************************
+
+14.12:
+
+directories:
+14.12: 13.12 continued - now SS/TSCOMPLETED are printed; the samples - not yet;
+
+********************************************************************************
+
+13.12:
+
+directories:
+13.12: 12.12 continued
+
+- removed handling USB from timer4 ISR
+- tried to find out why changing TX_BUFFER_SIZE prevents the commands from being sent
+
+********************************************************************************
+
+12.12:
+
+directories:
+12.12: 10.12 continued - gave up OTG
+change: call USB_ReceiveDataFromHost instead of calling USB_SendDataToHost in timer4 ISR
+(though USB ISR should call it periodically) - this does not seem to be the problem
+
+********************************************************************************
+
+11.12:
+
+directories:
+11.12: 10.12 continued; try to switch to OTG
+
+********************************************************************************
+
+9.12:
+
+directories:
+9.12: 8.12 continued;
+
+********************************************************************************
+
+8.12:
+
+directories:
+8.12: 6.12 continued;
+
+********************************************************************************
+
+6.12:
+
+directories:
+6.12: 25.11 continued;
+- try to find the buffer size that is printed
+
+********************************************************************************
+
+25.11:
+
+directories:
+25.11: 22.11 continued;
+- analogue: the measured v_bat_level is zero, because of AD1PCFGL = 0xFFFF 
+	in wistone_usb.c that overrides the analogue initialization 
+	(now it is commented) 
+
+********************************************************************************
+
+22.11:
+
+directories:
+22.11: 21.11 continued;
+
+********************************************************************************
+
+21.11:
+
+directories:
+21.11: 9.11 continued;
+
+********************************************************************************
+
+9.11:
+
+directories:
+9.11: 8.11 continued;
+
+********************************************************************************
+
+8.11:
+
+directories:
+8.11: 7.11 continued;
+
+********************************************************************************
+
+7.11:
+
+directories:
+7.11: 5.11 continued;
+
+********************************************************************************
+
+5.11:
+
+directories:
+5.11: 4.11 continued;
+
+********************************************************************************
+
+4.11:
+
+directories:
+4.11: 3.11 continued;
+
+********************************************************************************
+
+3.11:
+
+directories:
+3.11: 2.11 continued;
+
+********************************************************************************
+
+2.11:
+
+directories:
+2.11: 1.11 continued; back to usb... the broadcast get mixed 
+
+********************************************************************************
+
+1.11:
+
+directories:
+1.11: 31.10 continued - sync
+
+1.11B: debug 1.11 - broadcast too
+
+********************************************************************************
+
+31.10:
+
+directories:
+31.10: 30.10 continued - sync
+
+********************************************************************************
+
+30.10:
+
+directories:
+30.10: 29.10 continued - sync
+			
+********************************************************************************
+
+29.10:
+
+directories:
+29.10: 24.10B continued - sync [28.10 - to be continued later]
+
+********************************************************************************
+
+28.10:
+
+directories:
+28.10: 27.10 continued - sync - measure hop duration - for ss cmd
+note - some parameters were changed
+
+TODO:
+- check TxRx_PeriodTasks (only status)
+- check broadcast
+- GitBash
+
+********************************************************************************
+
+27.10:
+
+directories:
+27.10: 24.10B continued - sync
+
+********************************************************************************
+
+24.10:
+
+directories:
+24.10: 23.10 continued; there are still some problems with print NWK TOPOLOGY:
+NOTE - 
+- if the plug is a leaf send and receive of join messages may not work
+- even when no debug print is used - the USB gets stuck after printing the NWK TOPOLOGY
+
+24.10B: 24.10 continued - removed all debug printing for print NWK TOPOLOGY,
+and meanwhile disabled it
+
+********************************************************************************
+
 23.10
 
 directories:
@@ -100,7 +443,7 @@ the way the unicast is.
 		   or not may be also done by hardware (check this)
 	- MiMAC_ReceivedPacket: only fills DS for MiWiTasks.
  
-5.9B: 5.9 changed to a better version of address comparisson in the ISR;
+5.9B: 5.9 changed to a better version of address comparison in the ISR;
 
 ********************************************************************************
 
@@ -143,7 +486,7 @@ directories:
 2.9: 1.9 continued;
 
 - check the address assignment in a network of 3 stones
-- find how to limit the ammount of the retrials
+- find how to limit the amount of the retrials
 
 ********************************************************************************
 
@@ -275,7 +618,7 @@ directories:
 21.8C: NOTE: took 20.8C, back to USB; can read temp if m_TxRx_write is used
 
 21.8D: NOTE: took 20.8C, back to USB; after commenting DEBUG_PRINT + changing
-timeouts in TxRx.h - the stone is able to transmit temprature to the plug
+timeouts in TxRx.h - the stone is able to transmit temperature to the plug
 
 21.8E: NOTE: took 20.8B, changed timeouts in TxRx.h - to try plug as a leaf;
 it works except for app commands; removed most comments.

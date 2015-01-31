@@ -50,8 +50,7 @@
     #include "GenericTypeDefs.h"
     #include "ConfigApp.h"
 	#include "TxRx.h"
-	#include "wistone_main.h"
-        
+	#include "wistone_main.h" 
     
     #if defined(EXPLORER16) 
 
@@ -149,69 +148,65 @@
 		#error "You need to pick a board - either EXPLORER16 or WISTONE_BOARD"
 	#endif
 
+    #if !defined(MRF89XA)
+        #define RFIF            		IFS1bits.INT1IF
+        #define RFIE            		IEC1bits.INT1IE
+    #endif
 
+    #define CLOCK_FREQ      			20000000 //YL 11.8 was 32000000
 
-      #if !defined(MRF89XA)
-          #define RFIF            IFS1bits.INT1IF
-          #define RFIE            IEC1bits.INT1IE
-      #endif
-
-      #define CLOCK_FREQ      20000000 //YL 11.8 was 32000000
-
-      #define TMRL TMR2
+    #define TMRL TMR2
       
-      //#define USE_EXTERNAL_EEPROM
-             
-
-   
+    //#define USE_EXTERNAL_EEPROM
+    
     // Following definitions are used for LCD display on the demo board
     #if defined(EXPLORER16)
     
-    	#define LCD_DATA0_TRIS		(TRISEbits.TRISE0)		// Multiplexed with LED6
-    	#define LCD_DATA0_IO		(LATEbits.LATE0)
-    	#define LCD_DATA1_TRIS		(TRISEbits.TRISE1)
-    	#define LCD_DATA1_IO		(LATEbits.LATE1)
-    	#define LCD_DATA2_TRIS		(TRISEbits.TRISE2)
-    	#define LCD_DATA2_IO		(LATEbits.LATE2)
-    	#define LCD_DATA3_TRIS		(TRISEbits.TRISE3)		// Multiplexed with LED3
-    	#define LCD_DATA3_IO		(LATEbits.LATE3)
-    	#define LCD_DATA4_TRIS		(TRISEbits.TRISE4)		// Multiplexed with LED2
-    	#define LCD_DATA4_IO		(LATEbits.LATE4)
-    	#define LCD_DATA5_TRIS		(TRISEbits.TRISE5)
-    	#define LCD_DATA5_IO		(LATEbits.LATE5)
-    	#define LCD_DATA6_TRIS		(TRISEbits.TRISE6)
-    	#define LCD_DATA6_IO		(LATEbits.LATE6)
-    	#define LCD_DATA7_TRIS		(TRISEbits.TRISE7)
-    	#define LCD_DATA7_IO		(LATEbits.LATE7)
-    	#define LCD_RD_WR_TRIS		(TRISDbits.TRISD5)
-    	#define LCD_RD_WR_IO		(LATDbits.LATD5)
-    	#define LCD_RS_TRIS			(TRISBbits.TRISB15)
-    	#define LCD_RS_IO			(LATBbits.LATB15)
-    	#define LCD_E_TRIS			(TRISDbits.TRISD4)
-    	#define LCD_E_IO			(LATDbits.LATD4)
+    	#define LCD_DATA0_TRIS			(TRISEbits.TRISE0)		// Multiplexed with LED6
+    	#define LCD_DATA0_IO			(LATEbits.LATE0)
+    	#define LCD_DATA1_TRIS			(TRISEbits.TRISE1)
+    	#define LCD_DATA1_IO			(LATEbits.LATE1)
+    	#define LCD_DATA2_TRIS			(TRISEbits.TRISE2)
+    	#define LCD_DATA2_IO			(LATEbits.LATE2)
+    	#define LCD_DATA3_TRIS			(TRISEbits.TRISE3)		// Multiplexed with LED3
+    	#define LCD_DATA3_IO			(LATEbits.LATE3)
+    	#define LCD_DATA4_TRIS			(TRISEbits.TRISE4)		// Multiplexed with LED2
+    	#define LCD_DATA4_IO			(LATEbits.LATE4)
+    	#define LCD_DATA5_TRIS			(TRISEbits.TRISE5)
+    	#define LCD_DATA5_IO			(LATEbits.LATE5)
+    	#define LCD_DATA6_TRIS			(TRISEbits.TRISE6)
+    	#define LCD_DATA6_IO			(LATEbits.LATE6)
+    	#define LCD_DATA7_TRIS			(TRISEbits.TRISE7)
+    	#define LCD_DATA7_IO			(LATEbits.LATE7)
+    	#define LCD_RD_WR_TRIS			(TRISDbits.TRISD5)
+    	#define LCD_RD_WR_IO			(LATDbits.LATD5)
+    	#define LCD_RS_TRIS				(TRISBbits.TRISB15)
+    	#define LCD_RS_IO				(LATBbits.LATB15)
+    	#define LCD_E_TRIS				(TRISDbits.TRISD4)
+    	#define LCD_E_IO				(LATDbits.LATD4)
 
 
-        #define PUSH_BUTTON_1       PORTDbits.RD6
-        #define PUSH_BUTTON_2       PORTDbits.RD7
-        #define PUSH_BUTTON_3       PORTAbits.RA7
-        #define PUSH_BUTTON_4       PORTDbits.RD13
-        #define LED_1               LATAbits.LATA6
-        #define LED_2               LATAbits.LATA5
+        #define PUSH_BUTTON_1       	PORTDbits.RD6
+        #define PUSH_BUTTON_2       	PORTDbits.RD7
+        #define PUSH_BUTTON_3       	PORTAbits.RA7
+        #define PUSH_BUTTON_4       	PORTDbits.RD13
+        #define LED_1               	LATAbits.LATA6
+        #define LED_2               	LATAbits.LATA5
         
-        #define BUTTON_1_TRIS       TRISDbits.TRISD6
-        #define BUTTON_2_TRIS       TRISDbits.TRISD7
-        #define BUTTON_3_TRIS       TRISAbits.TRISA7
-        #define BUTTON_4_TRIS       TRISDbits.TRISD13
-        #define LED_1_TRIS          TRISAbits.TRISA6
-        #define LED_2_TRIS          TRISAbits.TRISA5
+        #define BUTTON_1_TRIS       	TRISDbits.TRISD6
+        #define BUTTON_2_TRIS       	TRISDbits.TRISD7
+        #define BUTTON_3_TRIS       	TRISAbits.TRISA7
+        #define BUTTON_4_TRIS       	TRISDbits.TRISD13
+        #define LED_1_TRIS          	TRISAbits.TRISA6
+        #define LED_2_TRIS          	TRISAbits.TRISA5
         
         // Define SUPPORT_TWO_SPI if external EEPROM use the second SPI
         // port alone, not sharing SPI port with the transceiver
         //#define SUPPORT_TWO_SPI
         
         // External EEPROM SPI chip select pin definition
-        #define EE_nCS_TRIS         TRISDbits.TRISD12
-        #define EE_nCS              LATDbits.LATD12
+        #define EE_nCS_TRIS         	TRISDbits.TRISD12
+        #define EE_nCS              	LATDbits.LATD12
    
     #endif
     
@@ -224,8 +219,4 @@
         #define GetInstructionClock()	(CLOCK_FREQ)
     #endif
 
-    void led_and_switch_init(); 
-
- 
-    
 #endif

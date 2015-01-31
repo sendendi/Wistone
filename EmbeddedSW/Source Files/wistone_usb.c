@@ -1,37 +1,64 @@
-/********************************************************************
- FileName:      wistone_usb.c
- Dependencies:  See INCLUDES section
- Processor:		PIC18, PIC24, and PIC32 USB Microcontrollers
- Complier:  	Microchip C18 (for PIC18), C30 (for PIC24), C32 (for PIC32)
- 
- 
-*************************************************************************/
+/*******************************************************************************
 
+wistone_usb.c - handle USB
+==========================
+
+	Revision History:
+	=================
+ ver 1.00, date: 1.10.11
+		- Initial revision
+ ver 1.01, date: 29.10.11
+		- joint work
+ ver 1.02 date: 8.8.12
+		- overall joint code review
+ ver 1.03 date: 21.9.12
+		- BOOT table
+
+********************************************************************************
+	General:
+	========
+this file contains function for operating the USB.
+- initialize the USB
+- send data to USB
+- receive data from USB
+
+*******************************************************************************/
+
+/***** INCLUDE FILES: *********************************************************/
 #include "usb.h"
 #include "usb_function_cdc.h"
-
 #include "HardwareProfileUSB.h"
 #include "HardwareProfileTxRx.h"
-
 #include "GenericTypeDefs.h"
 #include "Compiler.h"
 #include "usb_config.h"
 #include "usb_device.h"
 #include "usb.h"
 #include "wistone_usb.h"
-
 #include "SymbolTime.h"
+// YL 5.11 ... for "app stop"
+#include "parser.h" 
+// ... YL 5.11
 
+/***** DEFINE: ****************************************************************/
+// YL 5.11 ... added to eliminate magic numbers
+#define USB_TX_BUFFER_SIZE 			64 
+#define USB_RX_BUFFER_SIZE 			64 
+#define END_OF_COMMAND 				('\r')
+#define USB_BUFFER_SIZE				40 // either TX or RX 
+#define TIMEOUT_WRITING_USB_BUFFER (5 * ONE_SECOND)
+// ... YL 5.11	
 
 typedef enum {
 
-	USB_PROCESS_IN			= 0,
-	USB_PROCESS_OUT 		= 1,
-	USB_PROCESS_IN_AND_OUT	= 2
+	USB_PROCESS_IN = 0,		// YL 5.11 from the terminal to the plug
+	USB_PROCESS_OUT,		// YL 5.11 from the plug to the terminal
+	USB_PROCESS_IN_AND_OUT
 
 } USB_PROCESS_DIRECTION;
 
 
+/***** INTERNAL PROTOTYPES: ***************************************************/
 void InitializeSystem(void);
 USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut);
 USB_STATUS USB_ProcessIn();
@@ -46,23 +73,30 @@ void USBCBSendResume(void);
 // void UserInit(void);
 // ... YL 9.9
 
-/** V A R I A B L E S ********************************************************/
+// YL 5.11 ...
+void USB_WritePrompt(void);  
+// ... YL 5.11
 
+/***** GLOBAL VARIABLES: ******************************************************/
+typedef struct {
 
-typedef struct{
-
-	char txBuffer[64];
-	char rxBuffer[64];
+	char txBuffer[USB_TX_BUFFER_SIZE]; // YL 5.11 was: txBuffer[64]
+	char rxBuffer[USB_RX_BUFFER_SIZE]; // YL 5.11 was: rxBuffer[64]
 	WORD numBytesToWrite;
 
-}USB_BUFFERS;
+} USB_BUFFER;
 
+USB_BUFFER usbBuffer;
 
-USB_BUFFERS usbBuffer;
+// YL 5.11: 
+// the definitions in this file:
+// > TX - for transfers sent to the terminal via USB (only data)
+// > RX - for transfers sent to the plug via USB (only commands), whereas:
+//
+// [PLUG (PIC, IN)] <------USB------> [(PC, OUT) TERMINAL] 
 
-
-/** VECTOR REMAPPING ***********************************************/
-#if defined(__C30__)
+/** VECTOR REMAPPING **********************************************************/
+#if defined(__C30__) // TODO - may be removed?
     #if defined(PROGRAMMABLE_WITH_USB_HID_BOOTLOADER)
         /*
          *	ISR JUMP TABLE
@@ -88,11 +122,7 @@ USB_BUFFERS usbBuffer;
 	#error "You picked a wrong pic"
 #endif
 
-
-/** DECLARATIONS ***************************************************/
-
-
-/********************************************************************
+/*******************************************************************************
  * Function:        void InitializeSystem(void)
  *
  * PreCondition:    None
@@ -111,11 +141,12 @@ USB_BUFFERS usbBuffer;
  *                  also be called from here.                  
  *
  * Note:            None
- *******************************************************************/
-void InitializeSystem(void)
+ ******************************************************************************/
+void InitializeSystem(void) // YL 3.11 there is one difference with the version in usb_main_boaz.c
 {
 
-    AD1PCFGL = 0xFFFF;
+   
+	// AD1PCFGL = 0xFFFF; // YL 3.11 AY added, the addition is commented because it overrides the initialization of this register in analog_init() 
    
 
 //	The USB specifications require that USB peripheral devices must never source
@@ -157,17 +188,17 @@ void InitializeSystem(void)
     
     USBDeviceInit();	//usb_device.c.  Initializes USB module SFRs and firmware
     					//variables to known states.
-}//end InitializeSystem
+		
+} //end InitializeSystem
 
-
-/******************************************************************************
+/*******************************************************************************
  * Function:        USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
  *
  * PreCondition:    None
  *
  * Input:           
- *					ProcessInOrOut - indicates whether it is desired to send data
- *									 or receive data.
+ *					ProcessInOrOut - indicates whether it is desired to send
+ *									 or to receive data.
  *
  * Output:          The status of the operation.
  *
@@ -175,48 +206,43 @@ void InitializeSystem(void)
  *
  * Overview:        This function should be called regularly for maintaining
  *					sending and receiving packets.
- *					This function is internal function that is used by USB_ReceiveData()
+ *					This is an internal function that is used by USB_ReceiveDataFromHost()
  *					and USB_SendData() user interface functions.
  *
  * Note:            None
- *****************************************************************************/
-USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
+ ******************************************************************************/
+USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut) // YL 3.11 - added by AY 
 {   
-
-    if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl == 1)) {
+    if ((USBDeviceState < CONFIGURED_STATE) || (USBSuspendControl == 1)) {
 		return USB_NOT_CONFIGURED;
 	}
 
 	USB_STATUS status = USB_NO_ERROR;
 
-	if(processInOrOut == USB_PROCESS_IN_AND_OUT)
-	{
+	if (processInOrOut == USB_PROCESS_IN_AND_OUT) {
 		USB_ProcessOut();
 		status = USB_ProcessIn();
 	}
 
-	else if(processInOrOut == USB_PROCESS_OUT)
-	{
+	else if (processInOrOut == USB_PROCESS_OUT) {
 		status = USB_ProcessOut();
 	}
 
-	else if(processInOrOut == USB_PROCESS_IN)
-	{
+	else if (processInOrOut == USB_PROCESS_IN) {
 		status = USB_ProcessIn();
 	}
 
     CDCTxService();
 
 	return status;
-}	// end ProcessIO
+}	
 
-
-/******************************************************************************
- * Function:        USB_STATUS USB_ProcessIn()
+/*******************************************************************************
+ * Function:        USB_STATUS USB_ProcessIn(void)
  *
  * PreCondition:    None
  *
- * Input:           None.
+ * Input:           None
  *
  * Output:          
  *					USB_NOT_RECEIVED_DATA.
@@ -224,52 +250,93 @@ USB_STATUS ProcessIO(USB_PROCESS_DIRECTION processInOrOut)
  *
  * Side Effects:    None
  *
- * Overview:        This function is responsible for processing received data.
- *					The function copies received data the g_curr_msg buffer,
- * 					and when the digit '\r' is received, it means it is the end
- *					of the command, therefore the command is ready for execution.
- *					This function is internal function that is used by ProcessIO
+ * Overview:        This function is responsible for processing the data that  
+ *					was sent to the plug. The function copies the received data 
+ * 					to g_curr_msg buffer, and when END_OF_COMMAND is received - 
+ *					the command is ready for execution.
+ *					This is an internal function that is used by ProcessIO.
  *
  * Note:            None
- *****************************************************************************/
-USB_STATUS USB_ProcessIn() 
+ ******************************************************************************/
+USB_STATUS USB_ProcessIn(void) // YL 3.11 - added by AY; YL 5.11 - edited; the backup is right below // YL 6.12 TODO - if the USB will be eventually used only with the plug - maybe USB_ProcessIn should be better merged with handle_plug_msg
 {
-	BYTE numBytesRead =  getsUSBUSART(usbBuffer.rxBuffer, 64);
-		
-	if (numBytesRead <= 0){
+	BYTE numBytesRead;
+	static BYTE commandPos = 0;
+	
+	numBytesRead = getsUSBUSART(usbBuffer.rxBuffer, USB_RX_BUFFER_SIZE); // YL 5.11 - "get" into the plug, receive, host_to_device
+	if (numBytesRead <= 0) {
 		return USB_NOT_RECEIVED_DATA;
 	}
 
-	static BYTE commandPos = 0;
-
-	WORD i = 0;
-	for (i = 0; i < numBytesRead; i++){
+	WORD i;
+	for (i = 0; i < numBytesRead; i++) {
 		g_curr_msg[commandPos + i] = usbBuffer.rxBuffer[i];
-
-		if (usbBuffer.rxBuffer[i] == '\r'){
+		if (usbBuffer.rxBuffer[i] == END_OF_COMMAND) {
 			g_curr_msg[commandPos + i] = '\0';
-			if (strcmp(g_curr_msg, "app stop") == 0){			// YL 4.8 TODO is this comparison used? if yes -  fix it! (3 app stop)
-				USB_WriteData((BYTE*)"\r\nWISTONE> ", 11); 		// YL 14.4 added casting to avoid signedness warning
+			tokenize(g_curr_msg);	
+			if ((strcmp("app", g_tokens[1]) == 0) && (strcmp("stop", g_tokens[2]) == 0)) {	// the command is "app stop"
+				USB_WritePrompt();
 			}			
- 			USB_WriteData((BYTE*)g_curr_msg, commandPos + i); 	// YL 14.4 added casting to avoid signedness warning
-			USB_WriteData((BYTE*)"\r\nWISTONE> ", 11);  		// YL 14.4 added casting to avoid signedness warning
+			USB_WriteData((BYTE*)g_curr_msg, commandPos + i); 	// YL 14.4 added casting to avoid signedness warning
+			USB_WritePrompt();			
 			commandPos = 0;
 			return USB_RECEIVED_DATA;
 		}
 	}
-
 	commandPos += numBytesRead;
 
-	return USB_NOT_RECEIVED_DATA;	// Not received all the command, since '\r' was not received
+	return USB_NOT_RECEIVED_DATA;	// didn't receive the entire command, since END_OF_COMMAND was not received
 }
 
+/*******************************************************************************
+ * Function:		void USB_WritePrompt(void)
+ ******************************************************************************/ 
+void USB_WritePrompt(void) // YL 5.11 
+{
+	char* prompt_str = "\r\nWISTONE> ";
+	int prompt_len  = strlen(prompt_str);
+	
+	USB_WriteData((BYTE*)prompt_str, (WORD)prompt_len);
+}
 
-/******************************************************************************
- * Function:        USB_STATUS USB_ProcessOut()
+// BACKUP:
+// USB_STATUS USB_ProcessIn() // YL 3.11 - added by AY
+// {
+//	BYTE numBytesRead =  getsUSBUSART(usbBuffer.rxBuffer, USB_RX_BUFFER_SIZE);
+//	
+//	if (numBytesRead <= 0) {
+//		return USB_NOT_RECEIVED_DATA;
+//	}
+//
+//	static BYTE commandPos = 0;
+//
+//	WORD i = 0;
+//	for (i = 0; i < numBytesRead; i++) {
+//		g_curr_msg[commandPos + i] = usbBuffer.rxBuffer[i];
+//
+//		if (usbBuffer.rxBuffer[i] == '\r'){
+//			g_curr_msg[commandPos + i] = '\0';
+//			if (strcmp(g_curr_msg, "app stop") == 0){			
+//				USB_WriteData((BYTE*)"\r\nWISTONE> ", 11); 		
+//			}			
+// 			USB_WriteData((BYTE*)g_curr_msg, commandPos + i); 	// YL 14.4 added casting to avoid signedness warning
+//			USB_WriteData((BYTE*)"\r\nWISTONE> ", 11); 		
+//			commandPos = 0;
+//			return USB_RECEIVED_DATA;
+//		}
+//	}
+//
+//	commandPos += numBytesRead;
+//
+//	return USB_NOT_RECEIVED_DATA;	// Not received all the command, since '\r' was not received
+// }
+
+/*******************************************************************************
+ * Function:        USB_STATUS USB_ProcessOut(void)
  *
  * PreCondition:    usbBuffer.txBuffer should be filled with the desired data.
  *
- * Input:           None.
+ * Input:           None
  *
  * Output:          
  *					USB_NO_ERROR.
@@ -277,35 +344,31 @@ USB_STATUS USB_ProcessIn()
  *
  * Side Effects:    None
  *
- * Overview:        This function is responsible for sending the data found in usbBuffer.txBuffer.
+ * Overview:        This function is responsible for sending the data to the terminal.
  *					Therefore, usbBuffer.txBuffer should be filled with the desired data
  *					before calling this function.
  *
  * Note:            None
- *****************************************************************************/
-
-USB_STATUS USB_ProcessOut() 
+ ******************************************************************************/
+USB_STATUS USB_ProcessOut(void) // YL 3.11 - added by AY
 {
-    if(USBUSARTIsTxTrfReady())
-    {		
-		putUSBUSART(usbBuffer.txBuffer,	usbBuffer.numBytesToWrite);
+    if (USBUSARTIsTxTrfReady()) {		
+		putUSBUSART(usbBuffer.txBuffer,	usbBuffer.numBytesToWrite); // YL 5.11 - "put" to the terminal, send, device_to_host
 		return USB_NO_ERROR;
 	}
-
 	return USB_NOT_READY_TO_SEND_DATA;
 }
 
-
-/******************************************************************************
+/*******************************************************************************
  * Function:        void USB_WriteData(BYTE *str, WORD len)
  *
- * PreCondition:    None.
+ * PreCondition:    None
  *
  * Input:           
  *					str - The data to write through usb.
  *					len - The length of the data to be written.
  *
- * Output:          None.					
+ * Output:          None					
  *
  * Side Effects:    None
  *
@@ -314,27 +377,27 @@ USB_STATUS USB_ProcessOut()
  *					Any sending to the usb should be done through this function.
  *
  * Note:            None
- *****************************************************************************/
-
-void USB_WriteData(BYTE *str, WORD len) 
+ ******************************************************************************/
+void USB_WriteData(BYTE *str, WORD len) // YL 3.11 - added by AY
 {
-	WORD i = 0;
 	WORD bufferPos = 0;
+	WORD i;
 
-	for (i = 0 ;i < len; i++){
-		bufferPos = i%40;
-		if ((bufferPos == 0) && (i > 0)){
-			USB_WriteSingleBuffer(40);
+	for (i = 0; i < len; i++) {
+		bufferPos = i%(USB_BUFFER_SIZE);				// YL 5.11 was: i%40
+		if ((bufferPos == 0) && (i > 0)) {
+			USB_WriteSingleBuffer(USB_BUFFER_SIZE);		// YL 5.11 was: USB_WriteSingleBuffer(40);
 		}
 		usbBuffer.txBuffer[bufferPos] = str[i];
 	}
-
-	// write the remainder of the data.
+	// write the remainder of the data
 	USB_WriteSingleBuffer((bufferPos + 1));
+	// YL 6.12 ... commented because we get here after USB_ReceiveDataFromHost is called every main iteration
+	// USB_ReceiveDataFromHost(); // YL 25.11 added for periodic tasks 
+	// ... YL 6.12
 }
 
-
-/******************************************************************************
+/*******************************************************************************
  * Function:        void USB_WriteSingleBuffer(WORD len)
  *
  * PreCondition:    The data should be written to usbBuffer.txBuffer.
@@ -342,48 +405,45 @@ void USB_WriteData(BYTE *str, WORD len)
  * Input:           
  *					len - The length of the data to be written.
  *
- * Output:          None.					
+ * Output:          None					
  *
  * Side Effects:    None
  *
- * Overview:        This function writes single buffer (buffer size is set currently 
- *					to 40, but it can be changed it the define).
- *					The data should be written to usbBuffer.txBuffer before calling
- *					this function.
+ * Overview:        This function writes single buffer of USB_BUFFER_SIZE.
+ *					The data should be written to usbBuffer.txBuffer before
+ *					calling this function.				
  *
  * Note:            None
- *****************************************************************************/
- 
-void USB_WriteSingleBuffer(WORD len) 
+ ******************************************************************************/
+void USB_WriteSingleBuffer(WORD len) // YL 3.11 - added by AY
 {
 	USB_STATUS status;
-	MIWI_TICK t1,t2;
+	TICK t1, t2;		// YL 5.11 was: MIWI_TICK
 	
-	usbBuffer.numBytesToWrite = len; // magic number, to change it over here
+	usbBuffer.numBytesToWrite = len;
 
-	t1 = MiWi_TickGet();
-	while (1){
+	t1 = TickGet(); 	// YL 5.11 was: MiWi_TickGet
+	while (1) {
 		status = ProcessIO(USB_PROCESS_OUT);
-		if (status == USB_NO_ERROR){
+		if (status == USB_NO_ERROR) {
 			break;
 		}
-		t2 = MiWi_TickGet();
-		if (MiWi_TickGetDiff(t2, t1) > 5 * ONE_SECOND){
+		t2 = TickGet();
+		if (TickGetDiff(t2, t1) > TIMEOUT_WRITING_USB_BUFFER) { // YL 5.11 was: MiWi_TickGetDiff
 			break;
 		}
 	}
 }
 
-
-/******************************************************************************
- * Function:        USB_STATUS USB_ReceiveData()
+/*******************************************************************************
+ * Function:        USB_STATUS USB_ReceiveDataFromHost(void)
  *
- * PreCondition:    None.
+ * PreCondition:    None
  *
- * Input:           None.
+ * Input:           None
  *
- * Output:          Any status found in USB_STATUS, yet the relevant are USB_RECEIVED_DATA
- *					and USB_NOT_RECEIVED_DATA.				
+ * Output:          Any status found in USB_STATUS, yet the relevant are 
+ *					USB_RECEIVED_DATA and USB_NOT_RECEIVED_DATA.				
  *
  * Side Effects:    None
  *
@@ -393,35 +453,58 @@ void USB_WriteSingleBuffer(WORD len)
  *					the main loop), as it performs periodic tasks of the usb.
  *
  * Note:            None
- *****************************************************************************/
-
-USB_STATUS USB_ReceiveData()
+ ******************************************************************************/
+USB_STATUS USB_ReceiveDataFromHost(void) // YL 3.11 - added by AY; YL 7.11 was: USB_ReceiveData, renamed to USB_ReceiveDataFromHost
 {
-	USB_STATUS status = ProcessIO(USB_PROCESS_IN);
-
+	USB_STATUS status = ProcessIO(USB_PROCESS_IN); 	
 	return status;
-
 }
 
-
-// ******************************************************************************************************
-// ************** USB Callback Functions ****************************************************************
-// ******************************************************************************************************
-// The USB firmware stack will call the callback functions USBCBxxx() in response to certain USB related
-// events.  For example, if the host PC is powering down, it will stop sending out Start of Frame (SOF)
-// packets to your device.  In response to this, all USB devices are supposed to decrease their power
-// consumption from the USB Vbus to <2.5mA each.  The USB module detects this condition (which according
-// to the USB specifications is 3+ms of no bus activity/SOF packets) and then calls the USBCBSuspend()
-// function.  You should modify these callback functions to take appropriate actions for each of these
-// conditions.  For example, in the USBCBSuspend(), you may wish to add code that will decrease power
-// consumption from Vbus to <2.5mA (such as by clock switching, turning off LEDs, putting the
-// microcontroller to sleep, etc.).  Then, in the USBCBWakeFromSuspend() function, you may then wish to
-// add code that undoes the power saving things done in the USBCBSuspend() function.
-
-// The USBCBSendResume() function is special, in that the USB stack will not automatically call this
-// function.  This function is meant to be called from the application firmware instead.  See the
-// additional comments near the function.
+// YL 7.11 ... added USB_SendDataToHost
 /******************************************************************************
+ * Function:        USB_STATUS USB_SendDataToHost(void)
+ *
+ * PreCondition:    None
+ *
+ * Input:           None
+ *
+ * Output:          None				
+ *
+ * Side Effects:    None
+ *
+ * Overview:        This is the primary user interface function for sending data
+ *					through usb.
+ *
+ * Note:            None
+ *****************************************************************************/
+void USB_SendDataToHost(void) 	// YL 5.11 the massive data flow is expected from device to the host
+{
+	ProcessIO(USB_PROCESS_OUT);
+}
+// ... YL 7.11
+
+
+// *****************************************************************************
+// ************************** USB Callback Functions ***************************
+// *****************************************************************************
+// The USB firmware stack will call the callback functions USBCBxxx() in response 
+// to certain USB related events.  For example, if the host PC is powering down, 
+// it will stop sending out Start of Frame (SOF) packets to your device.  
+// In response to this, all USB devices are supposed to decrease their power
+// consumption from the USB Vbus to <2.5mA each.  The USB module detects this
+// condition (which according to the USB specifications is 3+ms of no bus 
+// activity/SOF packets) and then calls the USBCBSuspend() function.  You should 
+// modify these callback functions to take appropriate actions for each of these
+// conditions.  For example, in the USBCBSuspend(), you may wish to add code
+// that will decrease power consumption from Vbus to <2.5mA (such as by clock
+// switching, turning off LEDs, putting the microcontroller to sleep, etc.).  
+// Then, in the USBCBWakeFromSuspend() function, you may then wish to add 
+// code that undoes the power saving things done in the USBCBSuspend() function.
+
+// The USBCBSendResume() function is special, in that the USB stack will not 
+// automatically call this function.  This function is meant to be called from 
+// the application firmware instead.  See the additional comments near the function.
+/*******************************************************************************
  * Function:        void USBCBSuspend(void)
  *
  * PreCondition:    None
@@ -435,8 +518,8 @@ USB_STATUS USB_ReceiveData()
  * Overview:        Call back that is invoked when a USB suspend is detected
  *
  * Note:            None
- *****************************************************************************/
-void USBCBSuspend(void)
+ ******************************************************************************/
+void USBCBSuspend(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
 	//Example power saving code.  Insert appropriate code here for the desired
 	//application behaviour.  If the microcontroller will be put to sleep, a
@@ -460,8 +543,7 @@ void USBCBSuspend(void)
     #endif
 }
 
-
-/******************************************************************************
+/*******************************************************************************
  * Function:        void USBCBWakeFromSuspend(void)
  *
  * PreCondition:    None
@@ -481,8 +563,8 @@ void USBCBSuspend(void)
  *					is detected.
  *
  * Note:            None
- *****************************************************************************/
-void USBCBWakeFromSuspend(void)
+ ******************************************************************************/
+void USBCBWakeFromSuspend(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
 	// If clock switching or other power savings measures were taken when
 	// executing the USBCBSuspend() function, now would be a good time to
@@ -494,8 +576,7 @@ void USBCBWakeFromSuspend(void)
 	// operation).
 }
 
-
-/********************************************************************
+/*******************************************************************************
  * Function:        void USBCB_SOF_Handler(void)
  *
  * PreCondition:    None
@@ -512,39 +593,14 @@ void USBCBWakeFromSuspend(void)
  *                  implement callback routine as necessary.
  *
  * Note:            None
- *******************************************************************/
-void USBCB_SOF_Handler(void)
+ ******************************************************************************/
+void USBCB_SOF_Handler(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
     // No need to clear UIRbits.SOFIF to 0 here.
     // Callback caller is already doing that.
-
-    //This is reverse logic since the pushbutton is active low
-    /*if(buttonPressed == sw2)
-    {
-        if(buttonCount != 0)
-        {
-            buttonCount--;
-        }
-        else
-        {
-            //This is reverse logic since the pushbutton is active low
-            buttonPressed = !sw2;
-
-            //Wait 100ms before the next press can be generated
-            buttonCount = 100;
-        }
-    }
-    else
-    {
-        if(buttonCount != 0)
-        {
-            buttonCount--;
-        }
-    }*/
 }
 
-
-/*******************************************************************
+/*******************************************************************************
  * Function:        void USBCBErrorHandler(void)
  *
  * PreCondition:    None
@@ -560,8 +616,8 @@ void USBCB_SOF_Handler(void)
  *                  which error causes the interrupt.
  *
  * Note:            None
- *******************************************************************/
-void USBCBErrorHandler(void)
+ ******************************************************************************/
+void USBCBErrorHandler(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
     // No need to clear UEIR to 0 here.
     // Callback caller is already doing that.
@@ -583,8 +639,7 @@ void USBCBErrorHandler(void)
 	// for debugging purposes.
 }
 
-
-/*******************************************************************
+/*******************************************************************************
  * Function:        void USBCBCheckOtherReq(void)
  *
  * PreCondition:    None
@@ -611,14 +666,13 @@ void USBCBErrorHandler(void)
  *					firmware, such as that contained in usb_function_hid.c.
  *
  * Note:            None
- *******************************************************************/
-void USBCBCheckOtherReq(void)
+ ******************************************************************************/
+void USBCBCheckOtherReq(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
     USBCheckCDCRequest();
 }//end
 
-
-/*******************************************************************
+/*******************************************************************************
  * Function:        void USBCBStdSetDscHandler(void)
  *
  * PreCondition:    None
@@ -636,14 +690,13 @@ void USBCBCheckOtherReq(void)
  *					optional to support this type of request.
  *
  * Note:            None
- *******************************************************************/
-void USBCBStdSetDscHandler(void)
+ ******************************************************************************/
+void USBCBStdSetDscHandler(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
     // Must claim session ownership if supporting this request
 }//end
 
-
-/*******************************************************************
+/*******************************************************************************
  * Function:        void USBCBInitEP(void)
  *
  * PreCondition:    None
@@ -662,13 +715,13 @@ void USBCBStdSetDscHandler(void)
  *					configuration.
  *
  * Note:            None
- *******************************************************************/
-void USBCBInitEP(void)
+ ******************************************************************************/
+void USBCBInitEP(void) // YL 3.11 identical to the version in usb_main_boaz.c
 {
     CDCInitEP();
 }
 
-/********************************************************************
+/*******************************************************************************
  * Function:        void USBCBSendResume(void)
  *
  * PreCondition:    None
@@ -754,8 +807,8 @@ void USBCBInitEP(void)
  *                    or when having other interrupts enabled.
  *                    Make sure to verify using the MPLAB SIM's Stopwatch
  *                    and verify the actual signal on an oscilloscope.
- *******************************************************************/
-void USBCBSendResume(void)
+ ******************************************************************************/
+void USBCBSendResume(void)	// YL 3.11 identical to the version in usb_main_boaz.c, besides RFIE that AY added
 {
     static WORD delay_count;
     
@@ -769,7 +822,7 @@ void USBCBSendResume(void)
     //"Allow this device to bring the computer out of standby." checkbox 
     //should be checked).
 
-	BYTE oldRFIE = RFIE;
+	BYTE oldRFIE = RFIE; 	// YL 3.11 AY
 
     if(USBGetRemoteWakeupStatus() == TRUE) 
     {
@@ -777,7 +830,7 @@ void USBCBSendResume(void)
         //remote wakeup signalling.
         if(USBIsBusSuspended() == TRUE)
         {
-			RFIE = 0;
+			RFIE = 0; 		// YL 3.11 AY
             USBMaskInterrupts();
             
             //Clock switch to settings consistent with normal USB operation.
@@ -808,13 +861,12 @@ void USBCBSendResume(void)
             USBResumeControl = 0;       //Finished driving resume signalling
 
             USBUnmaskInterrupts();
-			RFIE = oldRFIE;
+			RFIE = oldRFIE;				// YL 3.11 AY
         }
     }
 }
 
-
-/*******************************************************************
+/*******************************************************************************
  * Function:        void USBCBEP0DataReceived(void)
  *
  * PreCondition:    ENABLE_EP0_DATA_RECEIVED_CALLBACK must be
@@ -837,14 +889,14 @@ void USBCBSendResume(void)
  *                  before the data arrives.
  *
  * Note:            None
- *******************************************************************/
-#if defined(ENABLE_EP0_DATA_RECEIVED_CALLBACK)
+ ******************************************************************************/
+#if defined(ENABLE_EP0_DATA_RECEIVED_CALLBACK) // YL 3.11 identical to the version in usb_main_boaz.c
 void USBCBEP0DataReceived(void)
 {
 }
 #endif
 
-/*******************************************************************
+/*******************************************************************************
  * Function:        BOOL USER_USB_CALLBACK_EVENT_HANDLER(
  *                        USB_EVENT event, void *pdata, WORD size)
  *
@@ -864,10 +916,10 @@ void USBCBEP0DataReceived(void)
  *                  when the USB_INTERRUPT option is selected.
  *
  * Note:            None
- *******************************************************************/
-BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size)
+ ******************************************************************************/
+BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size) // YL 3.11 identical to the version in usb_main_boaz.c, besides the coercion that AY added
 {
-    switch( (INT)event )
+    switch( (INT)event ) // no coercion in usb_main_boaz.c; INT = signed int
     {
         case EVENT_TRANSFER:
             //Add application specific callback task or callback function here if desired.
@@ -909,4 +961,4 @@ BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size)
     return TRUE; 
 }
 
-/** EOF wistone_usb.c *************************************************/
+/** EOF wistone_usb.c *********************************************************/

@@ -109,7 +109,6 @@ Description:
 
 #include "GenericTypeDefs.h"
 #include "Compiler.h"
-
 #include "usb_config.h"         	// Must be defined by the application
 #include "usb_common.h"         	// Common USB library definitions
 #include "usb_ch9.h"            	// USB device framework definitions

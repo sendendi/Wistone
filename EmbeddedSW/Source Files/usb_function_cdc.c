@@ -80,7 +80,7 @@
  Change History:
   Rev    Description
   ----   -----------
-  2.3    Decricated the mUSBUSARTIsTxTrfReady() macro.  It is 
+  2.3    Deprecated the mUSBUSARTIsTxTrfReady() macro.  It is 
          replaced by the USBUSARTIsTxTrfReady() function.
 
   2.6    Minor definition changes
@@ -269,7 +269,7 @@ void USBCheckCDCRequest(void)
             //based on the amount of remaining buffer space available for the 
             //actual hardware UART of this microcontroller.  In this case, the 
             //below code should be left commented out, but instead RTS should be 
-            //controlled in the application firmware reponsible for operating the 
+            //controlled in the application firmware responsible for operating the 
             //hardware UART of this microcontroller.
             //---------            
             //CONFIGURE_RTS(control_signal_bitmap.CARRIER_CONTROL);  
@@ -473,14 +473,14 @@ void CDCNotificationHandler(void)
     class. Input argument 'buffer' should point to a buffer area that is
     bigger or equal to the size specified by 'len'.
   Input:
-    event - the type of event that occured
+    event - the type of event that occurred
     pdata - pointer to the data that caused the event
     size - the size of the data that is pointed to by pdata
                                                                                    
   **********************************************************************************/
 BOOL USBCDCEventHandler(USB_EVENT event, void *pdata, WORD size)
 {
-    switch( (INT)event )
+    switch( (INT)event )	// YL v2011-10-05 switch(event)
     {  
         case EVENT_TRANSFER_TERMINATED:
             if(pdata == CDCDataOutHandle)
@@ -576,12 +576,12 @@ BYTE getsUSBUSART(char *buffer, BYTE len)
 		
   Summary:
     putUSBUSART writes an array of data to the USB. Use this version, is
-    capable of transfering 0x00 (what is typically a NULL character in any of
+    capable of transferring 0x00 (what is typically a NULL character in any of
     the string transfer functions).
 
   Description:
     putUSBUSART writes an array of data to the USB. Use this version, is
-    capable of transfering 0x00 (what is typically a NULL character in any of
+    capable of transferring 0x00 (what is typically a NULL character in any of
     the string transfer functions).
     
     Typical Usage:
@@ -606,8 +606,8 @@ BYTE getsUSBUSART(char *buffer, BYTE len)
     255 BYTEs.
 
   Input:
-    char *data - pointer to a RAM array of data to be transfered to the host
-    BYTE length - the number of bytes to be transfered (must be less than 255).
+    char *data - pointer to a RAM array of data to be transferred to the host
+    BYTE length - the number of bytes to be transferred (must be less than 255).
 		
  *****************************************************************************/
 void putUSBUSART(char *data, BYTE  length)
@@ -615,7 +615,7 @@ void putUSBUSART(char *data, BYTE  length)
     /*
      * User should have checked that cdc_trf_state is in CDC_TX_READY state
      * before calling this function.
-     * As a safety precaution, this fuction checks the state one more time
+     * As a safety precaution, this function checks the state one more time
      * to make sure it does not override any pending transactions.
      *
      * Currently it just quits the routine without reporting any errors back
@@ -636,9 +636,9 @@ void putUSBUSART(char *data, BYTE  length)
      * Use a state machine instead.
      */
 	
-	BYTE oldRFIE = RFIE;
+	BYTE oldRFIE = RFIE; 	// YL 3.11 - AY
 	
-	RFIE = 0;
+	RFIE = 0;				// YL 3.11 - AY
     USBMaskInterrupts();
 
     if(cdc_trf_state == CDC_TX_READY)
@@ -647,7 +647,7 @@ void putUSBUSART(char *data, BYTE  length)
     }
 
     USBUnmaskInterrupts();	
-	RFIE = oldRFIE;
+	RFIE = oldRFIE;			// YL 3.11 - AY
 
 }//end putUSBUSART
 
@@ -699,7 +699,7 @@ void putsUSBUSART(char *data)
     /*
      * User should have checked that cdc_trf_state is in CDC_TX_READY state
      * before calling this function.
-     * As a safety precaution, this fuction checks the state one more time
+     * As a safety precaution, this function checks the state one more time
      * to make sure it does not override any pending transactions.
      *
      * Currently it just quits the routine without reporting any errors back
@@ -720,15 +720,15 @@ void putsUSBUSART(char *data)
      * Use a state machine instead.
      */
 
-	BYTE oldRFIE = RFIE;
+	BYTE oldRFIE = RFIE;		// YL 3.11 - AY
 	
-	RFIE = 0;
+	RFIE = 0;					// YL 3.11 - AY
     USBMaskInterrupts();
 
     if(cdc_trf_state != CDC_TX_READY)
     {
         USBUnmaskInterrupts();		
-		RFIE = oldRFIE;
+		RFIE = oldRFIE;			// YL 3.11 - AY
         return;
     }
     
@@ -804,7 +804,7 @@ void putrsUSBUSART(const ROM char *data)
     /*
      * User should have checked that cdc_trf_state is in CDC_TX_READY state
      * before calling this function.
-     * As a safety precaution, this fuction checks the state one more time
+     * As a safety precaution, this function checks the state one more time
      * to make sure it does not override any pending transactions.
      *
      * Currently it just quits the routine without reporting any errors back
@@ -825,15 +825,15 @@ void putrsUSBUSART(const ROM char *data)
      * Use a state machine instead.
      */
 
-	BYTE oldRFIE = RFIE;
+	BYTE oldRFIE = RFIE;		// YL 3.11 - AY
 	
-	RFIE = 0;
+	RFIE = 0;					// YL 3.11 - AY
     USBMaskInterrupts();
 
     if(cdc_trf_state != CDC_TX_READY)
     {
         USBUnmaskInterrupts();
-		RFIE = oldRFIE;
+		RFIE = oldRFIE;			// YL 3.11 - AY
         return;
     }
     
@@ -858,7 +858,7 @@ void putrsUSBUSART(const ROM char *data)
 
     mUSBUSARTTxRom((ROM BYTE*)data,len); // See cdc.h
     USBUnmaskInterrupts();
-	RFIE = oldRFIE;
+	RFIE = oldRFIE;			// YL 3.11 - AY
 
 }//end putrsUSBUSART
 
@@ -918,9 +918,9 @@ void CDCTxService(void)
     BYTE byte_to_send;
     BYTE i;
     
-	BYTE oldRFIE = RFIE;
+	BYTE oldRFIE = RFIE;		// YL 3.11 - AY
 	
-	RFIE = 0;
+	RFIE = 0;					// YL 3.11 - AY
     USBMaskInterrupts();
     
     CDCNotificationHandler();
@@ -928,7 +928,7 @@ void CDCTxService(void)
     if(USBHandleBusy(CDCDataInHandle)) 
     {
         USBUnmaskInterrupts();
-		RFIE = oldRFIE;
+		RFIE = oldRFIE;			// YL 3.11 - AY
         return;
     }
 
@@ -946,7 +946,7 @@ void CDCTxService(void)
     if(cdc_trf_state == CDC_TX_READY)
     {
         USBUnmaskInterrupts();
-		RFIE = oldRFIE;
+		RFIE = oldRFIE;			// YL 3.11 - AY
         return;
     }
     

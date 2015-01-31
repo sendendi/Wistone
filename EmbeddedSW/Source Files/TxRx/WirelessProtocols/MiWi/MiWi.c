@@ -59,10 +59,10 @@
     #include "Transceivers/MCHP_MAC.h"
     #include "Transceivers/Transceivers.h"
     #include "WirelessProtocols/MCHP_API.h"
-	#include "eeprom.h" 	// YL 14.4 for EUI_0
-	#include "command.h" 	// YL 7.5 for debug
-	#include "misc_c.h" 	// YL 17.5 for debug
-
+	#include "command.h" 		// YL 7.5 for debug
+	#include "misc_c.h" 		// YL 17.5 for debug
+	#include "TxRx.h"			// YL 1.11 for isTxRxTypeCommand
+	
 	//YL 15.5 Compared to original MiWi.c: printf replaces original Printf and ConsolePutROMString (like AY did);
 	//MiWi.h and ConfigMiWi.h were compared too to original files
     /************************ VARIABLES ********************************/
@@ -223,66 +223,66 @@
         #endif
     #endif
     
-#if defined DEBUG_PRINT // YL 6.9	
-void MiWi_PrintConnectionTable(void)
-{	
-	BYTE i = 1;
-	
-	write_eol();
-	m_write_debug("CONNECTION TABLE from MIWI:");	
-	for (; i < CONNECTION_SIZE; i++) {
-		if (ConnectionTable[i - 1].status.bits.isValid) {
-			if (i - 1 == 0) {
-				m_write_debug("O");
+	#if defined DEBUG_PRINT // YL 6.9	
+	void MiWi_PrintConnectionTable(void)
+	{	
+		BYTE i = 1;
+		
+		write_eol();
+		m_write_debug("CONNECTION TABLE from MIWI:");	
+		for (; i < CONNECTION_SIZE; i++) {
+			if (ConnectionTable[i - 1].status.bits.isValid) {
+				if (i - 1 == 0) {
+					m_write_debug("O");
+				}
+				else {
+				m_write_debug(byte_to_str(i - 1));
+				}
+				m_write_debug("----------------------------");
+				m_write_debug(" - long address: (0) ");
+				m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[0]));
+				m_write_debug(" - long address: (1) ");
+				if (ConnectionTable[i - 1].status.bits.longAddressValid) {
+					m_write_debug(" and valid ");
+				}
+				else {
+					m_write_debug(" and not valid ");
+				}			
+				m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[1]));			
+				m_write_debug(" - short address: (0) ");
+				m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.LB)));
+				m_write_debug(" - short address: (1) ");
+				m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.HB)));
+				if (ConnectionTable[i - 1].status.bits.shortAddressValid) {
+					m_write_debug(" and valid ");
+				}
+				else {
+					m_write_debug(" and not valid ");
+				}
+				m_write_debug("============================");
 			}
-			else {
-			m_write_debug(byte_to_str(i - 1));
-			}
-			m_write_debug("----------------------------");
-			m_write_debug(" - long address: (0) ");
-			m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[0]));
-			m_write_debug(" - long address: (1) ");
-			if (ConnectionTable[i - 1].status.bits.longAddressValid) {
-				m_write_debug(" and valid ");
-			}
-			else {
-				m_write_debug(" and not valid ");
-			}			
-			m_write_debug(byte_to_str(ConnectionTable[i - 1].Address[1]));			
-			m_write_debug(" - short address: (0) ");
-			m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.LB)));
-			m_write_debug(" - short address: (1) ");
-			m_write_debug(byte_to_str((BYTE)(ConnectionTable[i - 1].AltAddress.byte.HB)));
-			if (ConnectionTable[i - 1].status.bits.shortAddressValid) {
-				m_write_debug(" and valid ");
-			}
-			else {
-				m_write_debug(" and not valid ");
-			}
-			m_write_debug("============================");
 		}
-	}
-	write_eol();
-	m_write_debug("The index of myParent: ");
-	if (myParent == 0) {
-		m_write_debug("0");
-	}
-	else {
-		m_write_debug(byte_to_str(myParent));
-	}
-	write_eol();
-	m_write_debug("My addresses: ");
-	m_write_debug(" - myLongAddress: (0) ");
-	m_write_debug(byte_to_str(myLongAddress[0]));
-	m_write_debug(" - myLongAddress: (1) ");
-	m_write_debug(byte_to_str(myLongAddress[1]));			
-	m_write_debug(" - myShortAddress: (0) ");
-	m_write_debug(byte_to_str((BYTE)(myShortAddress.v[0])));
-	m_write_debug(" - myShortAddress: (1) ");
-	m_write_debug(byte_to_str((BYTE)(myShortAddress.v[1])));
-	write_eol();	
-}		
-#endif	
+		write_eol();
+		m_write_debug("The index of myParent: ");
+		if (myParent == 0) {
+			m_write_debug("0");
+		}
+		else {
+			m_write_debug(byte_to_str(myParent));
+		}
+		write_eol();
+		m_write_debug("My addresses: ");
+		m_write_debug(" - myLongAddress: (0) ");
+		m_write_debug(byte_to_str(myLongAddress[0]));
+		m_write_debug(" - myLongAddress: (1) ");
+		m_write_debug(byte_to_str(myLongAddress[1]));			
+		m_write_debug(" - myShortAddress: (0) ");
+		m_write_debug(byte_to_str((BYTE)(myShortAddress.v[0])));
+		m_write_debug(" - myShortAddress: (1) ");
+		m_write_debug(byte_to_str((BYTE)(myShortAddress.v[1])));
+		write_eol();	
+	}		
+	#endif	
 	
 	/************************ FUNCTIONS ********************************/
     
@@ -1079,17 +1079,14 @@ ThisPacketIsForMe:
                                 }
                             }
                             else
-                            {
-								#if defined DEBUG_PRINT
-									//<>m_write_debug("This data is for the user, pass it up to them");
-								#endif							
+                            {						
                                 //This data is for the user, pass it up to them
                                 #if defined(ENABLE_SLEEP)
                                     MiWiStateMachine.bits.DataRequesting = 0;
                                 #endif
                                 rxMessage.PayloadSize = MACRxPacket.PayloadLen - 11;
-                                rxMessage.Payload = &MACRxPacket.Payload[11]; //YL the header - (TxBuffer[0] : TxBuffer[10])
-                                rxMessage.SourcePANID.Val = sourcePANID.Val;
+                                rxMessage.Payload = &MACRxPacket.Payload[11]; // YL the header - (TxBuffer[0] : TxBuffer[10])
+                                rxMessage.SourcePANID.Val = sourcePANID.Val;							
 								
                                 if( MACRxPacket.Payload[8] == 0xFF && MACRxPacket.Payload[9] == 0xFF ) //YL source address, 8 - LSB, 9 - MSB
                                 {
@@ -2016,11 +2013,38 @@ START_ASSOCIATION_RESPONSE:
          *                  destination node.
          ********************************************************************/
         BOOL RouteMessage(WORD_VAL PANID, WORD_VAL ShortAddress, BOOL SecEn)
-        {
+        {			
+			// YL 1.11 ... added isTxRxTypeCommand
+			// RouteMessage is called only from MiWiTasks in case of PACKET_TYPE_DATA,
+			// and from MiApp_UnicastAddress/Connection - user application functions,
+			// and therefore this is also a case of PACKET_TYPE_DATA;
+			// We need the phase-counter only in case of TXRX_TYPE_COMMAND,
+			// therefore we must check the payload for a message type.
+			// If the message type is TXRX_TYPE_COMMAND - we set isTxRxTypeCommand
+			// global, and so the transceiver knows that it need to refresh the
+			// phase-counter while trying to forward the message in TxPacket.
+			// clarification: 
+			// - TXRX_TYPE_COMMAND belongs to the application (defined in TxRx)
+			// - PACKET_TYPE_DATA belongs to the data link (defined in MCHP_MAC)
+			// The length of all the commands is less than 60B, and therefore
+			// the application does not split the messages that carry commands to packets 
+			// TxBuffer starts with MiWi header (PROTOCOL_HEADER_SIZE), followed by Application header
+			/* YL 2.11
+			BYTE blockInf = TxBuffer[PROTOCOL_HEADER_SIZE];
+			isTxRxTypeCommand = ((blockInf & TXRX_TYPE_MASK) == TXRX_TYPE_COMMAND) ? TRUE : FALSE;
+
 			#if defined DEBUG_PRINT
-				//write_eol();
-				//m_write_debug("RouteMessage");
-			#endif
+				m_write(" RouteMessage - isTxRxTypeCommand: ");
+				if (isTxRxTypeCommand) {
+					m_write("TRUE");
+				}
+				else {
+					m_write("FALSE");
+				}
+				write_eol();
+			#endif	
+			*/			
+			// ... YL 1.11
 							
             BYTE parentNode = (ShortAddress.v[1] & 0x07); /*YL ShortAddress: 01,00 -> parentNode = 1*/
             BYTE i;
@@ -2200,7 +2224,7 @@ ROUTE_THROUGH_NEIGHBOR:
                     }
                     else
                     {
-                        // we know the destination's neighbor directly
+                        // we know the destination's neighbour directly
                         MTP.flags.Val = 0;
                         MTP.flags.bits.ackReq = 1;
                         MTP.flags.bits.secEn = SecEn;
@@ -2339,7 +2363,7 @@ ROUTE_THROUGH_TREE:
             }
         
             // Highly unlikely to get here, a PAN Coordinator should have all Coordinator on its 
-            // neighbor table, here just as the backup plan for extreme case
+            // neighbour table, here just as the backup plan for extreme case
             MTP.flags.Val = 0;
             MTP.flags.bits.ackReq = 1;
             MTP.flags.bits.secEn = SecEn;
@@ -2836,7 +2860,7 @@ NO_INDIRECT_MESSAGE:
                                   
                     if(ConnectionTable[i].status.bits.shortAddressValid)
                     {
-                        //this is a neighbor
+                        //this is a neighbour
                         PrintChar(ConnectionTable[i].PANID.v[1]);
                         PrintChar(ConnectionTable[i].PANID.v[0]);
                         ConsolePut(' ');
@@ -2921,7 +2945,7 @@ NO_INDIRECT_MESSAGE:
                               
                 if(ConnectionTable[index].status.bits.shortAddressValid)
                 {
-                    //this is a neighbor
+                    //this is a neighbour
                     PrintChar(ConnectionTable[index].PANID.v[1]);
                     PrintChar(ConnectionTable[index].PANID.v[0]);
                     ConsolePut(' ');
@@ -3281,7 +3305,7 @@ NO_INDIRECT_MESSAGE:
      *
      * Output:          boolean to indicate if operation successful
      *
-     * Side Effects:    An indirect message stored and waiting to deliever
+     * Side Effects:    An indirect message stored and waiting to deliver
      *                  to sleeping device. An indirect message timer
      *                  has started to expire the indirect message in case
      *                  RFD does not acquire data in predefined interval
@@ -3503,6 +3527,10 @@ NO_INDIRECT_MESSAGE:
      ********************************************************************/
     BYTE SearchForLongAddress(void)
     {
+		#if defined DEBUG_PRINT
+			//m_write_debug("SearchForLongAddress");
+		#endif
+		
         BYTE i,j;
 		        
 		for(i = 0; i < CONNECTION_SIZE; i++)
@@ -3516,11 +3544,17 @@ NO_INDIRECT_MESSAGE:
                         goto EndOfSearchLoop;
                     }
                 }
+				#if defined DEBUG_PRINT
+					//m_write_debug(" - found");
+				#endif				
                 return i;
             }
 EndOfSearchLoop:
             ;
         }
+		#if defined DEBUG_PRINT
+			//m_write_debug(" - didn't find");
+		#endif		
         return 0xFF;
     }
 
@@ -4078,7 +4112,7 @@ BOOL MiApp_SetChannel(BYTE channel)
  *                                              table.
  *                      * ENABLE_ACTIVE_SCAN_RSP    Enable response to active scan only
  *                      * DISABLE_ALL_CONN      Disable response to connection request, including
- *                                              an acitve scan request.
+ *                                              an active scan request.
  *
  * Returns: 
  *      None
@@ -5243,7 +5277,7 @@ BOOL MiApp_StartConnection(BYTE Mode, BYTE ScanDuration, DWORD ChannelMap)
          *      lost connection. For a RFD device that goes to sleep periodically, it may not 
          *      receive the channel hopping command that is sent when it is sleep. The sleeping 
          *      RFD device depends on this function to hop to the channel that the rest of
-         *      the PAN has jumped to. This function call is usually triggered by continously 
+         *      the PAN has jumped to. This function call is usually triggered by continuously 
          *      communication failure with the peers.
          *
          * PreCondition:    

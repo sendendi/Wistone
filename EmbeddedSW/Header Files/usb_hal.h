@@ -40,7 +40,7 @@ Description:
  This file defines the interface to the USB hardware abstraction layer.
 
  Filename:        usb_hal.h
- Dependancies:    none
+ Dependencies:    none
  Processor:       PIC18, PIC24, or PIC32 USB Microcontrollers
  Hardware:        The code is natively intended to be used on the following
      				hardware platforms: PICDEM™ FS USB Demo Board, 
@@ -136,7 +136,7 @@ Description:
     Side Effect:
         The bus address has been set.
         
-    Remmarks:
+    Remarks:
         The address is assigned by the host and is received in
         a SET_ADDRESS setup request.
                   
@@ -321,7 +321,7 @@ unsigned long USBHALGetLastError( void );
         
     Description:
         This routine checks the USB for any events that may
-        have occured and handles them appropriately.  It may
+        have occurred and handles them appropriately.  It may
         be called directly to poll the USB and handle events
         or it may be called in response to an interrupt.
 
@@ -336,7 +336,7 @@ unsigned long USBHALGetLastError( void );
         None
         
     Side Effects:
-        Depend on the event that may have occured.
+        Depend on the event that may have occurred.
         
     Remarks:
         None
@@ -401,7 +401,7 @@ BOOL USBHALStallPipe( TRANSFER_FLAGS pipe );
     Parameters:
         pipe -  Uses the TRANSFER_FLAGS (see USBCommon.h) format to
                 identify the endpoint and direction making up the
-                pipe to unstall.
+                pipe to un-stall.
                 
     Return Values:
         TRUE if able to stall the pipe, FALSE if not.
@@ -482,7 +482,7 @@ UINT16 USBHALGetStalledEndpoints ( void );
         TRUE if successful, FALSE if not.
 
     Side Effects:
-        Transfer data for this pipe has been zero'd out.
+        Transfer data for this pipe has been zeroed out.
 
     Remarks:
         This routine ignores the normal HW protocol for ownership
@@ -502,7 +502,7 @@ BOOL USBHALFlushPipe( TRANSFER_FLAGS pipe );
     Description:
         This routine prepares to transfer data on the USB.
         If the system is in device mode, the actual transfer
-        will not occur until the host peforms an OUT request
+        will not occur until the host performs an OUT request
         to the given endpoint.  If the system is in host mode,
         the transfer will not start until the token has been
         sent on the bus.
@@ -541,7 +541,7 @@ BOOL USBHALFlushPipe( TRANSFER_FLAGS pipe );
     Side Effects:
         The HAL has prepared to transfer the data on the USB.
 
-    Ramarks:
+    Remarks:
         The HAL will continue the data transfer, keeping track
         of the buffer address, data remaining, and ping-pong
         buffer details internally when USBHALHandleBusEvent is
@@ -564,15 +564,15 @@ BOOL USBHALTransferData ( TRANSFER_FLAGS    flags,
     Description:
         This routine allows the caller to configure various
         options (see "Flags for USBHALSetEpConfiguration",
-        below) and set the behavior for the given endpoint.
+        below) and set the behaviour for the given endpoint.
         
     Precondition:
         USBHALInitialize has been called.
         
     Parameters:
-        ep_num - Number of endpoint to configur, Must be
+        ep_num - Number of endpoint to configure, Must be
                  (ep_num >=0) && (ep_num <= USB_DEV_HIGHEST_EP_NUMBER)
-                  max_pkt_size Size of largest packet this enpoint can
+                  max_pkt_size Size of largest packet this endpoint can
                   transfer.
 
         flags - Configuration flags (see below)
@@ -628,7 +628,7 @@ BOOL USBHALSetEpConfiguration ( BYTE ep_num, UINT16 max_pkt_size, UINT16 flags )
     Precondition:
         The system has been initialized.
         
-    Paramters:
+    Parameters:
         flags -  Initialization flags
         
     Return Values:

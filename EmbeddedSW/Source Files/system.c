@@ -21,39 +21,40 @@ following are the functions for handling system commands, like get version...
 *******************************************************************************/
 
 /***** INCLUDE FILES: *********************************************************/
-#include "wistone_main.h"					//Application
-#include "command.h"						//Application
-#include "error.h"							//Application	
-#include "parser.h"							//Application
-#include "system.h"							//Application
-#include "HardwareProfile.h"				//Common
-#include "HardwareProfileRemappable.h"		//Common
-#include "misc_c.h"							//Common	//YL 19.9
-#include "p24FJ256GB110.h"					//Common	
-#include "accelerometer.h"					//Devices	
-#include "analog.h"							//Devices
-#include "flash.h"							//Devices
-#include "lcd.h"							//Devices
-#include "led_buzzer.h"						//Devices
-#include "rtc.h"							//Devices			
-#include "temp.h"							//Devices
-#include "i2c.h"							//Protocols		
+#include <string.h>
+#include "wistone_main.h"					// Application
+#include "command.h"						// Application
+#include "error.h"							// Application	
+#include "parser.h"							// Application
+#include "system.h"							// Application
+#include "HardwareProfile.h"				// Common
+#include "HardwareProfileRemappable.h"		// Common
+#include "misc_c.h"							// Common	//YL 19.9
+#include "p24FJ256GB110.h"					// Common	
+#include "accelerometer.h"					// Devices	
+#include "analog.h"							// Devices
+#include "flash.h"							// Devices
+#include "lcd.h"							// Devices
+#include "led_buzzer.h"						// Devices
+#include "rtc.h"							// Devices			
+#include "temp.h"							// Devices
+#include "i2c.h"							// Protocols		
 #ifdef USBCOM							
-#include "wistone_usb.h"					//USB_UART
-#include "usb.h"							//USB_UART
+#include "wistone_usb.h"					// USB_UART
+#include "usb.h"							// USB_UART
 #elif defined RS232COM
-#include "rs232.h"							//USB_UART
+#include "rs232.h"							// USB_UART
 #endif // #ifdef USBCOM
-#include "TxRx.h"							//TxRx - Application
-#include "SymbolTime.h"						//TxRx - Application
-#include "HardwareProfileTxRx.h"			//TxRx - Common	
-#include "TimeDelay.h"						//TxRx - Common	
+#include "TxRx.h"							// TxRx - Application
+#include "SymbolTime.h"						// TxRx - Application
+#include "HardwareProfileTxRx.h"			// TxRx - Common	
+#include "TimeDelay.h"						// TxRx - Common	
 
 /***** GLOBAL VARIABLES: ******************************************************/
-char	*g_version = "1.07.0";		 		// program version number. to be incremented each new release
-char   	g_curr_boot_cmd[MAX_BOOT_CMD_LEN];	// YL 17.9 the next boot command to be executed
-BOOL   	g_sn_write = FALSE;					// YL 11.11 to protect the last EEPROM's byte which stores the serial number of a stone 
-int		g_vbat_level;						// the voltage sampled at AN10, updated by Timer4 state machine
+char			*g_version = "1.08.0";		 		// program version number. to be incremented each new release
+char   			g_curr_boot_cmd[MAX_BOOT_CMD_LEN];	// YL 17.9 the next boot command to be executed
+BOOL   			g_sn_write = FALSE;					// YL 11.11 to protect the last EEPROM's byte which stores the serial number of a stone 
+unsigned int 	g_vbat_level;						// the voltage sampled at AN10, updated by Timer4 state machine // YL 7.11 added unsigned to int
 
 /***** INTERNAL PROTOTYPES: ***************************************************/
 void handle_get_error(void);
@@ -89,8 +90,9 @@ void init_all(void) {
 	if (USBRetries == MAX_USB_RETRIES) {
 		g_usb_connected = FALSE; 	// YS 17.8
 		USBDisableInterrupts();
-	} else {
-		g_usb_connected = TRUE; 	// YS 17.8
+	} 
+	else {
+		g_usb_connected = TRUE; 	// YS 17.8		
 	}
 #endif //#ifdef RS232COM 
 	init_leds();
@@ -101,19 +103,19 @@ void init_all(void) {
 	init_rtc();	
 	init_temp_sensor();		
 	init_flash();
-	// YL 25.8 init_accmtr(); 		// if the SensorI board is not assembled the SW gets stuck here. need to fix this. - the code exists; make sure the problem is fixed
+	init_accmtr(); 		// if the SensorI board is not assembled the SW gets stuck here. need to fix this. - the code exists; make sure the problem is fixed
 	// init_ads1282();				// YL 11.12
 	// YL 16.8 ...	
 	TxRx_Init(FALSE);	// YL 16.8 to start TxRx along with USB;
 	//	was: 
-	//  if (g_usb_connected == FALSE){
+	//  if (g_usb_connected == FALSE) {
 	//		TxRx_Init(FALSE);			// YS 17.8 // YS 17.11
 	//	}
 	// ... YL 16.8
 
 #elif defined COMMUNICATION_PLUG 	// YS 17.8
 	USBEnableInterrupts();			// YS 22.12
-	if (g_usb_connected == FALSE){
+	if (g_usb_connected == FALSE) {
 		while ((USBGetDeviceState() < CONFIGURED_STATE)); // YS 17.8
 		//comm_plug has to have a USB connection
 		g_usb_connected = TRUE; 	// YS 17.8
@@ -129,8 +131,9 @@ void init_all(void) {
 #endif //#ifdef WISDOM_STONE
 	display_welcome();
 	// YL 24.9 ...
-#if defined COMMUNICATION_PLUG	
-	TxRx_PrintNetworkTopology();
+#if defined COMMUNICATION_PLUG
+	// TxRx_PrintConnectionTable();
+	// 11.2 TxRx_PrintNetworkTopology();
 #endif
 	// ... YL 24.9	
 	return;
@@ -177,25 +180,20 @@ void init_power(void)
 /*****************************************************************************/
 // display_welcome()
 /*****************************************************************************/
-void display_welcome(void) //YL 2.5 added USB_ReceiveData() after most m_write cmd to enable the printing in init stage too
+void display_welcome(void) // YL 6.12 removed USB_ReceiveDataFromHost() after every m_write, because it is probably irrelevant
 {	
-   	m_write("\r\nWisdom-Stone, Welcome!\r\n");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
-	write_ver(g_version);	// return initial message to terminal
+   	m_write("\r\nWisdom Stone Welcome!\r\n");		
+	write_ver();					// return initial message to terminal
 	#if defined (COMMUNICATION_PLUG)
     m_write("\r\n     Starting COMMUNICATION_PLUG Mode");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
 	#elif defined (WISDOM_STONE)
 	m_write("\r\n     Starting WISDOM_STONE Mode");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
-	#endif //COMMUNICATION_PLUG
+	#endif // COMMUNICATION_PLUG
     #if defined (MRF24J40)
     m_write("\r\n     RF Transceiver: MRF24J40");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
     #elif defined (MRF49XA)
     m_write("\r\n     RF Transceiver: MRF49XA");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
-    #endif //MRF24J40
+    #endif // MRF24J40
     #ifdef EXPLORER16
 	m_write("\r\n   Demo Instruction:");
     m_write("\r\n                     Power on the board until LED 1 lights up");
@@ -205,13 +203,11 @@ void display_welcome(void) //YL 2.5 added USB_ReceiveData() after most m_write c
     m_write("\r\n                     2 to unicast encrypted message. LED 2 will");
     m_write("\r\n                     be toggled upon receiving messages. ");
     m_write("\r\n\r\n");
-	#endif //EXPLORER16
+	#endif // EXPLORER16
     #if defined (PROTOCOL_P2P)
 	m_write("\r\n     Feature P2P Mode \r\n");
-	// YL 12.9 USB_ReceiveData(); 		// YL 2.5
 	#elif defined (PROTOCOL_MIWI) // YL 4.5 added MiWi case
 	m_write("\r\n     Feature MiWi Mode \r\n");
-	// YL 12.9 USB_ReceiveData();
 	write_eol();
     #endif //PROTOCOL_P2P
 
@@ -312,7 +308,7 @@ int handle_system(int sub_cmd)
 
 //-----------------------------------------------
 //?
-void handle_get_error()
+void handle_get_error(void)
 {
 	m_write(get_last_error_str());
 	write_eol();
@@ -323,16 +319,16 @@ void handle_get_error()
 // handle_gver()
 // get version function
 *******************************************************************************/
-void handle_gver()
+void handle_gver(void)
 {
-	write_ver(g_version);
+	write_ver();
 }
 
 /*******************************************************************************
 // handle_set_id()
 // write the Wistone ID into the reserved last address of the EEPROM
 *******************************************************************************/
-int handle_set_id()
+int handle_set_id(void)
 {
 	int res;
 	int id;		
@@ -354,45 +350,89 @@ int handle_set_id()
 // handle_get_power_status()
 // get power status from all power sources
 *******************************************************************************/
-void handle_get_power_status(void)	//YL 13.8 - is it possible to check whether the battery/accelerometer are connected (like FLASH crad detect?...)
+void handle_get_power_status(void)
 {
-	m_write("Power Status:");
-	m_write("\r\n\tAC Power Good: ");
-	if (PWR_CHRG_ACPG == 0)
-		m_write("0");
-	else
-		m_write("1");
-	m_write("\r\n\tUSB Power Good: ");
-	if (PWR_CHRG_USBPG == 0)
-		m_write("0");
-	else
-		m_write("1");
-	m_write("\r\n\tSTAT1: ");
-	if (PWR_CHRG_STAT1 == 0)
-		m_write("0");
-	else
-		m_write("1");
-	m_write("\r\n\tSTAT2: ");
-	if (PWR_CHRG_STAT2 == 0)
-		m_write("0");
-	else
-		m_write("1");
-	m_write("\r\n");
+	// YL 29.12 ... data_to_print for more effective wireless transmissions
+	char data_to_print[200];
+	
+	// was:
+	// m_write("\tPower Status:");
+	// m_write("\r\n\t\t\tAC Power Good: ");
+	// if (PWR_CHRG_ACPG == 0)
+	// 	m_write("0");
+	// else
+	// 	m_write("1");
+	// m_write("\r\n\t\t\tUSB Power Good: ");
+	// if (PWR_CHRG_USBPG == 0)
+	// 	m_write("0");
+	// else
+	// 	m_write("1");
+	// m_write("\r\n\t\t\tSTAT1: ");
+	// if (PWR_CHRG_STAT1 == 0)
+	// 	m_write("0");
+	// else
+	// 	m_write("1");
+	// m_write("\r\n\t\t\tSTAT2: ");
+	// if (PWR_CHRG_STAT2 == 0)
+	// 	m_write("0");
+	// else
+	// 	m_write("1");
+	// m_write("\r\n");
 
-	m_write("\r\n\tBattery status: ");
-	m_write(int_to_str(g_vbat_level));	//YL 11.11 instead of disp_num_to_term
-	m_write(" - ");
-	if (g_vbat_level >= (VBAT_STAT_MAX - VBAT_STAT_UNIT))
-		m_write("completely full");
-	else if (g_vbat_level >= (VBAT_STAT_MAX - (3 * VBAT_STAT_UNIT)))
-		m_write("3/4 to full");
-	else if (g_vbat_level >= (VBAT_STAT_MAX - (5 * VBAT_STAT_UNIT)))
-		m_write("1/2 to 3/4 full");
-	else if (g_vbat_level >= (VBAT_STAT_MAX - (7 * VBAT_STAT_UNIT)))
-		m_write("3/4 to 1/2 full");
+	// m_write("\r\n\t\tBattery status: ");
+	// m_write(int_to_str(g_vbat_level));	//YL 11.11 instead of disp_num_to_term
+	// m_write(" - ");
+	// if (g_vbat_level >= (VBAT_STAT_MAX - VBAT_STAT_UNIT))
+	// 	m_write("completely full");
+	// else if (g_vbat_level >= (VBAT_STAT_MAX - (3 * VBAT_STAT_UNIT)))
+	// 	m_write("3/4 to full");
+	// else if (g_vbat_level >= (VBAT_STAT_MAX - (5 * VBAT_STAT_UNIT)))
+	// 	m_write("1/2 to 3/4 full");
+	// else if (g_vbat_level >= (VBAT_STAT_MAX - (7 * VBAT_STAT_UNIT)))
+	// 	m_write("1/4 to 1/2 full");
+	// else
+	// 	m_write("almost empty");
+	// m_write("\r\n");
+	
+	strcpy(data_to_print, "\tPower Status:");
+	strcat(data_to_print, "\r\n\t\t\tAC Power Good: ");
+	if (PWR_CHRG_ACPG == 0)
+		strcat(data_to_print, "0");
 	else
-		m_write("almost empty");
-	m_write("\r\n");
+		strcat(data_to_print, "1");
+	strcat(data_to_print, "\r\n\t\t\tUSB Power Good: ");
+	if (PWR_CHRG_USBPG == 0)
+		strcat(data_to_print, "0");
+	else
+		strcat(data_to_print, "1");
+	strcat(data_to_print, "\r\n\t\t\tSTAT1: ");
+	if (PWR_CHRG_STAT1 == 0)
+		strcat(data_to_print, "0");
+	else
+		strcat(data_to_print, "1");
+	strcat(data_to_print, "\r\n\t\t\tSTAT2: ");
+	if (PWR_CHRG_STAT2 == 0)
+		strcat(data_to_print, "0");
+	else
+		strcat(data_to_print, "1");
+	strcat(data_to_print, "\r\n");
+
+	strcat(data_to_print, "\r\n\t\tBattery status: ");
+	strcat(data_to_print, int_to_str(g_vbat_level));
+	strcat(data_to_print, " - ");
+	if (g_vbat_level >= (VBAT_STAT_MAX - VBAT_STAT_UNIT))
+		strcat(data_to_print, "completely full");
+	else if (g_vbat_level >= (VBAT_STAT_MAX - (3 * VBAT_STAT_UNIT)))
+		strcat(data_to_print, "3/4 to full");
+	else if (g_vbat_level >= (VBAT_STAT_MAX - (5 * VBAT_STAT_UNIT)))
+		strcat(data_to_print, "1/2 to 3/4 full");
+	else if (g_vbat_level >= (VBAT_STAT_MAX - (7 * VBAT_STAT_UNIT)))
+		strcat(data_to_print, "1/4 to 1/2 full");
+	else
+		strcat(data_to_print, "almost empty");
+	strcat(data_to_print, "\r\n");
+	m_write(data_to_print);
+	// ... YL 29.10
 	return;
 }
 
@@ -410,7 +450,7 @@ int handle_set_power_enable(void) {
 	if (g_ntokens != 5)
 		return(err(ERR_INVALID_PARAM_COUNT));
 		
-	// extruct and parse 5v parameter:
+	// extract and parse 5v parameter:
 	enable_power = parse_long_num(g_tokens[2]);
 	if (enable_power == 1) {
 		PWR_EN_5V = 1;
@@ -430,7 +470,7 @@ int handle_set_power_enable(void) {
 	}
 	//...YL 5.8
 	
-	// extruct and parse 12v parameter:
+	// extract and parse 12v parameter:
 	enable_power = parse_long_num(g_tokens[3]);
 	if (enable_power == 1) {
 		PWR_EN_12V = 1;
@@ -450,7 +490,7 @@ int handle_set_power_enable(void) {
 	}
 	//...YL 5.8
 	
-	// extruct and parse -12v parameter:
+	// extract and parse -12v parameter:
 	enable_power = parse_long_num(g_tokens[4]);
 	if (enable_power == 1) {
 		PWR_EN_M12V = 1;
@@ -483,9 +523,9 @@ int handle_set_power_enable(void) {
 // - SW version number: g_version
 // - HW version number: Wisdom Stone ID from eeprom_read_byte(SN_ADDRESS)
 *******************************************************************************/
-void write_ver()
+void write_ver(void)
 {
-	m_write("Wisdome Stone SW Version: ");
+	m_write("Wisdom Stone SW Version: ");
 	m_write(g_version);
 
 	int serial;		

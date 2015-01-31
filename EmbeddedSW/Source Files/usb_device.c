@@ -248,11 +248,6 @@ firmware design flexibility.
 #include "usb.h"
 #include "HardwareProfileUSB.h"
 #include "usb_device_local.h"
-// YL 12.9 ... for g_usb_packets_to_host
-#if defined USBCOM  && defined COMMUNICATION_PLUG
-#include "led_buzzer.h"
-#endif // USBCOM, COMMUNICATION_PLUG
-// ... YL 12.9
 
 #if defined(USB_USE_MSD)
     #include "usb_function_msd.h"
@@ -263,7 +258,7 @@ firmware design flexibility.
     #define USB_BUS_SENSE 1
 #endif
 
-#if defined(USB_DEVICE_DISABLE_DTS_CHECKING)
+#if defined(USB_DEVICE_DISABLE_DTS_CHECKING) // YL no such MACROs in v2011-10-05
     #define _DTS_CHECKING_ENABLED 0
 #else
     #define _DTS_CHECKING_ENABLED _DTSEN
@@ -363,7 +358,7 @@ volatile BYTE CtrlTrfData[USB_EP0_BUFF_SIZE];
 #pragma udata
 #endif
 
-////Depricated in v2.2 - will be removed in a future revision
+////Deprecated in v2.2 - will be removed in a future revision
 #if !defined(USB_USER_DEVICE_DESCRIPTOR)
     //Device descriptor
     extern ROM USB_DEVICE_DESCRIPTOR device_dsc;
@@ -541,7 +536,7 @@ void USBDeviceInit(void)
 
 	//Initialize all pBDTEntryIn[] and pBDTEntryOut[]
 	//pointers to NULL, so they don't get used inadvertently.  
-	for(i = 0; i < (BYTE)(USB_MAX_EP_NUMBER+1u); i++)
+	for(i = 0; i < (BYTE)(USB_MAX_EP_NUMBER + 1u); i++)
 	{
 		pBDTEntryIn[i] = 0u;
 		pBDTEntryOut[i] = 0u;		
@@ -815,12 +810,12 @@ void USBDeviceTasks(void)
 
         if(!USBSE0Event)
         {
-            USBClearInterruptRegister(U1IR);// Clear all USB interrupts
+            USBClearInterruptRegister(U1IR);	// Clear all USB interrupts
             #if defined(USB_POLLING)
-                U1IE=0;                        // Mask all USB interrupts
+                U1IE = 0;                      	// Mask all USB interrupts
             #endif
-            USBResetIE = 1;             // Unmask RESET interrupt
-            USBIdleIE = 1;             // Unmask IDLE interrupt
+            USBResetIE = 1;             		// Unmask RESET interrupt
+            USBIdleIE = 1;             			// Unmask IDLE interrupt
             USBDeviceState = POWERED_STATE;
         }
     }
@@ -913,7 +908,7 @@ void USBDeviceTasks(void)
     {
         if(USBSOFIE)
         {
-            USB_SOF_HANDLER(EVENT_SOF,0,1);
+            USB_SOF_HANDLER(EVENT_SOF, 0, 1);
         }    
         USBClearInterruptFlag(USBSOFIFReg,USBSOFIFBitNum);
         
@@ -951,7 +946,7 @@ void USBDeviceTasks(void)
             //dictated by section 9.2.6 of the official USB 2.0 specifications.
             if(USBStatusStageTimeoutCounter == 0)
             {
-                USBCtrlEPAllowStatusStage();    //Does nothing if the status stage was already armed.
+                USBCtrlEPAllowStatusStage();    // Does nothing if the status stage was already armed.
             } 
         #endif
     }
@@ -963,7 +958,7 @@ void USBDeviceTasks(void)
 
     if(USBErrorIF && USBErrorIE)
     {
-        USB_ERROR_HANDLER(EVENT_BUS_ERROR,0,1);
+        USB_ERROR_HANDLER(EVENT_BUS_ERROR, 0, 1);
         USBClearInterruptRegister(U1EIR);               // This clears UERRIF
 
         //On PIC18, clearing the source of the error will automatically clear
@@ -1100,9 +1095,9 @@ void USBEnableEndpoint(BYTE ep, BYTE options)
     //the specified options (ex: handshaking enabled, control transfers allowed,
     //etc.)
     #if defined(__C32__)
-        p = (unsigned char*)(&U1EP0+(4*ep));
+        p = (unsigned char*)(&U1EP0 + (4 * ep));
     #else
-        p = (unsigned char*)(&U1EP0+ep);
+        p = (unsigned char*)(&U1EP0 + ep);
     #endif
     *p = options;
 }
@@ -1125,7 +1120,7 @@ void USBEnableEndpoint(BYTE ep, BYTE options)
     data over the USB port.  
 
     The USBTransferOnePacket() is intended for use with all application 
-    endpoints.  It is not used for sending or receiving applicaiton data 
+    endpoints.  It is not used for sending or receiving application data 
     through endpoint 0 by using control transfers.  Separate API 
     functions, such as USBEP0Receive(), USBEP0SendRAMPtr(), and
     USBEP0SendROMPtr() are provided for this purpose.
@@ -1202,21 +1197,16 @@ USB_HANDLE USBTransferOnePacket(BYTE ep,BYTE dir,BYTE* data,BYTE len)
 {
     volatile BDT_ENTRY* handle;
 
-    //If the direction is IN
-    if(dir != 0)
+    //If the direction is IN 
+    if(dir != 0) // YL 5.11 IN_TO_HOST
     {
         //point to the IN BDT of the specified endpoint
-        handle = pBDTEntryIn[ep];
+        handle = pBDTEntryIn[ep];	
     }
-    else
+    else 		// YL 5.11 OUT_FROM_HOST
     {
         //else point to the OUT BDT of the specified endpoint
-        handle = pBDTEntryOut[ep];
-		// YL 12.9 ...
-		#if defined USBCOM && defined COMMUNICATION_PLUG
-			g_usb_packets_to_host++;
-		#endif // USBCOM, COMMUNICATION_PLUG
-		// ... YL 12.9
+        handle = pBDTEntryOut[ep];		
     }
     
     //Error checking code.  Make sure the handle (pBDTEntryIn[ep] or
@@ -1240,7 +1230,7 @@ USB_HANDLE USBTransferOnePacket(BYTE ep,BYTE dir,BYTE* data,BYTE len)
     handle->ADR = ConvertToPhysicalAddress(data);
     handle->CNT = len;
     handle->STAT.Val &= _DTSMASK;
-    handle->STAT.Val |= _USIE | (_DTSEN & _DTS_CHECKING_ENABLED);
+    handle->STAT.Val |= _USIE | (_DTSEN & _DTS_CHECKING_ENABLED);	// YL v2011-10-05 _USIE | _DTSEN
 
     //Point to the next buffer for ping pong purposes.
     if(dir != OUT_FROM_HOST)
@@ -1291,7 +1281,7 @@ void USBStallEndpoint(BYTE ep, BYTE dir)
         //packet that will arrive.
         pBDTEntryEP0OutNext->CNT = USB_EP0_BUFF_SIZE;
         pBDTEntryEP0OutNext->ADR = ConvertToPhysicalAddress(&SetupPkt);
-        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;
+        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;	// YL v2011-10-05 _USIE|_DAT0|_DTSEN|_BSTALL
         pBDTEntryIn[0]->STAT.Val = _USIE|_BSTALL; 
                
     }
@@ -1639,7 +1629,7 @@ void USBCtrlEPAllowStatusStage(void)
             if(controlTransferState == CTRL_TRF_RX)
             {
                 pBDTEntryIn[0]->CNT = 0;
-                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);        
+                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);    // YL v2011-10-05  _USIE|_DAT1|_DTSEN    
             }
             else if(controlTransferState == CTRL_TRF_TX)
             {
@@ -1700,7 +1690,7 @@ void USBCtrlEPAllowDataStage(void)
         //Prepare EP0 OUT to receive the first OUT data packet in the data stage sequence.
         pBDTEntryEP0OutNext->CNT = USB_EP0_BUFF_SIZE;
         pBDTEntryEP0OutNext->ADR = ConvertToPhysicalAddress(&CtrlTrfData);
-        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);
+        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED); 	// YL v2011-10-05 _USIE|_DAT1|_DTSEN
     }   
     else    //else must be controlTransferState == CTRL_TRF_TX (<setup><in><in>...<in><out>)
     {
@@ -1716,7 +1706,7 @@ void USBCtrlEPAllowDataStage(void)
 	    //Cnt should have been initialized by responsible request owner (ex: by
 	    //using the USBEP0SendRAMPtr() or USBEP0SendROMPtr() API function).
 		pBDTEntryIn[0]->ADR = ConvertToPhysicalAddress(&CtrlTrfData);
-		pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);
+		pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);		// YL v2011-10-05 _USIE|_DAT1|_DTSEN
     }     
 }    
 
@@ -1768,7 +1758,7 @@ static void USBConfigureEndpoint(BYTE EPNum, BYTE direction)
 
     #if (USB_PING_PONG_MODE == USB_PING_PONG__FULL_PING_PONG)
         handle->STAT.DTS = 0;
-        (handle+1)->STAT.DTS = 1;
+        (handle + 1)->STAT.DTS = 1;
     #elif (USB_PING_PONG_MODE == USB_PING_PONG__NO_PING_PONG)
         //Set DTS to one because the first thing we will do
         //when transmitting is toggle the bit
@@ -1782,7 +1772,7 @@ static void USBConfigureEndpoint(BYTE EPNum, BYTE direction)
         if(EPNum != 0)
         {
             handle->STAT.DTS = 0;
-            (handle+1)->STAT.DTS = 1;
+            (handle + 1)->STAT.DTS = 1;
         }
     #endif
 }
@@ -1861,7 +1851,7 @@ static void USBCtrlEPServiceComplete(void)
              */
             pBDTEntryEP0OutNext->CNT = USB_EP0_BUFF_SIZE;
             pBDTEntryEP0OutNext->ADR = ConvertToPhysicalAddress(&SetupPkt);
-            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;
+            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;	// YL v2011-10-05 _USIE|_DAT0|_DTSEN|_BSTALL
             pBDTEntryIn[0]->STAT.Val = _USIE|_BSTALL; 
         }
     }
@@ -2084,11 +2074,11 @@ static void USBCtrlTrfRxService(void)
         pBDTEntryEP0OutNext->ADR = ConvertToPhysicalAddress(&CtrlTrfData);
         if(pBDTEntryEP0OutCurrent->STAT.DTS == 0)
         {
-            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);
+            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED); // YL v2011-10-05 _USIE|_DAT1|_DTSEN
         }
         else
         {
-            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED);
+            pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED); // YL v2011-10-05 _USIE|_DAT0|_DTSEN
         }
     }
     else
@@ -2390,7 +2380,7 @@ static void USBStallHandler(void)
         if((pBDTEntryEP0OutCurrent->STAT.Val == _USIE) && (pBDTEntryIn[0]->STAT.Val == (_USIE|_BSTALL)))
         {
             // Set ep0Bo to stall also
-            pBDTEntryEP0OutCurrent->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;
+            pBDTEntryEP0OutCurrent->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;	// YL v2011-10-05 _USIE|_DAT0|_DTSEN|_BSTALL
         }//end if
         U1EP0bits.EPSTALL = 0;               // Clear stall status
     }//end if
@@ -2673,7 +2663,7 @@ static void USBCtrlTrfSetupHandler(void)
     //2. Now find out what was in the SETUP packet, and begin handling the request.
     //--------------------------------------------------------------------------
     USBCheckStdRequest();                                        //Check for standard USB "Chapter 9" requests.
-    USB_NONSTANDARD_EP0_REQUEST_HANDLER(EVENT_EP0_REQUEST,0,0);  //Check for USB device class specific requests
+    USB_NONSTANDARD_EP0_REQUEST_HANDLER(EVENT_EP0_REQUEST,0,0);  //Check for USB device class specific requests // YL v2011-10-05 USB_DISABLE_NONSTANDARD_EP0_REQUEST_HANDLER(EVENT_EP0_REQUEST,0,0)
 
 
     //--------------------------------------------------------------------------
@@ -2688,7 +2678,6 @@ static void USBCtrlTrfSetupHandler(void)
     //-------------------------------------------------------------------------- 
     USBCtrlEPServiceComplete();
 }//end USBCtrlTrfSetupHandler
-
 
 /******************************************************************************
  * Function:        void USBCtrlTrfOutHandler(void)
@@ -2731,7 +2720,7 @@ static void USBCtrlTrfOutHandler(void)
 		{
 	        pBDTEntryEP0OutNext->CNT = USB_EP0_BUFF_SIZE;
 	        pBDTEntryEP0OutNext->ADR = ConvertToPhysicalAddress(&SetupPkt);
-	        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;			
+	        pBDTEntryEP0OutNext->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED)|_BSTALL;	// YL v2011-10-05 _USIE|_DAT0|_DTSEN|_BSTALL		
 		}
 		else
 		{
@@ -2807,11 +2796,11 @@ static void USBCtrlTrfInHandler(void)
         {
             if(lastDTS == 0)
             {
-                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED);
+                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT1|(_DTSEN & _DTS_CHECKING_ENABLED); // YL v2011-10-05 _USIE|_DAT1|_DTSEN 
             }
             else
             {
-                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED);
+                pBDTEntryIn[0]->STAT.Val = _USIE|_DAT0|(_DTSEN & _DTS_CHECKING_ENABLED); // YL v2011-10-05 _USIE|_DAT0|_DTSEN 
             }
         }//end if(...)else
     }

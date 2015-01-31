@@ -34,69 +34,62 @@
 #define SCAN_SPEED 					10
 #define TXRX_HEADER_SIZE 			3
 #define TXRX_TRAILER_SIZE 			4
-// YL 2.9 ... isn't used
-// was uncommented
-// #define RETRY_TRANSMISSION_TIMES 	5
-// ... YL 2.9
+
 #define RESYNC_THRESHOLD 			3 	// YS 5.10 number of failed TXRX actions before a resync/reset occurs
-// YL 4.8 ...
-// YL 18.8 ...
-#define MAX_NWK_SIZE				2				// the number of devices in the network (including the plug) 
-// ... YL 18.8
+
+#define MAX_NWK_SIZE				3				// the number of devices in the network (including the plug) 
+#define INIT_NWK_SIZE				2				// every network must contain the plug and the network-starter 
+
 #define MAX_ACK_LENGTH				60  			// 60 bits
 #define MAX_NWK_ADDR_EUI0			MAX_NWK_SIZE 	// the max address of a device in the network
-// YL 20.8 ...
-// YL 24.9 ...
-// was: #define PLUG_NWK_ADDR				1
 #define PLUG_NWK_ADDR_EUI0			MAX_NWK_SIZE	// the EUI0 network address of the plug (the plug has the highest EUI[0])
 #define PLUG_NWK_ADDR_EUI1			EUI_1			// the EUI1 network address of the plug (constant)
-// ... YL 24.9
 #define NWK_STARTER_ADDR_EUI0		1				// the network address of the stone that calls MiApp_StartConnection
-// ... YL 20.8
 #define BROADCAST_NWK_ADDR			0				// the network address for broadcast command
 
-// ... YL 4.8
-// YL 14.8 ...
 #define MSG_INF_LENGTH				1   // 1 byte with ack and type information of the message
 #define MSG_LEN_LENGTH				2   // 2 bytes with the length of the message
-// ... YL 14.8
+#define MSG_PHS_LENGTH				2	// 2 bytes with the phase of the message
 
-// If block ack is preferable, define the following:
-#define ENABLE_BLOCK_ACK	// YL TODO - add if defined ENABLE_ACK
+// If TxRx ack is preferable, define the following:
+//#if !defined DEBUG_PRINT // YL 25.12 remove later!
+#define ENABLE_TXRX_ACK
+//#endif
 
 // Next are defines of times until timeout.. To change here the timing, confused between timing of message and packet..
-#define TIMEOUT_RECEIVING_MESSAGE							250 * ONE_MILI_SECOND 	//YS 25.1
-#define TIMEOUT_RETRYING_RECEIVING_PACKET 					2 * ONE_SECOND 			//YS 25.1
-// YL 18.8 isn't used: #define TIMEOUT_SENDING_MESSAGE		250 * ONE_MILI_SECOND 	//YS 25.1
-#define TIMEOUT_RESENDING_PACKET 							2 * ONE_SECOND 			//YS 25.1
-// ... YL 17.8
+#define TIMEOUT_RECEIVING_MESSAGE							400 * ONE_MILI_SECOND	// YS 25.1 // YL 22.12 was: 250 * ONE_MILI_SECOND // YL 29.12 was: 400 * ONE_MILI_SECOND
+#define TIMEOUT_RETRYING_RECEIVING_PACKET 					2 * ONE_SECOND 			// YS 25.1 // YL 29.12 was: 2 * ONE_SECOND 
+#define TIMEOUT_RESENDING_PACKET 							2 * ONE_SECOND			// YS 25.1 // YL 29.12 was: 2 * ONE_SECOND
 
-// YL 24.9 ...
-#define TIMEOUT_NWK_STARTING			50 * ONE_SECOND		// timeout for the starter stone to join the network
+#define TIMEOUT_NWK_STARTING			30 * ONE_SECOND		// timeout for the starter stone to join the network
 #define TIMEOUT_NWK_JOINING				100 * ONE_SECOND	// timeout for the rest to join the network
 #define TIMEOUT_NWK_ESTABLISHMENT		TIMEOUT_NWK_JOINING	// the plug waits maximum TIMEOUT_NWK_JOINING (maximum time each stone attempts to join the network) 
-// ... YL 24.9
 
-// YL 2.9 ... added #ifdef
-// was: extern BYTE blockTryTxCounter;
+#define TXRX_TYPE_MASK	0x03
+#define TXRX_ACK_MASK	0xFC
+#define TXRX_SEQ_MASK	0x3F
+
 #if defined ENABLE_RETRANSMISSION
 	extern BYTE blockTryTxCounter;
 #endif
-// ... YL 2.9
 
-// YL 4.8 ... 
-extern BOOL isBroadcast;					// we received broadcast command
+extern BOOL isBroadcast;					// we received broadcast command - TODO - relevant only for the plug
 extern BOOL isAppStop;						// we received "app stop" command
-// ... YL 4.8
+
+// YL 31.10 ...
+extern BOOL isTxRxTypeCommand;
+// ... YL 31.10
+
+// YL 12.1 ...
+extern WORD_VAL g_phase_counter_start;
+extern WORD_VAL g_phase_counter_stop;
+// YL 12.1
 
 /************************ VARIABLES ********************************/
 
 // Next is the possible TxRx status
 typedef enum {
    	TXRX_NO_ERROR = 0,                  // No errors
-    // YL 19.8 isn't used: TXRX_NO_CONNECTIONS_FOUND,          // The requested device is not present
-	// YL 19.8 isn't used: TXRX_CANNOT_JOIN_TO_NETWORK,
-    // YL 19.8 isn't used: TXRX_CANNOT_INITIALIZE,             // Cannot initialize MRF
 	TXRX_NO_PACKET_RECEIVED,
 	TXRX_PARTIAL_PACKET_RECEIVED,
 	TXRX_UNABLE_SEND_PACKET,
@@ -109,9 +102,20 @@ typedef enum {
 	TXRX_RECEIVED_INVALID_TRAILER,
 	TXRX_NWK_UNKNOWN_ADDR,				// YL 4.8 invalid network address of the destination
 	TXRX_NWK_NOT_ME,					// YL 23.7 the stone received a command that wasn't addressed to it
-	TXRX_ERROR_MAX,						// YL 14.8 
+	TXRX_ERROR_MAX						// YL 14.8 
 } TXRX_ERRORS;
 
+// There are 3 command types:
+// - The regular one, which consists of command and their response. 
+// - The second type is data block, which consists of block in size of 512B.
+// - The ack packet.
+
+typedef enum {
+	TXRX_TYPE_COMMAND = 0,
+	TXRX_TYPE_DATA,
+	TXRX_TYPE_ACK,
+	TXRX_TYPE_MAX	// YL 1.11
+} BLOCK_TYPE;
 
 /************************ FUNCTIONS ********************************/
 void MRFInit();
@@ -139,7 +143,6 @@ void MRFInit();
 *
 ******************************************************************************/
 void TxRx_Init(BOOL justResetNetwork); //YS 17.11
-
 
 /******************************************************************************
 * Function:
@@ -179,10 +182,7 @@ void TxRx_Init(BOOL justResetNetwork); //YS 17.11
 ******************************************************************************/
 TXRX_ERRORS TxRx_PeriodTasks();
 
-
-
  #if defined WISDOM_STONE
-
 /******************************************************************************
 * Function:
 *		TXRX_ERRORS TxRx_SendData(BYTE *samples_block, WORD dataLen)
@@ -222,9 +222,7 @@ TXRX_ERRORS TxRx_SendData(BYTE* samples_block, WORD TX_message_length);
 ******************************************************************************/
 TXRX_ERRORS m_TxRx_write(BYTE *str);
 
-
-#elif defined (COMMUNICATION_PLUG)
-
+#elif defined COMMUNICATION_PLUG
 /******************************************************************************
 * Function:
 *		TXRX_ERRORS TxRx_SendCommand(BYTE *command)
@@ -257,68 +255,42 @@ TXRX_ERRORS m_TxRx_write(BYTE *str);
 ******************************************************************************/
 TXRX_ERRORS TxRx_SendCommand(BYTE *command);
 
-#endif //COMMUNICATION_PLUG
+#endif // WISDOM_STONE, COMMUNICATION_PLUG
 
+#if defined ENABLE_TXRX_ACK // YL 25.12 added #ifdef
 /******************************************************************************
 YS 22.12
 This function resets the ACK sequencers.
-
 ******************************************************************************/
 void TxRx_Reset_ACK_Sequencers();
 
-// YL 20.8 ...
-// was: void TxRx_printError(TXRX_ERRORS error);
+#endif // ENABLE_TXRX_ACK
+
 /******************************************************************************
 * Function:
 *		int TxRx_PrintError(TXRX_ERRORS error) 
 ******************************************************************************/	
 int TxRx_PrintError(TXRX_ERRORS error);	
-// ... YL 20.8
 
-// YL 4.8 moved runPlugCommand here from app file and renamed it to TxRx_Reconnect...
-#if defined (COMMUNICATION_PLUG)
-
+#if defined COMMUNICATION_PLUG
 /******************************************************************************
 * Function:
 *		void TxRx_Reconnect(void) 
 *******************************************************************************/
 void TxRx_Reconnect(void);
 
-//BACKUP:
-/******************************************************************************
-// TxRx_Reconnect()
-// if it is a plug command, run it, otherwise don't.
-// returns a boolean to indicate if it was a valid plug command.
-*******************************************************************************/
-//BOOL TxRx_Reconnect(void);
-// ... YL 4.8
-
-// YL 4.8 ...
 /******************************************************************************
 * Function:
 *		BOOL TxRx_ExecuteIfPlugCommand(void) 
 *******************************************************************************/	
 BOOL TxRx_ExecuteIfPlugCommand(void);
 
-// YL 24.9 ...
 /******************************************************************************
 * Function:
 *		void TxRx_PrintNetworkTopology(void) 
 *******************************************************************************/
 void TxRx_PrintNetworkTopology(void);
-// ... YL 24.9
 
-#endif // #ifdef COMMUNICATION_PLUG
-// ... YL 4.8
-
-// YL 18.8 ...
-// <> #if defined DEBUG_PRINT
-/******************************************************************************
-* Function:
-*		void TxRx_PrintConnectionTable(void) 
-*******************************************************************************/	
-void TxRx_PrintConnectionTable(void);
-// #endif
-// ... YL 18.8
+#endif // COMMUNICATION_PLUG
 
 #endif //__TX_RX_H_

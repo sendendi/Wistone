@@ -59,7 +59,7 @@
 									// that use EP0 IN or OUT for sending large amounts of
 									// application related data.
 									
-#define USB_MAX_NUM_INT     	2   // For tracking Alternate Setting	//AY 7.8
+#define USB_MAX_NUM_INT     	2   // For tracking Alternate Setting	// AY 7.8 // YL 3.11 was 1 in usb_config_boaz.h
 
 //Device descriptor - if these two definitions are not defined then
 //  a ROM USB_DEVICE_DESCRIPTOR variable by the exact name of device_dsc
@@ -80,7 +80,7 @@
 //#define USB_PING_PONG_MODE USB_PING_PONG__ALL_BUT_EP0		//NOTE: This mode is not supported in PIC18F4550 family rev A3 devices
 
 
-//#define USB_POLLING	//AY
+//#define USB_POLLING	// AY	// YL 3.11 USB_POLLING was defined in usb_config_boaz.h
 #define USB_INTERRUPT	
 
 /* Parameter definitions are defined in usb_device.h */
@@ -164,7 +164,7 @@
 /* CDC */
 #define CDC_COMM_INTF_ID        0x0
 #define CDC_COMM_EP              1
-#define CDC_COMM_IN_EP_SIZE      10	//AY 7.8
+#define CDC_COMM_IN_EP_SIZE      10		// AY 7.8 // YL 3.11 was 8 in usb_config_boaz.h
 
 #define CDC_DATA_INTF_ID        0x01
 #define CDC_DATA_EP             2

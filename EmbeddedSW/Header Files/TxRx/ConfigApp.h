@@ -80,8 +80,14 @@
 		//				 would become the network's coordinator eventually
 		//				 9.8 update: only the plug calls MiApp_StartConnection,
 		//				 and therefore only the plug may become NWK_ROLE_COORDINATOR
+		// YL 3.9 note: there is no #define NWK_ROLE_END_DEVICE, but it seems that nothing we use depends on it
         /*********************************************************************/
-		#define NWK_ROLE_COORDINATOR // YL 3.9 note: there is no #define NWK_ROLE_END_DEVICE, but it seems that nothing we use depends on it
+		// YL 25.11 ...
+		#define NWK_ROLE_COORDINATOR // the original line
+		//#if defined WISDOM_STONE   		// NOTE - if the plug is a leaf network establishment may not fully work (TODO - compare to 7.9) 
+			//#define NWK_ROLE_COORDINATOR 
+		//#endif
+		// ... YL 25.11
 		
 //------------------------------------------------------------------------
 // Definition of RF Transceiver. ONLY ONE TRANSCEIVER CAN BE CHOSEN
@@ -111,7 +117,7 @@
 // ENABLE_NETWORK_FREEZER enables the network freezer feature, which
 // stores critical network information into non-volatile memory, so
 // that the protocol stack can recover from power loss gracefully.
-// The network infor can be saved in data EPROM of MCU, external 
+// The network info can be saved in data EPROM of MCU, external 
 // EEPROM or programming space, if enhanced flash is used in MCU.
 // Network freezer feature needs definition of NVM kind to be 
 // used, which is specified in HardwareProfile.h
@@ -153,13 +159,13 @@
 // TX_BUFFER_SIZE defines the maximum size of application payload
 // which is to be transmitted
 /*********************************************************************/
-#define TX_BUFFER_SIZE 60
+#define TX_BUFFER_SIZE 50 // YL 23.12 was 60 // YL 23.12 was 50
 
 /*********************************************************************/
 // RX_BUFFER_SIZE defines the maximum size of application payload
 // which is to be received
 /*********************************************************************/
-#define RX_BUFFER_SIZE 60
+#define RX_BUFFER_SIZE 50 // YL 23.12 was 60 // YL 23.12 was 50
 
 /*********************************************************************/
 // MY_PAN_ID defines the PAN identifier. Use 0xFFFF if prefer a 
@@ -178,7 +184,7 @@
 
 /*********************************************************************/
 // P2P_CONNECTION_SIZE defines the maximum P2P connections that this 
-// device allowes at the same time. 
+// device allows at the same time. 
 // YL 23.7(BM) - CONNECTION_SIZE changed from 2 to 10 after a comparison to MiWi Demo ConfigApp.h;
 // TODO - check how memory consumption changes after increasing the CONNECTION_SIZE 
 /*********************************************************************/
@@ -237,7 +243,7 @@
 
 /*********************************************************************/
 // ENABLE_INDIRECT_MESSAGE will enable the device to store the packets
-// for the sleeping devices temporily until they wake up and ask for
+// for the sleeping devices temporarily until they wake up and ask for
 // the messages //YL 13.4(BM) - consider using it in case of short disruption
 /*********************************************************************/
 //#define ENABLE_INDIRECT_MESSAGE 
@@ -298,12 +304,12 @@
 #endif
 
 //YL 23.7 NOTE:	- MRF49XA is NOT "IEEE 802.15.4 compliant" RF transceiver (unlike MRF24J40).
-//				- "IEEE 802.15.4 compliant" tranceivers
+//				- "IEEE 802.15.4 compliant" transceivers
 //					- may use either:
 //						1. permanent (long, EUI) address or 
 //						2. alternative (short, ad-hoc, assigned to a node by it's parent) address;
 //					- in addition - using PAN_ID enable inter-network communication.
-//				- other tranceivers may only use permanent address, and only intra-network communication is possible.
+//				- other transceivers may only use permanent address, and only intra-network communication is possible.
 
 #if defined(ENABLE_NETWORK_FREEZER)
     #define ENABLE_NVM

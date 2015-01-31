@@ -342,7 +342,7 @@
     
         #define         RXCREG                  (0x9400 | LNA_GAIN | RSSI_THRESHOLD)
         #define         GENCREG                 (0x8000|FREQ_BAND|XTAL_LD_CAP)
-        #define         PMCREG                  0x8209	// ABYS: 0x8201 => 0x8259 Enabling always the OSC and SYNTHEIZER //MC #define PMCREG 0x8201
+        #define         PMCREG                  0x8209	// ABYS: 0x8201 => 0x8259 Enabling always the OSC and SYNTHEIZER //MC #define PMCREG 0x8201 // TODO - YL should be 0x8259 instead?
         #define         FIFORSTREG              0xCA81
         #define         AFCCREG                 0xC4B7
         #define         BBFCREG                 0xC2AC
@@ -358,7 +358,11 @@
         #if defined(PROTOCOL_P2P)
             #define PROTOCOL_HEADER_SIZE 0
         #endif
-    
+		
+		// YL 1.11 ... for phase-counter
+		#define MAC_HEADER_SIZE 6  // 1B FrameCtrl + 1B MACSeq + 2B destination + 2B source
+		// ... YL 1.11
+	
         #if defined(ENABLE_SECURITY)
             #define TX_PACKET_SIZE (TX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+BLOCK_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+10)	
             #define RX_PACKET_SIZE (RX_BUFFER_SIZE+PROTOCOL_HEADER_SIZE+MY_ADDRESS_LENGTH+MY_ADDRESS_LENGTH+BLOCK_SIZE+10)

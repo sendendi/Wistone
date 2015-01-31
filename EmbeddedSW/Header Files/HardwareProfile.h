@@ -15,12 +15,12 @@
 
 //led**************************************************************************/
 //YL 27.8 meanwhile RB3 is used only for led, and RB11 - only for switch
-//#define LED_TRIS_1 				TRISBbits.TRISB11 	//same as SWITCH1
+//#define LED_TRIS_1 				TRISBbits.TRISB11 	// same as SWITCH1
 //#define LED_PORT_1 				LATBbits.LATB11	
 #define LED_TRIS_1 					LED_TRIS_2			
 #define LED_PORT_1 					LED_PORT_2
 
-#define LED_TRIS_2 					TRISBbits.TRISB3 	//same as SWITCH2	
+#define LED_TRIS_2 					TRISBbits.TRISB3 	// same as SWITCH2	
 #define LED_PORT_2 					LATBbits.LATB3		
 
 //switch***********************************************************************/
@@ -30,7 +30,7 @@
 
 #define SWITCH_TRIS_2 				SWITCH_TRIS_1		
 #define SWITCH_PORT_2 				SWITCH_PORT_1
-//#define SWITCH_TRIS_2 			TRISBbits.TRISB3 	//same as LED2		
+//#define SWITCH_TRIS_2 			TRISBbits.TRISB3 	// same as LED2		
 //#define SWITCH_PORT_2 			PORTBbits.RB3 	  	 	
 
 //buzzer***********************************************************************/

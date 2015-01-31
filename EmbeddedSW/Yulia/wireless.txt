@@ -126,7 +126,7 @@ so all the devices are coordinators.
 every time the packet is transmitted
 - first the PAN coordinator has to wake up, so it would be able to send a beacon
 to all the devices that request the beacon. if some remote non-coordinator (= X)
-is the first to wake up, it won't join the network before it recieves a beacon 
+is the first to wake up, it won't join the network before it receives a beacon 
 directly from the PAN coordinator, or from some other coordinator (= Y) in between 
 (i.e PAN -- Y -- X), that is able to send a beacon to X only after it receives a 
 beacon from PAN coordinator and becomes a member of the network. 

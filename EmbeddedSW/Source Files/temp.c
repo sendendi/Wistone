@@ -28,6 +28,7 @@ using temperature sensor TMP75, Texas Instruments
 #ifdef WISDOM_STONE
 
 /***** INCLUDE FILES: *********************************************************/
+#include <string.h>
 #include "command.h"		//Application
 #include "error.h"			//Application
 #include "parser.h"			//Application
@@ -36,11 +37,11 @@ using temperature sensor TMP75, Texas Instruments
 #include "i2c.h"			//Protocols
 
 /***** INTERNAL PROTOTYPES: ***************************************************/
-static void f_write(BYTE num);	//YL 29.8 for formatted printing of fractional temperature part - 2 decimal digits only
+static void f_write(BYTE num, char** f_str);	//YL 29.12 for formatted printing of fractional temperature part - 2 decimal digits only
 
 /*******************************************************************************
 // init_temp_sensor()
-// initialize temperature sensor by shutting it down untill get_temp command
+// initialize temperature sensor by shutting it down until get_temp command
 // input - none, output - error code if any
 *******************************************************************************/
 int init_temp_sensor(void)
@@ -97,17 +98,23 @@ int get_temp(Temperature* temp)
 // f_write()
 // prints fractional temperature part in 2 digits after the point format 
 *******************************************************************************/
-static void f_write(BYTE num)
-{
+static void f_write(BYTE num, char** f_str)  // YL 29.12 changed f_write for more effective wireless transmissions
+{	
 	if (num > 99)				// max BYTE num is 255
 		num /= 10; 				// extract max 2 upper digits
 	if (num == 0) {
-		m_write("00");			// output '0' as 00
+		//was: m_write("00");	// output '0' as 00
+		strcpy(*f_str, "00");	// output '0' as 00
 	} else if (num < 10) {
-		m_write("0");			// add leading zero before 1 decimal digit number
-		m_write(byte_to_str(num));
+		//was:
+		//m_write("0");			// add leading zero before 1 decimal digit number
+		//m_write(byte_to_str(num));
+		strcpy(*f_str, "0");	// add leading zero before 1 decimal digit number
+		strcat(*f_str, byte_to_str(num));
 	} else {
-		m_write(byte_to_str(num));
+		//was: m_write(byte_to_str(num));
+		strcpy(*f_str, byte_to_str(num));
+		//...YL 29.12
 	}	
 }
 
@@ -122,16 +129,30 @@ int handle_temp(int sub_cmd)
 {
 	int res = 0;
 	Temperature temp;
+	
+	// YL 29.12 ... added f_str, ptr_f_str and data_to_print for more effective wireless transmissions
+	char f_str[10];
+	char* ptr_f_str = f_str;
+	char data_to_print[40];	
 
 	// dispatch to the relevant sub command function according to sub command
 	switch (sub_cmd) {
 		case SUB_CMD_GTEMP:
 			res = get_temp(&temp);
-			m_write("Wistone TEMP: ");		//YL 11.8 instead sprintf 
-			m_write(char_to_str(temp.integer_part));
-			m_write(".");
-			f_write(temp.fractional_part); 
-			m_write(" Celsius");
+			// was:
+			//m_write("Wistone TEMP: ");		
+			//m_write(char_to_str(temp.integer_part));
+			//m_write(".");
+			//f_write(temp.fractional_part); 
+			//m_write(" Celsius");			
+			strcpy(data_to_print, "Wistone TEMP: ");
+			strcat(data_to_print, char_to_str(temp.integer_part));
+			strcat(data_to_print, ".");
+			f_write(temp.fractional_part, (&ptr_f_str)); 
+			strcat(data_to_print, ptr_f_str);
+			strcat(data_to_print, " Celsius");
+			m_write(data_to_print);
+			// ... YL 29.12
 			write_eol();
 			break;
 		default:

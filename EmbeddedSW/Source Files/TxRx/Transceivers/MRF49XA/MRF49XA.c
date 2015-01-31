@@ -51,7 +51,7 @@
 ********************************************************************/
 
 #include "SystemProfile.h"
-#include "accelerometer.h" 
+#include "accelerometer.h" // YL 1.11 TODO - what is the reason for this include? the transceiver has a higher priority than the accelerometer  
 
 #if defined(MRF49XA)
     #include "Transceivers/MCHP_MAC.h"
@@ -67,10 +67,13 @@
 		#include "misc_c.h"
 	#endif
 	
+	#include "led_buzzer.h"	 	// YL 31.10 for g_phase_counter
+	#include "TxRx.h"			// YL 31.10 for isTxRxTypeCommand
+	
     //==============================================================
     // Global variables:
     //==============================================================
-       BYTE messageRetryCounter = 0; // ABYS: For calculating PER.. 
+       BYTE messageRetryCounter = 0; 	// ABYS: For calculating PER.. 
     /**********************************************************************
      * "#pragma udata" is used to specify the starting address of a 
      * global variable. The address may be MCU dependent on RAM available
@@ -131,7 +134,7 @@
     #if defined(__18CXX)
         #pragma udata
     #endif
-
+	
     void SPIPut(BYTE v);
     BYTE SPIGet(void);
     
@@ -397,9 +400,44 @@ Start_CCA:
 
             SPIPut(0xB8);
             SPIPut(0xAA);                 // 3rd preamble
-            
+           
             counter = 0;
-            while(TxPacketPtr < TxPacketLen + 2 )   // 2 dummy byte
+			
+			// YL 12.1 ...
+			// update the phase-counter:
+			if( isTxRxTypeCommand == TRUE ) 
+			{
+
+				// the message header consists of: [MAC header || MiWi header || Application header];
+				// MAC treats this header as a part of a MAC-payload;
+				// - MAC header size is MAC_HEADER_SIZE
+				// - MiWi header size is PROTOCOL_HEADER_SIZE
+				// - Application header: 	blockInf + sourceNwkAddress + destinationNwkAddress + blockLen [+ g_phase_counter if TXRX_TYPE_COMMAND]
+				//   						MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH + MSG_LEN_LENGTH [+ MSG_PHS_LENGTH if TXRX_TYPE_COMMAND]				
+				BYTE phaseIndex = MAC_HEADER_SIZE + PROTOCOL_HEADER_SIZE + MSG_INF_LENGTH + 2 * MY_ADDRESS_LENGTH + MSG_LEN_LENGTH;
+				WORD phase = 0;
+				BYTE j;
+				// extract the received phase value from MACTxBuffer:
+				for( j = 0; j < MSG_PHS_LENGTH; j++ )
+				{
+					phase <<= 8;
+					phase += (WORD)(MACTxBuffer[phaseIndex + j]);
+				}
+				// add local g_phase_counter value to the received phase (only the delta):
+				g_phase_counter_stop.Val = g_phase_counter.Val - g_phase_counter_start.Val;
+				if (g_phase_counter_stop.Val < 0) {
+					g_phase_counter_stop.Val += 0xFFFF; // overflow
+				}
+				phase += g_phase_counter_stop.Val; 		// TODO overflow
+				// update the phase value in MACTxBuffer:
+				for( j = MSG_PHS_LENGTH; j > 0; j-- )
+				{
+					MACTxBuffer[phaseIndex++] = (BYTE)(phase >> (8 * (j - 1)));
+				}
+			}		
+			// ... YL 12.1				
+			
+            while( TxPacketPtr < TxPacketLen + 2 )   // 2 dummy byte
             {
                 if( SPI_SDI == 1 ) 
                 {
@@ -422,9 +460,10 @@ Start_CCA:
                         synCount++;
                     }
                     else
-                    {
-                        SPIPut(MACTxBuffer[TxPacketPtr]);
+                    {				
+                        SPIPut(MACTxBuffer[TxPacketPtr]);					
                         TxPacketPtr++;
+
                     }
                     counter = 0;
                 }
@@ -435,7 +474,7 @@ Start_CCA:
                         PHY_CS = 1;
                         
                         if( allowedTxFailure++ > MAX_ALLOWED_TX_FAILURE )
-                        {
+                        {					
                             break;
                         }
                         
@@ -477,7 +516,10 @@ Start_CCA:
                             goto TX_END_HERE;
                         }
                         t2 = MiWi_TickGet();
-                        if( MiWi_TickGetDiff(t2, t1) > ONE_SECOND/20 ) 
+						// YL 29.12 ...
+                        // was: if( MiWi_TickGetDiff(t2, t1) > ONE_SECOND/20 ) 
+                        if( MiWi_TickGetDiff(t2, t1) > ONE_SECOND/20 )
+						// ... YL 29.12
                         {
                             break;
                         }
@@ -489,8 +531,7 @@ Start_CCA:
                 status = TRUE;
                 goto TX_END_HERE;
             }
-        }
-        
+        }		
         status = FALSE;
         
 TX_END_HERE:    
@@ -808,7 +849,7 @@ TX_END_HERE:
     BOOL MiMAC_SendPacket( INPUT MAC_TRANS_PARAM transParam, 
                         INPUT BYTE *MACPayload, 
                         INPUT BYTE MACPayloadLen)
-    {		
+    {				
 		BOOL status;
 
         BYTE i;
@@ -816,7 +857,7 @@ TX_END_HERE:
         WORD crc;	/*YL - note the difference: MRF49 calculates crc, MRF24 probably uses hardware crc*/ 
  	  		
         if( MACPayloadLen > TX_BUFFER_SIZE )
-        {	
+        {		
             return FALSE;
         }
 		
@@ -856,16 +897,14 @@ TX_END_HERE:
 			// ... YL 30.8
         }
 		// ... YL 29.8
-				
-		// YL 29.8 packetType - DATA type isn't used in our MiWi (because we don't use SendIndirectPacket)
 		
 		// YL 29.8 ...
-		if( transParam.flags.bits.packetType == PACKET_TYPE_RESERVE)
+		if( transParam.flags.bits.packetType == PACKET_TYPE_RESERVE )
         {			
             transParam.altSrcAddr = TRUE;	
 		}
 		// ... YL 29.8
-		
+			   
 		// YL - 1. MAC Header: - FrameCtrl (1 byte, flags byte from MAC_TRANS_PARAM with destPrsnt, sourcePrsnt, packetType, broadcast; maybe updated in the lines above):
 				
 		// YL 29.8 ...
@@ -1039,10 +1078,11 @@ TX_END_HERE:
         #endif
     
 		// YL - 2. MAC Payload:
-				
+		
+		// MAC Payload typically consists of [MiWi header || Application header || Application payload]				
 		for(i = 0; i < MACPayloadLen; i++)
 		{
-			MACTxBuffer[TxIndex++] = MACPayload[i];				
+			MACTxBuffer[TxIndex++] = MACPayload[i];			
 		}
 		
 		crc = CRC16(MACPayload, MACPayloadLen, crc);   
@@ -1089,7 +1129,7 @@ TX_END_HERE:
         #endif
             
         if( ReceivedBankIndex != 0xFF )
-        {
+        {		
             return FALSE;
         }
        		
@@ -1114,7 +1154,7 @@ TX_END_HERE:
 					&& MACRxPacket.flags.bits.packetType != PACKET_TYPE_COMMAND
 					&& MACRxPacket.flags.bits.packetType != PACKET_TYPE_RESERVE )
 				{
-					MiMAC_DiscardPacket();
+					MiMAC_DiscardPacket();				
 					return FALSE;						
 				}
 						
@@ -1199,7 +1239,7 @@ TX_END_HERE:
 							break;
 							
 						default:
-							MiMAC_DiscardPacket();							
+							MiMAC_DiscardPacket();						
 							return FALSE;
 					}
 				}
@@ -1217,7 +1257,7 @@ TX_END_HERE:
                     if( MACRxPacket.flags.bits.secEn )
                     {
                         // check key sequence number first
-                        if( KEY_SEQUENCE_NUMBER != RxPacket[i].Payload[PayloadIndex+4] )    
+                        if( KEY_SEQUENCE_NUMBER != RxPacket[i].Payload[PayloadIndex + 4] )    
                         {
                             RxPacket[i].flags.Val = 0;
                             return FALSE;
@@ -1341,11 +1381,10 @@ TX_END_HERE:
                     }
                     MACRxPacket.LQIValue = RxPacket[i].flags.bits.DQD;
                 #endif
-                ReceivedBankIndex = i;
-                
+                ReceivedBankIndex = i;			
                 return TRUE;
             }			
-        }    
+        } 	
         return FALSE;    
     }
 
@@ -1505,7 +1544,7 @@ TX_END_HERE:
          *                          * POWER_STATE_DEEP_SLEEP RF transceiver deep sleep mode.
          *                          * POWER_STATE_OPERATE RF transceiver operating mode.
          * Returns: 
-         *      A boolean to indicate if chaning power state of RF transceiver is successful.
+         *      A boolean to indicate if changing power state of RF transceiver is successful.
          *
          * Example:
          *      <code>
@@ -1586,7 +1625,12 @@ TX_END_HERE:
             #if defined(__dsPIC30F__) || defined(__dsPIC33F__) || defined(__PIC24F__) || defined(__PIC24FK__) || defined(__PIC24H__) || defined(__PIC32MX__)
                 Nop();         			// add Nop here to make sure PIC24 family MCU can respond to the SPI_SDI change
             #endif        
-                         
+            
+			// YL 12.1 ...
+			// start to record of the phase-counter:
+			g_phase_counter_start.Val = g_phase_counter.Val;
+			// ... YL 12.1		
+
             if( SPI_SDI == 1 )
             {
                 BYTE RxPacketPtr;
@@ -1601,7 +1645,7 @@ TX_END_HERE:
                 nFSEL = 0;            	// FIFO selected
             
                 PacketLen = SPIGet();
-
+				
                 for( BankIndex = 0; BankIndex < BANK_SIZE; BankIndex++ )
                 {
                     if( RxPacket[BankIndex].flags.bits.Valid == FALSE )
@@ -1620,7 +1664,7 @@ TX_END_HERE:
                 }
 
                 if( PacketLen >= RX_PACKET_SIZE || PacketLen == 0 || (BankIndex >= BANK_SIZE && (bAck == FALSE)) )
-                {
+                {			
 IGNORE_HERE:       
                     nFSEL = 1;                                      // bad packet len received
                     RFIF = 0;
@@ -1692,7 +1736,7 @@ IGNORE_HERE:
                                 if( BankIndex >= BANK_SIZE )
                                 {
                                     RxPacketPtr = 0;
-                                    RegisterSet(FIFORSTREG | 0x0002);
+                                    RegisterSet(FIFORSTREG | 0x0002);								
                                     goto IGNORE_HERE;
                                 }
                                 RxPacket[BankIndex].Payload[0] = ackPacket[0];
@@ -1729,7 +1773,7 @@ IGNORE_HERE:
                                 RegisterSet(FIFORSTREG | 0x0002);            // FIFO synchron latch re-enable 
 								goto IGNORE_HERE;
                             }
-                            
+							                            
                             #if !defined(TARGET_SMALL)
                                 RxPacket[BankIndex].flags.bits.DQD = 1;
                                 RxPacket[BankIndex].flags.bits.RSSI = TransceiverStatus.bits.RSSI_ATS;
@@ -1791,7 +1835,7 @@ IGNORE_HERE:
 													goto IGNORE_HERE;
 												}												
 											}
-											break;	// to exit the external loop if the inner comparisson ended successfully 
+											break;	// to exit the external loop if the inner comparison ended successfully 
                                         }
 										// ... YL 5.9
                                     }
